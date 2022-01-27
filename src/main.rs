@@ -1,4 +1,5 @@
 use std::{env,process};
+mod types;
 
 fn main() {
     let mut pretty = false;
