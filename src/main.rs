@@ -10,7 +10,7 @@ fn main() {
     for (_, argument) in arguments.iter().enumerate() {
         if argument == "--help" {
             println!("usage: {} [-p] input", arguments[0]);
-            process::exit(1);
+            process::exit(0);
         }
         if argument == "-p" {
             pretty = true;
