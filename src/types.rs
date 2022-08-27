@@ -1,11 +1,22 @@
 use std::fmt::{Display, Formatter, Result};
 
+#[allow(dead_code)]
+#[allow(clippy::upper_case_acronyms)]
 enum Token {
-    Ident(String),
+    /// Reserved tokens
     Keyword(Keyword),
+    /// Non-empty sequence of alphanumeric, underscore and apostrophe
+    /// Must start with upper or lowercase character
+    Ident(String),
+    /// Non-empty sequence of digits
     IntConst(u128),
+    /// One or more digits, decimal point, one or more digits
     FloatConst(f64),
+    /// false or true
     BoolConst(bool),
+    /// Sequence of characters between double quotes,
+    /// cannot contain double quotes or newline/tab,
+    /// can contain \n
     Literal(String),
 
     ASSIGN,
@@ -30,64 +41,71 @@ enum Token {
 
     LBRACKET,
     RBRACKET,
-    COMMA
+    COMMA,
 }
 
-// impl Token {
-//     fn as_str(&self) -> &str {
-//         match self {
-//             Token::Ident(i) => i,
-//             Token::Literal(i) => i,
-//             Token::Keyword(k) => k.as_str(),
-//             Token::INT_CONST(i) => i.to_string().as_str(),
-//             Token::BOOL_CONST(i) => i.to_string().as_str(),
-//             Token::FLOAT_CONST(i) => i.to_string().as_str(),
-//             Token::ASSIGN => ":=",
-//             Token::LPAREN => "(",
-//             Token::RPAREN => ")",
-//             Token::SEMI => ";",
-//             Token::EQ => "=",
-//             Token::NE => "!=",
-//             Token::NEG => "!",
-//             Token::OR => "||",
-//             Token::AND => "&&",
-//             Token::LT => "<",
-//             Token::LTE => "<=",
-//             Token::GT => ">",
-//             Token::GTE => ">=",
-//             Token::ADD => "+",
-//             Token::SUB => "-",
-//             Token::MUL => "*",
-//             Token::DIV => "/",
-//             Token::LBRACKET => "[",
-//             Token::RBRACKET => "]",
-//             Token::COMMA => ",",
-//         }
-//     }
-// }
+impl Token {
+    fn as_str(&self) -> String {
+        match self {
+            Token::Ident(i) => i.to_string(),
+            Token::Literal(i) => i.to_string(),
+            Token::Keyword(k) => k.to_string(),
+            Token::IntConst(i) => i.to_string(),
+            Token::BoolConst(i) => i.to_string(),
+            Token::FloatConst(i) => i.to_string(),
+            Token::ASSIGN => ":=".to_string(),
+            Token::LPAREN => "(".to_string(),
+            Token::RPAREN => ")".to_string(),
+            Token::SEMI => ";".to_string(),
+            Token::EQ => "=".to_string(),
+            Token::NE => "!=".to_string(),
+            Token::NEG => "!".to_string(),
+            Token::OR => "||".to_string(),
+            Token::AND => "&&".to_string(),
+            Token::LT => "<".to_string(),
+            Token::LTE => "<=".to_string(),
+            Token::GT => ">".to_string(),
+            Token::GTE => ">=".to_string(),
+            Token::ADD => "+".to_string(),
+            Token::SUB => "-".to_string(),
+            Token::MUL => "*".to_string(),
+            Token::DIV => "/".to_string(),
+            Token::LBRACKET => "[".to_string(),
+            Token::RBRACKET => "]".to_string(),
+            Token::COMMA => ",".to_string(),
+        }
+    }
+}
+
+impl Display for Token {
+    fn fmt(&self, f: &mut Formatter) -> Result {
+        write!(f, "{}", self.as_str())
+    }
+}
 
 #[allow(dead_code)]
+#[allow(clippy::upper_case_acronyms)]
 enum Keyword {
-    READ,
-    WRITE,
-    END,
     BEGIN,
-    PROC,
-    INT,
     BOOL,
-    FALSE,
-    TRUE,
+    CALL,
     DO,
-    OD,
     ELSE,
-    IF,
+    END,
+    FALSE,
     FI,
+    FLOAT,
+    IF,
+    INT,
+    OD,
+    PROC,
     REF,
     THEN,
+    TRUE,
+    READ,
     VAL,
     WHILE,
-    FLOAT,
-    CALL
+    WRITE,
 }
 
 impl Display for Keyword {

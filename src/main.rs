@@ -1,4 +1,5 @@
-use std::{env,process};
+use std::{env, process};
+mod lex;
 mod types;
 
 fn main() {
@@ -22,9 +23,12 @@ fn main() {
         None => {
             eprintln!("Filename not given");
             process::exit(1);
-        },
+        }
         Some(value) => value,
     };
 
-    println!("{} invoked with file: {}, pretty: {}", arguments[0], filename, pretty);
+    println!(
+        "{} invoked with file: {}, pretty: {}",
+        arguments[0], filename, pretty
+    );
 }
