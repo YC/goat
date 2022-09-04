@@ -5,15 +5,18 @@ use crate::types::{Keyword, Token};
 pub enum RegEx {
     Empty,
     Charset(Charset),
-    Not(Charset),
-    Concat(Box<RegEx>, Box<RegEx>),
-    Or(Box<RegEx>, Box<RegEx>),
+    Concat(Vec<Box<RegEx>>),
+    Or(Vec<Box<RegEx>>),
     Literal(String),
-    RepeatMany(Box<RegEx>),
+    Star(Box<RegEx>),
 }
 
 #[derive(Debug)]
-pub struct Charset {}
+pub enum Charset {
+    Char(char),
+    Chars(bool, Vec<char>),
+    CharRange(char, char),
+}
 
 pub fn construct_regex() {
     let mut regex: Vec<(RegEx, &dyn Fn(&str) -> Token)> = vec![];
@@ -40,10 +43,55 @@ pub fn construct_regex() {
     regex.push((Keyword::WRITE.as_regex(), &|_| Token::Keyword(Keyword::WRITE)));
 
     regex.push((
-        RegEx::Or(
+        RegEx::Concat(vec![
+            Box::new(RegEx::Or(vec![
+                Box::new(RegEx::Charset(Charset::CharRange('a', 'z'))),
+                Box::new(RegEx::Charset(Charset::CharRange('A', 'Z'))),
+            ])),
+            Box::new(RegEx::Star(Box::new(RegEx::Or(vec![
+                Box::new(RegEx::Charset(Charset::CharRange('0', '9'))),
+                Box::new(RegEx::Charset(Charset::CharRange('a', 'z'))),
+                Box::new(RegEx::Charset(Charset::CharRange('A', 'Z'))),
+                Box::new(RegEx::Charset(Charset::Char('_'))),
+                Box::new(RegEx::Charset(Charset::Char('\''))),
+            ])))),
+        ]),
+        &|s| Token::Ident(s.to_string()),
+    ));
+
+    regex.push((
+        RegEx::Concat(vec![
+            Box::new(RegEx::Charset(Charset::CharRange('0', '9'))),
+            Box::new(RegEx::Star(Box::new(RegEx::Charset(Charset::CharRange('0', '9'))))),
+        ]),
+        &|s| Token::IntConst(s.parse::<u128>().unwrap()),
+    ));
+
+    regex.push((
+        RegEx::Concat(vec![
+            Box::new(RegEx::Charset(Charset::CharRange('0', '9'))),
+            Box::new(RegEx::Star(Box::new(RegEx::Charset(Charset::CharRange('0', '9'))))),
+            Box::new(RegEx::Charset(Charset::Char('.'))),
+            Box::new(RegEx::Charset(Charset::CharRange('0', '9'))),
+            Box::new(RegEx::Star(Box::new(RegEx::Charset(Charset::CharRange('0', '9'))))),
+        ]),
+        &|s| Token::FloatConst(s.parse::<f64>().unwrap()),
+    ));
+
+    regex.push((
+        RegEx::Concat(vec![
+            Box::new(RegEx::Charset(Charset::Char('"'))),
+            Box::new(RegEx::Charset(Charset::Chars(false, vec!['"', '\n', '\t']))),
+            Box::new(RegEx::Charset(Charset::Char('"'))),
+        ]),
+        &|s| Token::StringConst(s.to_string()),
+    ));
+
+    regex.push((
+        RegEx::Or(vec![
             Box::new(RegEx::Literal("true".to_string())),
             Box::new(RegEx::Literal("false".to_string())),
-        ),
+        ]),
         &|s| {
             if s == "true" {
                 Token::BoolConst(true)
