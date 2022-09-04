@@ -19,7 +19,7 @@ pub enum Token {
     /// Sequence of characters between double quotes,
     /// cannot contain double quotes or newline/tab,
     /// can contain \n
-    Literal(String),
+    StringConst(String),
 
     ASSIGN,
     LPAREN,
@@ -50,7 +50,7 @@ impl Token {
     fn as_str(&self) -> String {
         match self {
             Token::Ident(i) => i.to_string(),
-            Token::Literal(i) => i.to_string(),
+            Token::StringConst(i) => i.to_string(),
             Token::Keyword(k) => k.to_string(),
             Token::IntConst(i) => i.to_string(),
             Token::BoolConst(i) => i.to_string(),
