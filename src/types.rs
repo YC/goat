@@ -1,10 +1,12 @@
 use std::fmt::{Display, Formatter, Result};
 
+#[derive(Debug, Clone)]
 #[allow(dead_code)]
 #[allow(clippy::upper_case_acronyms)]
-enum Token {
+pub enum Token {
     /// Reserved tokens
     Keyword(Keyword),
+
     /// Non-empty sequence of alphanumeric, underscore and apostrophe
     /// Must start with upper or lowercase character
     Ident(String),
@@ -83,9 +85,9 @@ impl Display for Token {
     }
 }
 
-#[allow(dead_code)]
+#[derive(Debug, Copy, Clone)]
 #[allow(clippy::upper_case_acronyms)]
-enum Keyword {
+pub enum Keyword {
     BEGIN,
     BOOL,
     CALL,
@@ -115,7 +117,14 @@ impl Display for Keyword {
 }
 
 impl Keyword {
-    fn as_str(&self) -> &'static str {
+    // pub const VALUES: [Self; 20] = [
+    //     Self::BEGIN, Self::BOOL, Self::CALL, Self::DO, Self::ELSE, Self::END,
+    //     Self::FALSE, Self::FI, Self::FLOAT, Self::IF, Self::INT, Self::OD,
+    //     Self::PROC, Self::REF, Self::THEN, Self::TRUE, Self::READ, Self::VAL,
+    //     Self::WHILE, Self::WRITE
+    // ];
+
+    pub fn as_str(&self) -> &'static str {
         match self {
             Keyword::READ => "read",
             Keyword::WRITE => "write",

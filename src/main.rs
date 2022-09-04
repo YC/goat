@@ -1,4 +1,6 @@
 use std::{env, process};
+
+use crate::lex::construct_regex;
 mod lex;
 mod types;
 
@@ -7,7 +9,11 @@ fn main() {
     let mut filename = None;
 
     let arguments: Vec<String> = env::args().collect();
-    for (_, argument) in arguments.iter().enumerate() {
+    for (i, argument) in arguments.iter().enumerate() {
+        if i == 0 {
+            continue;
+        }
+
         if argument == "--help" {
             println!("usage: {} [-p] input", arguments[0]);
             process::exit(0);
@@ -27,8 +33,7 @@ fn main() {
         Some(value) => value,
     };
 
-    println!(
-        "{} invoked with file: {}, pretty: {}",
-        arguments[0], filename, pretty
-    );
+    println!("{} invoked with file: {}, pretty: {}", arguments[0], filename, pretty);
+
+    let _ = construct_regex();
 }
