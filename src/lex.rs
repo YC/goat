@@ -3,8 +3,8 @@ use crate::types::{Keyword, Token};
 #[derive(Debug)]
 pub enum RegEx {
     Charset(Charset),
-    Concat(Vec<Box<RegEx>>),
-    Or(Vec<Box<RegEx>>),
+    Concat(Vec<RegEx>),
+    Or(Vec<RegEx>),
     Literal(String),
     Star(Box<RegEx>),
 }
@@ -16,13 +16,13 @@ pub enum Charset {
     CharRange(char, char),
 }
 
-pub struct NFA {
+pub struct Nfa {
     start: usize,
     accept: (usize, Option<Box<TokenFunction>>),
-    transitions: Vec<(usize, usize, NFATransition)>,
+    transitions: Vec<(usize, usize, NfaTransition)>,
 }
 
-impl std::fmt::Debug for NFA {
+impl std::fmt::Debug for Nfa {
     fn fmt(&self, fmt: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
         write!(
             fmt,
@@ -34,15 +34,15 @@ impl std::fmt::Debug for NFA {
 
 #[derive(Debug, Eq, PartialEq)]
 #[allow(dead_code)]
-pub enum NFATransition {
+pub enum NfaTransition {
     Charset(Charset),
     Empty,
 }
 
 type TokenFunction = dyn Fn(&str) -> Token;
 
-pub fn regexes_to_nfa(regexes: Vec<(RegEx, Box<TokenFunction>)>) -> Vec<NFA> {
-    let nfas: Vec<NFA> = vec![];
+pub fn regexes_to_nfa(regexes: Vec<(RegEx, Box<TokenFunction>)>) -> Vec<Nfa> {
+    let nfas: Vec<Nfa> = vec![];
 
     for regex in regexes {
         let _ = regex_to_nfa(&regex.0, Some(regex.1));
@@ -51,22 +51,19 @@ pub fn regexes_to_nfa(regexes: Vec<(RegEx, Box<TokenFunction>)>) -> Vec<NFA> {
     nfas
 }
 
-pub fn regex_to_nfa(regex: &RegEx, f: Option<Box<TokenFunction>>) -> NFA {
+pub fn regex_to_nfa(regex: &RegEx, f: Option<Box<TokenFunction>>) -> Nfa {
     match regex {
         RegEx::Charset(c) => {
             // (start) -> char (accept)
-            let mut transition = Vec::new();
-            transition.push((0, 1, NFATransition::Charset(c.clone())));
-
-            NFA {
+            Nfa {
                 start: 0,
                 accept: (1, f),
-                transitions: transition,
+                transitions: vec![(0, 1, NfaTransition::Charset(c.clone()))],
             }
         }
         RegEx::Concat(v) => {
             // Map regex to nfas
-            let nfas: Vec<NFA> = v.iter().map(|b| regex_to_nfa(b, None)).collect();
+            let nfas: Vec<Nfa> = v.iter().map(|b| regex_to_nfa(b, None)).collect();
 
             let mut transitions = vec![];
             let mut accept = (0, f);
@@ -111,7 +108,7 @@ pub fn regex_to_nfa(regex: &RegEx, f: Option<Box<TokenFunction>>) -> NFA {
                 last_next_usable += next_usable;
             }
 
-            NFA {
+            Nfa {
                 start: 0,
                 accept,
                 transitions,
@@ -148,10 +145,10 @@ pub fn regex_to_nfa(regex: &RegEx, f: Option<Box<TokenFunction>>) -> NFA {
 
             // (start) -> 't' -> 'o' -> 'k' (accept)
             for (i, c) in s.chars().enumerate() {
-                transition.push((i, i + 1, NFATransition::Charset(Charset::Char(c))));
+                transition.push((i, i + 1, NfaTransition::Charset(Charset::Char(c))));
             }
 
-            NFA {
+            Nfa {
                 start: 0,
                 accept: (s.chars().count(), f),
                 transitions: transition,
@@ -169,15 +166,15 @@ fn test_regex_to_nfa_literal() {
     assert_eq!(2, nfa.accept.0);
 
     assert_eq!(2, nfa.transitions.len());
-    assert_eq!(nfa.transitions[0], (0, 1, NFATransition::Charset(Charset::Char('h'))));
-    assert_eq!(nfa.transitions[1], (1, 2, NFATransition::Charset(Charset::Char('i'))));
+    assert_eq!(nfa.transitions[0], (0, 1, NfaTransition::Charset(Charset::Char('h'))));
+    assert_eq!(nfa.transitions[1], (1, 2, NfaTransition::Charset(Charset::Char('i'))));
 }
 
 #[test]
 fn test_regex_to_nfa_concat_literal() {
     let regex1 = RegEx::Literal("ab".to_string());
     let regex2 = RegEx::Literal("cd".to_string());
-    let regex = RegEx::Concat(vec![Box::new(regex1), Box::new(regex2)]);
+    let regex = RegEx::Concat(vec![regex1, regex2]);
     let nfa = regex_to_nfa(&regex, None);
 
     // (start) --a-> 1 --b-> 2 --c-> 3 --d--> (4, accept)
@@ -185,10 +182,10 @@ fn test_regex_to_nfa_concat_literal() {
     assert_eq!(4, nfa.accept.0);
 
     assert_eq!(4, nfa.transitions.len());
-    assert_eq!(nfa.transitions[0], (0, 1, NFATransition::Charset(Charset::Char('a'))));
-    assert_eq!(nfa.transitions[1], (1, 2, NFATransition::Charset(Charset::Char('b'))));
-    assert_eq!(nfa.transitions[2], (2, 3, NFATransition::Charset(Charset::Char('c'))));
-    assert_eq!(nfa.transitions[3], (3, 4, NFATransition::Charset(Charset::Char('d'))));
+    assert_eq!(nfa.transitions[0], (0, 1, NfaTransition::Charset(Charset::Char('a'))));
+    assert_eq!(nfa.transitions[1], (1, 2, NfaTransition::Charset(Charset::Char('b'))));
+    assert_eq!(nfa.transitions[2], (2, 3, NfaTransition::Charset(Charset::Char('c'))));
+    assert_eq!(nfa.transitions[3], (3, 4, NfaTransition::Charset(Charset::Char('d'))));
 }
 
 #[test]
@@ -196,7 +193,7 @@ fn test_regex_to_nfa_concat_literal_more() {
     let regex1 = RegEx::Literal("ab".to_string());
     let regex2 = RegEx::Literal("cd".to_string());
     let regex3 = RegEx::Literal("e".to_string());
-    let regex = RegEx::Concat(vec![Box::new(regex1), Box::new(regex2), Box::new(regex3)]);
+    let regex = RegEx::Concat(vec![regex1, regex2, regex3]);
     let nfa = regex_to_nfa(&regex, None);
 
     // (start) --a-> 1 --b-> 2 --c-> 3 --d--> 4 --e--> (5, accept)
@@ -204,11 +201,11 @@ fn test_regex_to_nfa_concat_literal_more() {
     assert_eq!(5, nfa.accept.0);
 
     assert_eq!(5, nfa.transitions.len());
-    assert_eq!(nfa.transitions[0], (0, 1, NFATransition::Charset(Charset::Char('a'))));
-    assert_eq!(nfa.transitions[1], (1, 2, NFATransition::Charset(Charset::Char('b'))));
-    assert_eq!(nfa.transitions[2], (2, 3, NFATransition::Charset(Charset::Char('c'))));
-    assert_eq!(nfa.transitions[3], (3, 4, NFATransition::Charset(Charset::Char('d'))));
-    assert_eq!(nfa.transitions[4], (4, 5, NFATransition::Charset(Charset::Char('e'))));
+    assert_eq!(nfa.transitions[0], (0, 1, NfaTransition::Charset(Charset::Char('a'))));
+    assert_eq!(nfa.transitions[1], (1, 2, NfaTransition::Charset(Charset::Char('b'))));
+    assert_eq!(nfa.transitions[2], (2, 3, NfaTransition::Charset(Charset::Char('c'))));
+    assert_eq!(nfa.transitions[3], (3, 4, NfaTransition::Charset(Charset::Char('d'))));
+    assert_eq!(nfa.transitions[4], (4, 5, NfaTransition::Charset(Charset::Char('e'))));
 }
 
 pub fn construct_regex() -> Vec<(RegEx, Box<TokenFunction>)> {
@@ -237,53 +234,53 @@ pub fn construct_regex() -> Vec<(RegEx, Box<TokenFunction>)> {
 
     regex.push((
         RegEx::Concat(vec![
-            Box::new(RegEx::Or(vec![
-                Box::new(RegEx::Charset(Charset::CharRange('a', 'z'))),
-                Box::new(RegEx::Charset(Charset::CharRange('A', 'Z'))),
-            ])),
-            Box::new(RegEx::Star(Box::new(RegEx::Or(vec![
-                Box::new(RegEx::Charset(Charset::CharRange('0', '9'))),
-                Box::new(RegEx::Charset(Charset::CharRange('a', 'z'))),
-                Box::new(RegEx::Charset(Charset::CharRange('A', 'Z'))),
-                Box::new(RegEx::Charset(Charset::Char('_'))),
-                Box::new(RegEx::Charset(Charset::Char('\''))),
-            ])))),
+            RegEx::Or(vec![
+                RegEx::Charset(Charset::CharRange('a', 'z')),
+                RegEx::Charset(Charset::CharRange('A', 'Z')),
+            ]),
+            RegEx::Star(Box::new(RegEx::Or(vec![
+                RegEx::Charset(Charset::CharRange('0', '9')),
+                RegEx::Charset(Charset::CharRange('a', 'z')),
+                RegEx::Charset(Charset::CharRange('A', 'Z')),
+                RegEx::Charset(Charset::Char('_')),
+                RegEx::Charset(Charset::Char('\'')),
+            ]))),
         ]),
         Box::new(|s| Token::Ident(s.to_string())),
     ));
 
     regex.push((
         RegEx::Concat(vec![
-            Box::new(RegEx::Charset(Charset::CharRange('0', '9'))),
-            Box::new(RegEx::Star(Box::new(RegEx::Charset(Charset::CharRange('0', '9'))))),
+            RegEx::Charset(Charset::CharRange('0', '9')),
+            RegEx::Star(Box::new(RegEx::Charset(Charset::CharRange('0', '9')))),
         ]),
         Box::new(|s| Token::IntConst(s.parse::<u128>().unwrap())),
     ));
 
     regex.push((
         RegEx::Concat(vec![
-            Box::new(RegEx::Charset(Charset::CharRange('0', '9'))),
-            Box::new(RegEx::Star(Box::new(RegEx::Charset(Charset::CharRange('0', '9'))))),
-            Box::new(RegEx::Charset(Charset::Char('.'))),
-            Box::new(RegEx::Charset(Charset::CharRange('0', '9'))),
-            Box::new(RegEx::Star(Box::new(RegEx::Charset(Charset::CharRange('0', '9'))))),
+            RegEx::Charset(Charset::CharRange('0', '9')),
+            RegEx::Star(Box::new(RegEx::Charset(Charset::CharRange('0', '9')))),
+            RegEx::Charset(Charset::Char('.')),
+            RegEx::Charset(Charset::CharRange('0', '9')),
+            RegEx::Star(Box::new(RegEx::Charset(Charset::CharRange('0', '9')))),
         ]),
         Box::new(|s| Token::FloatConst(s.parse::<f64>().unwrap())),
     ));
 
     regex.push((
         RegEx::Concat(vec![
-            Box::new(RegEx::Charset(Charset::Char('"'))),
-            Box::new(RegEx::Charset(Charset::Chars(false, vec!['"', '\n', '\t']))),
-            Box::new(RegEx::Charset(Charset::Char('"'))),
+            RegEx::Charset(Charset::Char('"')),
+            RegEx::Charset(Charset::Chars(false, vec!['"', '\n', '\t'])),
+            RegEx::Charset(Charset::Char('"')),
         ]),
         Box::new(|s| Token::StringConst(s.to_string())),
     ));
 
     regex.push((
         RegEx::Or(vec![
-            Box::new(RegEx::Literal("true".to_string())),
-            Box::new(RegEx::Literal("false".to_string())),
+            RegEx::Literal("true".to_string()),
+            RegEx::Literal("false".to_string()),
         ]),
         Box::new(|s| {
             if s == "true" {
