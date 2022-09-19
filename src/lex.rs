@@ -114,23 +114,44 @@ pub fn regex_to_nfa(regex: &RegEx, f: Option<Box<TokenFunction>>) -> Nfa {
                 transitions,
             }
         }
-        RegEx::Or(_) => {
+        RegEx::Or(v) => {
             // Map regex to nfas
-            // let nfas: Vec<NFA> = v.iter().map(|b| regex_to_nfa(b, None)).collect();
+            let nfas: Vec<Nfa> = v.iter().map(|b| regex_to_nfa(b, None)).collect();
 
-            // let state_offset = 1;
-            // let accept_state: usize = nfas.iter().map(|n| n.accept.0).sum::<usize>() + 2;
+            let mut state_offset = 1;
+            let mut transitions = vec![];
+            let mut nfas_accept = vec![];
 
-            // for nfa in nfas {
+            for nfa in nfas {
+                // The maximum state number
+                let max_state = std::cmp::max(
+                    nfa.start,
+                    nfa.transitions.iter().map(|x| x.1).max().unwrap_or(nfa.start),
+                );
 
-            // }
+                // Epsilon from 0 (new start) to start of nfa
+                transitions.push((0, nfa.start + state_offset, NfaTransition::Empty));
+                // Shift transitions
+                for transition in nfa.transitions {
+                    transitions.push((transition.0 + state_offset, transition.1 + state_offset, transition.2))
+                }
+                // Push accept to add transition later
+                nfas_accept.push(nfa.accept.0 + state_offset);
 
-            // NFA {
-            //     start: 0,
-            //     accept: (0, f),
-            //     transition: vec![],
-            // }
-            panic!("not impl");
+                state_offset += max_state + 1;
+            }
+
+            // Need to link accept states of nfas to new accept state
+            let accept_state = state_offset;
+            for prev_accept in nfas_accept {
+                transitions.push((prev_accept, accept_state, NfaTransition::Empty))
+            }
+
+            Nfa {
+                start: 0,
+                accept: (state_offset, f),
+                transitions,
+            }
         }
         RegEx::Star(_) => {
             // NFA {
@@ -143,7 +164,7 @@ pub fn regex_to_nfa(regex: &RegEx, f: Option<Box<TokenFunction>>) -> Nfa {
         RegEx::Literal(s) => {
             let mut transition = Vec::new();
 
-            // (start) -> 't' -> 'o' -> 'k' (accept)
+            // (0, start) --'t'-> (1) --'k'-> (2, accept)
             for (i, c) in s.chars().enumerate() {
                 transition.push((i, i + 1, NfaTransition::Charset(Charset::Char(c))));
             }
@@ -171,25 +192,31 @@ fn test_regex_to_nfa_literal() {
 }
 
 #[test]
-fn test_regex_to_nfa_concat_literal() {
+fn test_regex_to_nfa_or_literal() {
     let regex1 = RegEx::Literal("ab".to_string());
-    let regex2 = RegEx::Literal("cd".to_string());
-    let regex = RegEx::Concat(vec![regex1, regex2]);
+    let regex2 = RegEx::Literal("c".to_string());
+    let regex = RegEx::Or(vec![regex1, regex2]);
     let nfa = regex_to_nfa(&regex, None);
 
-    // (start) --a-> 1 --b-> 2 --c-> 3 --d--> (4, accept)
-    assert_eq!(0, nfa.start);
-    assert_eq!(4, nfa.accept.0);
+    //            --e-> (1) --a-> (2) --b-> (3)
+    // (0, start)                               --e--> (6, accept)
+    //                --e-> (4) --c-> (5)
 
-    assert_eq!(4, nfa.transitions.len());
-    assert_eq!(nfa.transitions[0], (0, 1, NfaTransition::Charset(Charset::Char('a'))));
-    assert_eq!(nfa.transitions[1], (1, 2, NfaTransition::Charset(Charset::Char('b'))));
-    assert_eq!(nfa.transitions[2], (2, 3, NfaTransition::Charset(Charset::Char('c'))));
-    assert_eq!(nfa.transitions[3], (3, 4, NfaTransition::Charset(Charset::Char('d'))));
+    assert_eq!(0, nfa.start);
+    assert_eq!(6, nfa.accept.0);
+
+    assert_eq!(7, nfa.transitions.len());
+    assert_eq!(nfa.transitions[0], (0, 1, NfaTransition::Empty));
+    assert_eq!(nfa.transitions[1], (1, 2, NfaTransition::Charset(Charset::Char('a'))));
+    assert_eq!(nfa.transitions[2], (2, 3, NfaTransition::Charset(Charset::Char('b'))));
+    assert_eq!(nfa.transitions[3], (0, 4, NfaTransition::Empty));
+    assert_eq!(nfa.transitions[4], (4, 5, NfaTransition::Charset(Charset::Char('c'))));
+    assert_eq!(nfa.transitions[5], (3, 6, NfaTransition::Empty));
+    assert_eq!(nfa.transitions[6], (5, 6, NfaTransition::Empty));
 }
 
 #[test]
-fn test_regex_to_nfa_concat_literal_more() {
+fn test_regex_to_nfa_concat_literal() {
     let regex1 = RegEx::Literal("ab".to_string());
     let regex2 = RegEx::Literal("cd".to_string());
     let regex3 = RegEx::Literal("e".to_string());
