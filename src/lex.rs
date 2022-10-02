@@ -75,7 +75,7 @@ fn execute_nfa(input: &str, nfa: Nfa) -> Result<Vec<Token>, Box<dyn Error>> {
     let mut tokens = vec![];
 
     // While input is not all consumed
-    while input.len() != 0 {
+    while !input.is_empty() {
         let mut current_states: Vec<usize> = vec![0];
         let mut chars: Vec<char> = vec![];
         let mut offset: usize = 0;
@@ -92,7 +92,7 @@ fn execute_nfa(input: &str, nfa: Nfa) -> Result<Vec<Token>, Box<dyn Error>> {
                     Some((_, nfa_accept)) => {
                         let chars_str: String = chars.iter().collect();
                         let token = (nfa_accept.as_ref().unwrap().1)(&chars_str);
-                        accepted.push((offset, nfa_accept.as_ref().unwrap().0, token))
+                        accepted.push((offset, nfa_accept.as_ref().unwrap().0, token));
                     }
                 }
             }
@@ -121,7 +121,8 @@ fn execute_nfa(input: &str, nfa: Nfa) -> Result<Vec<Token>, Box<dyn Error>> {
         }
 
         if accepted.is_empty() {
-            Err("todo: accept is empty...")?
+            // TODO: line numbers
+            Err(format!("lexer error: accept is empty, '{}'", chars.iter().collect::<String>()))?
         }
 
         // Sort tokens by characters consumed (higher is better), then token priority (lower is better)
@@ -142,8 +143,9 @@ fn execute_nfa(input: &str, nfa: Nfa) -> Result<Vec<Token>, Box<dyn Error>> {
         }
     }
 
-    if input.len() > 0 {
-        Err("unconsumed input")?
+    if !input.is_empty() {
+        // TODO: line numbers
+        Err("lexer error: unconsumed input")?
     }
 
     Ok(tokens)
@@ -505,14 +507,14 @@ fn construct_regex() -> Vec<(RegEx, (u128, Box<TokenFunction>))> {
         ),
     ));
 
-    regex.push((RegEx::Literal("=".to_string()), (1, Box::new(|_| Token::ASSIGN))));
+    regex.push((RegEx::Literal(":=".to_string()), (1, Box::new(|_| Token::ASSIGN))));
     regex.push((RegEx::Literal("(".to_string()), (1, Box::new(|_| Token::LPAREN))));
     regex.push((RegEx::Literal(")".to_string()), (1, Box::new(|_| Token::RPAREN))));
     regex.push((RegEx::Literal(";".to_string()), (1, Box::new(|_| Token::SEMI))));
     regex.push((RegEx::Literal("||".to_string()), (1, Box::new(|_| Token::OR))));
     regex.push((RegEx::Literal("&&".to_string()), (1, Box::new(|_| Token::AND))));
     regex.push((RegEx::Literal("!".to_string()), (1, Box::new(|_| Token::NEG))));
-    regex.push((RegEx::Literal("==".to_string()), (1, Box::new(|_| Token::EQ))));
+    regex.push((RegEx::Literal("=".to_string()), (1, Box::new(|_| Token::EQ))));
     regex.push((RegEx::Literal("!=".to_string()), (1, Box::new(|_| Token::NE))));
 
     regex.push((RegEx::Literal("<".to_string()), (1, Box::new(|_| Token::LT))));
@@ -525,8 +527,8 @@ fn construct_regex() -> Vec<(RegEx, (u128, Box<TokenFunction>))> {
     regex.push((RegEx::Literal("*".to_string()), (1, Box::new(|_| Token::MUL))));
     regex.push((RegEx::Literal("/".to_string()), (1, Box::new(|_| Token::DIV))));
 
-    regex.push((RegEx::Literal("(".to_string()), (1, Box::new(|_| Token::LBRACKET))));
-    regex.push((RegEx::Literal(")".to_string()), (1, Box::new(|_| Token::RBRACKET))));
+    regex.push((RegEx::Literal("[".to_string()), (1, Box::new(|_| Token::LBRACKET))));
+    regex.push((RegEx::Literal("]".to_string()), (1, Box::new(|_| Token::RBRACKET))));
     regex.push((RegEx::Literal(",".to_string()), (1, Box::new(|_| Token::COMMA))));
 
     // println!("{:?}", regex.iter().map(|x| &x.0).collect::<Vec<&RegEx>>());
