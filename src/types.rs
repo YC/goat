@@ -7,8 +7,10 @@ pub enum Token {
     /// Reserved tokens
     Keyword(Keyword),
 
-    /// Whitespace...
+    /// Whitespace
     Whitespace(String),
+    /// Comment
+    Comment(String),
 
     /// Non-empty sequence of alphanumeric, underscore and apostrophe
     /// Must start with upper or lowercase character
@@ -52,6 +54,7 @@ pub enum Token {
 impl Token {
     fn as_str(&self) -> String {
         match self {
+            Token::Comment(i) => i.to_string(),
             Token::Whitespace(i) => i.to_string(),
             Token::Ident(i) => i.to_string(),
             Token::StringConst(i) => i.to_string(),

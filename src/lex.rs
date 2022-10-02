@@ -444,6 +444,16 @@ fn construct_regex() -> Vec<(RegEx, (u128, Box<TokenFunction>))> {
         (10, Box::new(|s| Token::Whitespace(s.to_string()))),
     ));
 
+    // Comment
+    regex.push((
+        RegEx::Concat(vec![
+            RegEx::Charset(Charset::Char('#')),
+            RegEx::Star(Box::new(RegEx::Charset(Charset::CharExclude(vec!['\n'])))),
+            RegEx::Charset(Charset::Char('\n')),
+        ]),
+        (10, Box::new(|s| Token::Comment(s.to_string()))),
+    ));
+
     // Identifier
     regex.push((
         RegEx::Concat(vec![
