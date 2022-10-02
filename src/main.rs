@@ -1,6 +1,6 @@
 use std::{env, process};
 
-use crate::lex::{construct_regex, regexes_to_nfa};
+use crate::lex::lex;
 mod lex;
 mod types;
 
@@ -35,6 +35,5 @@ fn main() {
 
     println!("{} invoked with file: {}, pretty: {}", arguments[0], filename, pretty);
 
-    let r = construct_regex();
-    let _ = regexes_to_nfa(r);
+    lex();
 }

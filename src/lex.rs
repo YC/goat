@@ -50,14 +50,21 @@ pub enum NfaTransition {
 
 type TokenFunction = dyn Fn(&str) -> Token;
 
-pub fn regexes_to_nfa(regexes: Vec<(RegEx, (u128, Box<TokenFunction>))>) -> Vec<Nfa> {
-    let nfas: Vec<Nfa> = vec![];
+pub fn lex() {
+    let r = construct_regex();
+    let nfa = regexes_to_nfa(r);
+    println!("{:?}", nfa);
+}
+
+fn regexes_to_nfa(regexes: Vec<(RegEx, (u128, Box<TokenFunction>))>) -> Nfa {
+    let mut nfas: Vec<Nfa> = vec![];
 
     for regex in regexes {
-        let _ = regex_to_nfa(&regex.0, Some(regex.1));
+        let nfa = regex_to_nfa(&regex.0, Some(regex.1));
+        nfas.push(nfa);
     }
 
-    nfas
+    nfa_combine(nfas, false, None)
 }
 
 pub fn regex_to_nfa(regex: &RegEx, f: Option<NfaAcceptFunction>) -> Nfa {
@@ -73,101 +80,12 @@ pub fn regex_to_nfa(regex: &RegEx, f: Option<NfaAcceptFunction>) -> Nfa {
         RegEx::Concat(r) => {
             // Map regex to nfas
             let nfas: Vec<Nfa> = r.iter().map(|b| regex_to_nfa(b, None)).collect();
-
-            let mut transitions = vec![];
-            let mut accept = (0, f);
-
-            // The number of the last accept state
-            let mut last_next_usable = 0;
-
-            // (start) -> nfa 1 -> nfa 2 -> nfa 3 (accept)
-            // accept state of previous nfa becomes start state of next nfa
-            for nfa in nfas {
-                // The maximum state number
-                let max_state = std::cmp::max(
-                    nfa.start,
-                    nfa.transitions.iter().map(|x| x.1).max().unwrap_or(nfa.start),
-                );
-
-                // If the max state number is the accept state, it can be used by the next nfa
-                // If not, need to increment by 1
-                if nfa.accept.len() != 1 {
-                    panic!("cannot currently support concat nfa with multiple accept");
-                }
-                let current_accept = nfa.accept[0].0;
-                let next_usable = if max_state != current_accept {
-                    max_state + 1
-                } else {
-                    max_state
-                };
-
-                // Then, all states are shifted by last_next_usable to prevent numbering clashes
-                for transition in nfa.transitions {
-                    // Rewrite reference to (start) to previous accept state
-                    let new_source = if transition.0 == nfa.start {
-                        accept.0
-                    } else {
-                        transition.0 + last_next_usable
-                    };
-                    let new_dest = if transition.1 == nfa.start {
-                        accept.0
-                    } else {
-                        transition.1 + last_next_usable
-                    };
-                    transitions.push((new_source, new_dest, transition.2));
-                }
-                accept.0 = current_accept + last_next_usable;
-
-                last_next_usable += next_usable;
-            }
-
-            Nfa {
-                start: 0,
-                accept: vec![accept],
-                transitions,
-            }
+            nfa_concat(nfas, f)
         }
         RegEx::Or(r) => {
             // Map regex to nfas
             let nfas: Vec<Nfa> = r.iter().map(|b| regex_to_nfa(b, None)).collect();
-
-            let mut state_offset = 1;
-            let mut transitions = vec![];
-            let mut nfas_accept = vec![];
-
-            for nfa in nfas {
-                // The maximum state number
-                let max_state = std::cmp::max(
-                    nfa.start,
-                    nfa.transitions.iter().map(|x| x.1).max().unwrap_or(nfa.start),
-                );
-
-                // Epsilon from 0 (new start) to start of nfa
-                transitions.push((0, nfa.start + state_offset, NfaTransition::Empty));
-                // Shift transitions
-                for transition in nfa.transitions {
-                    transitions.push((transition.0 + state_offset, transition.1 + state_offset, transition.2))
-                }
-
-                // For every accept state of current nfa, push accept to add transition later
-                for current_accept in nfa.accept {
-                    nfas_accept.push(current_accept.0 + state_offset);
-                }
-
-                state_offset += max_state + 1;
-            }
-
-            // Need to link accept states of individual nfas to new overall accept state
-            let accept_state = state_offset;
-            for prev_accept in nfas_accept {
-                transitions.push((prev_accept, accept_state, NfaTransition::Empty))
-            }
-
-            Nfa {
-                start: 0,
-                accept: vec![(state_offset, f)],
-                transitions,
-            }
+            nfa_combine(nfas, true, f)
         }
         RegEx::Star(regex) => {
             // Map regex to nfas
@@ -224,88 +142,116 @@ pub fn regex_to_nfa(regex: &RegEx, f: Option<NfaAcceptFunction>) -> Nfa {
     }
 }
 
-#[test]
-fn test_regex_to_nfa_literal() {
-    let regex = RegEx::Literal("hi".to_string());
-    let nfa = regex_to_nfa(&regex, None);
-    // (start) --h-> 1 --i-> (2, accept)
-    assert_eq!(0, nfa.start);
-    assert_eq!(1, nfa.accept.len());
-    assert_eq!(2, nfa.accept[0].0);
+fn nfa_concat(nfas: Vec<Nfa>, f: Option<NfaAcceptFunction>) -> Nfa {
+    let mut transitions = vec![];
+    let mut accept = (0, f);
 
-    assert_eq!(2, nfa.transitions.len());
-    assert_eq!(nfa.transitions[0], (0, 1, NfaTransition::Charset(Charset::Char('h'))));
-    assert_eq!(nfa.transitions[1], (1, 2, NfaTransition::Charset(Charset::Char('i'))));
+    // The number of the last accept state
+    let mut last_next_usable = 0;
+
+    // (start) -> nfa 1 -> nfa 2 -> nfa 3 (accept)
+    // accept state of previous nfa becomes start state of next nfa
+    for nfa in nfas {
+        // The maximum state number
+        let max_state = std::cmp::max(
+            nfa.start,
+            nfa.transitions.iter().map(|x| x.1).max().unwrap_or(nfa.start),
+        );
+
+        // If the max state number is the accept state, it can be used by the next nfa
+        // If not, need to increment by 1
+        if nfa.accept.len() != 1 {
+            panic!("cannot currently support concat nfa with multiple accept");
+        }
+        let current_accept = nfa.accept[0].0;
+        let next_usable = if max_state != current_accept {
+            max_state + 1
+        } else {
+            max_state
+        };
+
+        // Then, all states are shifted by last_next_usable to prevent numbering clashes
+        for transition in nfa.transitions {
+            // Rewrite reference to (start) to previous accept state
+            let new_source = if transition.0 == nfa.start {
+                accept.0
+            } else {
+                transition.0 + last_next_usable
+            };
+            let new_dest = if transition.1 == nfa.start {
+                accept.0
+            } else {
+                transition.1 + last_next_usable
+            };
+            transitions.push((new_source, new_dest, transition.2));
+        }
+        accept.0 = current_accept + last_next_usable;
+
+        last_next_usable += next_usable;
+    }
+
+    Nfa {
+        start: 0,
+        accept: vec![accept],
+        transitions,
+    }
 }
 
-#[test]
-fn test_regex_to_nfa_or_literal() {
-    let regex1 = RegEx::Literal("ab".to_string());
-    let regex2 = RegEx::Literal("c".to_string());
-    let regex = RegEx::Or(vec![regex1, regex2]);
-    let nfa = regex_to_nfa(&regex, None);
+fn nfa_combine(nfas: Vec<Nfa>, merge_accepts: bool, f: Option<NfaAcceptFunction>) -> Nfa {
+    let mut state_offset = 1;
+    let mut transitions = vec![];
+    let mut nfas_accept = vec![];
+    let mut accept = vec![];
 
-    //            --e-> (1) --a-> (2) --b-> (3)
-    // (0, start)                               --e--> (6, accept)
-    //                --e-> (4) --c-> (5)
+    for nfa in nfas {
+        // The maximum state number
+        let max_state = std::cmp::max(
+            nfa.start,
+            nfa.transitions.iter().map(|x| x.1).max().unwrap_or(nfa.start),
+        );
 
-    assert_eq!(0, nfa.start);
-    assert_eq!(1, nfa.accept.len());
-    assert_eq!(6, nfa.accept[0].0);
+        // Epsilon from 0 (new start) to start of nfa
+        transitions.push((0, nfa.start + state_offset, NfaTransition::Empty));
+        // Shift transitions
+        for transition in nfa.transitions {
+            transitions.push((transition.0 + state_offset, transition.1 + state_offset, transition.2))
+        }
 
-    assert_eq!(7, nfa.transitions.len());
-    assert_eq!(nfa.transitions[0], (0, 1, NfaTransition::Empty));
-    assert_eq!(nfa.transitions[1], (1, 2, NfaTransition::Charset(Charset::Char('a'))));
-    assert_eq!(nfa.transitions[2], (2, 3, NfaTransition::Charset(Charset::Char('b'))));
-    assert_eq!(nfa.transitions[3], (0, 4, NfaTransition::Empty));
-    assert_eq!(nfa.transitions[4], (4, 5, NfaTransition::Charset(Charset::Char('c'))));
-    assert_eq!(nfa.transitions[5], (3, 6, NfaTransition::Empty));
-    assert_eq!(nfa.transitions[6], (5, 6, NfaTransition::Empty));
+        for current_accept in nfa.accept {
+            if merge_accepts {
+                // For every accept state of current nfa, push accept to add transition later
+                nfas_accept.push(current_accept.0 + state_offset);
+            } else {
+                // Add accept state
+                accept.push((current_accept.0 + state_offset, current_accept.1))
+            }
+        }
+
+        state_offset += max_state + 1;
+    }
+
+    if merge_accepts {
+        // Need to link accept states of individual nfas to new overall accept state
+        let accept_state = state_offset;
+        for prev_accept in nfas_accept {
+            transitions.push((prev_accept, accept_state, NfaTransition::Empty))
+        }
+
+        Nfa {
+            start: 0,
+            accept: vec![(state_offset, f)],
+            transitions,
+        }
+    } else {
+        Nfa {
+            start: 0,
+            accept,
+            transitions,
+        }
+    }
 }
 
-#[test]
-fn test_regex_to_nfa_concat_literal() {
-    let regex1 = RegEx::Literal("ab".to_string());
-    let regex2 = RegEx::Literal("cd".to_string());
-    let regex3 = RegEx::Literal("e".to_string());
-    let regex = RegEx::Concat(vec![regex1, regex2, regex3]);
-    let nfa = regex_to_nfa(&regex, None);
-
-    // (start) --a-> 1 --b-> 2 --c-> 3 --d--> 4 --e--> (5, accept)
-    assert_eq!(0, nfa.start);
-    assert_eq!(1, nfa.accept.len());
-    assert_eq!(5, nfa.accept[0].0);
-
-    assert_eq!(5, nfa.transitions.len());
-    assert_eq!(nfa.transitions[0], (0, 1, NfaTransition::Charset(Charset::Char('a'))));
-    assert_eq!(nfa.transitions[1], (1, 2, NfaTransition::Charset(Charset::Char('b'))));
-    assert_eq!(nfa.transitions[2], (2, 3, NfaTransition::Charset(Charset::Char('c'))));
-    assert_eq!(nfa.transitions[3], (3, 4, NfaTransition::Charset(Charset::Char('d'))));
-    assert_eq!(nfa.transitions[4], (4, 5, NfaTransition::Charset(Charset::Char('e'))));
-}
-
-#[test]
-fn test_regex_to_nfa_star_literal() {
-    let regex = RegEx::Star(Box::new(RegEx::Literal("tk".to_string())));
-    let nfa = regex_to_nfa(&regex, None);
-
-    //          --------------------e------------------------>
-    // (0, start) --e-> (1) --'t'-> (2) --'k'-> (3) --e --> (4, accept)
-    //                   <---------e-------------
-    assert_eq!(0, nfa.start);
-    assert_eq!(1, nfa.accept.len());
-    assert_eq!(4, nfa.accept[0].0);
-
-    assert_eq!(6, nfa.transitions.len());
-    assert_eq!(nfa.transitions[0], (0, 1, NfaTransition::Empty));
-    assert_eq!(nfa.transitions[1], (0, 4, NfaTransition::Empty));
-    assert_eq!(nfa.transitions[2], (1, 2, NfaTransition::Charset(Charset::Char('t'))));
-    assert_eq!(nfa.transitions[3], (2, 3, NfaTransition::Charset(Charset::Char('k'))));
-    assert_eq!(nfa.transitions[4], (3, 1, NfaTransition::Empty));
-    assert_eq!(nfa.transitions[5], (3, 4, NfaTransition::Empty));
-}
-
-pub fn construct_regex() -> Vec<(RegEx, (u128, Box<TokenFunction>))> {
+fn construct_regex() -> Vec<(RegEx, (u128, Box<TokenFunction>))> {
     let mut regex: Vec<(RegEx, (u128, Box<TokenFunction>))> = vec![];
 
     regex.push((
@@ -456,7 +402,7 @@ pub fn construct_regex() -> Vec<(RegEx, (u128, Box<TokenFunction>))> {
     regex.push((RegEx::Literal(")".to_string()), (1, Box::new(|_| Token::RBRACKET))));
     regex.push((RegEx::Literal(",".to_string()), (1, Box::new(|_| Token::COMMA))));
 
-    println!("{:?}", regex.iter().map(|x| &x.0).collect::<Vec<&RegEx>>());
+    // println!("{:?}", regex.iter().map(|x| &x.0).collect::<Vec<&RegEx>>());
     regex
 }
 
@@ -464,4 +410,107 @@ impl Keyword {
     pub fn as_regex(&self) -> RegEx {
         RegEx::Literal(self.to_string())
     }
+}
+
+#[test]
+fn test_regex_to_nfa_literal() {
+    let regex = RegEx::Literal("hi".to_string());
+    let nfa = regex_to_nfa(&regex, None);
+    // (start) --h-> 1 --i-> (2, accept)
+    assert_eq!(0, nfa.start);
+    assert_eq!(1, nfa.accept.len());
+    assert_eq!(2, nfa.accept[0].0);
+
+    assert_eq!(2, nfa.transitions.len());
+    assert_eq!(nfa.transitions[0], (0, 1, NfaTransition::Charset(Charset::Char('h'))));
+    assert_eq!(nfa.transitions[1], (1, 2, NfaTransition::Charset(Charset::Char('i'))));
+}
+
+#[test]
+fn test_regex_to_nfa_or_literal() {
+    let regex1 = RegEx::Literal("ab".to_string());
+    let regex2 = RegEx::Literal("c".to_string());
+    let regex = RegEx::Or(vec![regex1, regex2]);
+    let nfa = regex_to_nfa(&regex, None);
+
+    //            --e-> (1) --a-> (2) --b-> (3)
+    // (0, start)                               --e--> (6, accept)
+    //                --e-> (4) --c-> (5)
+
+    assert_eq!(0, nfa.start);
+    assert_eq!(1, nfa.accept.len());
+    assert_eq!(6, nfa.accept[0].0);
+
+    assert_eq!(7, nfa.transitions.len());
+    assert_eq!(nfa.transitions[0], (0, 1, NfaTransition::Empty));
+    assert_eq!(nfa.transitions[1], (1, 2, NfaTransition::Charset(Charset::Char('a'))));
+    assert_eq!(nfa.transitions[2], (2, 3, NfaTransition::Charset(Charset::Char('b'))));
+    assert_eq!(nfa.transitions[3], (0, 4, NfaTransition::Empty));
+    assert_eq!(nfa.transitions[4], (4, 5, NfaTransition::Charset(Charset::Char('c'))));
+    assert_eq!(nfa.transitions[5], (3, 6, NfaTransition::Empty));
+    assert_eq!(nfa.transitions[6], (5, 6, NfaTransition::Empty));
+}
+
+#[test]
+fn test_nfa_combine() {
+    let regex1 = RegEx::Literal("a".to_string());
+    let regex2 = RegEx::Literal("z".to_string());
+    let nfa1 = regex_to_nfa(&regex1, None);
+    let nfa2 = regex_to_nfa(&regex2, None);
+    let nfas = vec![nfa1, nfa2];
+
+    let nfa = nfa_combine(nfas, false, None);
+
+    assert_eq!(0, nfa.start);
+    assert_eq!(2, nfa.accept.len());
+    assert_eq!(2, nfa.accept[0].0);
+    assert_eq!(4, nfa.accept[1].0);
+
+    assert_eq!(4, nfa.transitions.len());
+    assert_eq!(nfa.transitions[0], (0, 1, NfaTransition::Empty));
+    assert_eq!(nfa.transitions[1], (1, 2, NfaTransition::Charset(Charset::Char('a'))));
+    assert_eq!(nfa.transitions[2], (0, 3, NfaTransition::Empty));
+    assert_eq!(nfa.transitions[3], (3, 4, NfaTransition::Charset(Charset::Char('z'))));
+}
+
+#[test]
+fn test_regex_to_nfa_concat_literal() {
+    let regex1 = RegEx::Literal("ab".to_string());
+    let regex2 = RegEx::Literal("cd".to_string());
+    let regex3 = RegEx::Literal("e".to_string());
+    let regex = RegEx::Concat(vec![regex1, regex2, regex3]);
+    let nfa = regex_to_nfa(&regex, None);
+
+    // (start) --a-> 1 --b-> 2 --c-> 3 --d--> 4 --e--> (5, accept)
+    assert_eq!(0, nfa.start);
+    assert_eq!(1, nfa.accept.len());
+    assert_eq!(5, nfa.accept[0].0);
+
+    assert_eq!(5, nfa.transitions.len());
+    assert_eq!(nfa.transitions[0], (0, 1, NfaTransition::Charset(Charset::Char('a'))));
+    assert_eq!(nfa.transitions[1], (1, 2, NfaTransition::Charset(Charset::Char('b'))));
+    assert_eq!(nfa.transitions[2], (2, 3, NfaTransition::Charset(Charset::Char('c'))));
+    assert_eq!(nfa.transitions[3], (3, 4, NfaTransition::Charset(Charset::Char('d'))));
+    assert_eq!(nfa.transitions[4], (4, 5, NfaTransition::Charset(Charset::Char('e'))));
+}
+
+#[test]
+fn test_regex_to_nfa_star_literal() {
+    let regex = RegEx::Star(Box::new(RegEx::Literal("tk".to_string())));
+    let nfa = regex_to_nfa(&regex, None);
+
+    //          --------------------e------------------------>
+    // (0, start) --e-> (1) --'t'-> (2) --'k'-> (3) --e --> (4, accept)
+    //                   <---------e-------------
+    assert_eq!(0, nfa.start);
+    assert_eq!(1, nfa.accept.len());
+    assert_eq!(4, nfa.accept[0].0);
+
+    assert_eq!(6, nfa.transitions.len());
+    assert_eq!(nfa.transitions[0], (0, 1, NfaTransition::Empty));
+    assert_eq!(nfa.transitions[1], (0, 4, NfaTransition::Empty));
+    assert_eq!(nfa.transitions[2], (1, 2, NfaTransition::Charset(Charset::Char('t'))));
+    assert_eq!(nfa.transitions[3], (2, 3, NfaTransition::Charset(Charset::Char('k'))));
+    assert_eq!(nfa.transitions[4], (3, 1, NfaTransition::Empty));
+    assert_eq!(nfa.transitions[5], (3, 4, NfaTransition::Empty));
 }
