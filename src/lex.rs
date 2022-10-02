@@ -1,4 +1,5 @@
 use crate::types::{Keyword, Token};
+use std::error::Error;
 
 #[derive(Debug)]
 pub enum RegEx {
@@ -12,7 +13,7 @@ pub enum RegEx {
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum Charset {
     Char(char),
-    Chars(bool, Vec<char>),
+    CharExclude(Vec<char>),
     CharRange(char, char),
 }
 
@@ -48,12 +49,122 @@ pub enum NfaTransition {
     Empty,
 }
 
+impl NfaTransition {
+    fn takes_character(&self, c: char) -> bool {
+        match self {
+            NfaTransition::Empty => false,
+            NfaTransition::Charset(charset) => match charset {
+                Charset::Char(char) => c == *char,
+                Charset::CharRange(left, right) => c >= *left && c <= *right,
+                Charset::CharExclude(e) => !e.contains(&c),
+            },
+        }
+    }
+}
+
 type TokenFunction = dyn Fn(&str) -> Token;
 
-pub fn lex() {
+pub fn lex(input: &str) -> Result<Vec<Token>, Box<dyn Error>> {
     let r = construct_regex();
     let nfa = regexes_to_nfa(r);
     println!("{:?}", nfa);
+    execute_nfa(input, nfa)
+}
+
+fn execute_nfa(input: &str, nfa: Nfa) -> Result<Vec<Token>, Box<dyn Error>> {
+    let mut input: Vec<char> = input.chars().into_iter().collect();
+    let mut tokens = vec![];
+
+    // While input is not all consumed
+    while input.len() != 0 {
+        let mut current_states: Vec<usize> = vec![0];
+        let mut chars: Vec<char> = vec![];
+        let mut offset: usize = 0;
+        let mut accepted: Vec<(usize, u128, Token)> = vec![];
+
+        while !current_states.is_empty() {
+            if input.len() <= offset {
+                Err("todo: out of bounds")?
+            }
+            let c = input[offset];
+            chars.push(c);
+            offset += 1;
+
+            // Perform all epsilon transitions
+            current_states = follow_epsilon(&nfa, current_states);
+
+            // Transition via character
+            let mut new_states = vec![];
+
+            for state in current_states {
+                for transition in &nfa.transitions {
+                    let (source, dest, transition_function) = transition;
+                    if *source == state && transition_function.takes_character(c) {
+                        let mut dest_accept = nfa.accept.iter().filter(|x| x.0 == *dest);
+                        match dest_accept.next() {
+                            None => {
+                                println!("c.. {:?} | {}", chars, dest);
+                                new_states.push(*dest);
+                            }
+                            Some((_, nfa_accept)) => {
+                                println!("into accept");
+                                let chars_str: String = chars.iter().collect();
+                                let token = (nfa_accept.as_ref().unwrap().1)(&chars_str);
+                                accepted.push((offset, nfa_accept.as_ref().unwrap().0, token))
+                            }
+                        }
+                    }
+                }
+            }
+
+            current_states = new_states;
+        }
+
+        println!("{:?}", chars);
+        if accepted.is_empty() {
+            Err("todo: accept is empty...")?
+        }
+
+        // Sort tokens by characters consumed (higher is better), then token priority (lower is better)
+        accepted.sort_by(|a, b| {
+            if a.0 == b.0 {
+                return a.1.partial_cmp(&b.1).unwrap();
+            }
+            b.1.partial_cmp(&a.1).unwrap()
+        });
+
+        // Push the token
+        let token = accepted.pop().unwrap();
+        tokens.push(token.2);
+        println!("{:?}", tokens);
+
+        // Increment input by n characters consumed
+        println!("d: {}", token.0);
+        for _ in 0..token.0 {
+            _ = input.remove(0);
+        }
+    }
+
+    if input.len() > 0 {
+        Err("unconsumed input")?
+    }
+
+    Ok(tokens)
+}
+
+fn follow_epsilon(nfa: &Nfa, current_states: Vec<usize>) -> Vec<usize> {
+    let mut states = vec![];
+
+    for state in &current_states {
+        for transition in &nfa.transitions {
+            if transition.0 == *state && transition.2 == NfaTransition::Empty {
+                states.extend(follow_epsilon(nfa, vec![transition.1]));
+            }
+        }
+    }
+
+    states.extend(current_states);
+    states
 }
 
 fn regexes_to_nfa(regexes: Vec<(RegEx, (u128, Box<TokenFunction>))>) -> Nfa {
@@ -311,6 +422,17 @@ fn construct_regex() -> Vec<(RegEx, (u128, Box<TokenFunction>))> {
         (1, Box::new(|_| Token::Keyword(Keyword::WRITE))),
     ));
 
+    // Whitespace
+    regex.push((
+        RegEx::Star(Box::new(RegEx::Or(vec![
+            RegEx::Charset(Charset::Char(' ')),
+            RegEx::Charset(Charset::Char('\t')),
+            RegEx::Charset(Charset::Char('\n')),
+            RegEx::Charset(Charset::Char('\r')),
+        ]))),
+        (10, Box::new(|s| Token::Whitespace(s.to_string()))),
+    ));
+
     // Identifier
     regex.push((
         RegEx::Concat(vec![
@@ -354,7 +476,7 @@ fn construct_regex() -> Vec<(RegEx, (u128, Box<TokenFunction>))> {
     regex.push((
         RegEx::Concat(vec![
             RegEx::Charset(Charset::Char('"')),
-            RegEx::Charset(Charset::Chars(false, vec!['"', '\n', '\t'])),
+            RegEx::Charset(Charset::CharExclude(vec!['"', '\n', '\t'])),
             RegEx::Charset(Charset::Char('"')),
         ]),
         (2, Box::new(|s| Token::StringConst(s.to_string()))),

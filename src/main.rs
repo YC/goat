@@ -35,5 +35,8 @@ fn main() {
 
     println!("{} invoked with file: {}, pretty: {}", arguments[0], filename, pretty);
 
-    lex();
+    let contents = std::fs::read_to_string(filename).expect("cannot read from file");
+
+    let tokens = lex(&contents);
+    println!("{:?}", tokens);
 }
