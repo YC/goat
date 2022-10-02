@@ -67,7 +67,6 @@ type TokenFunction = dyn Fn(&str) -> Token;
 pub fn lex(input: &str) -> Result<Vec<Token>, Box<dyn Error>> {
     let r = construct_regex();
     let nfa = regexes_to_nfa(r);
-    println!("{:?}", nfa);
     execute_nfa(input, nfa)
 }
 
@@ -83,15 +82,28 @@ fn execute_nfa(input: &str, nfa: Nfa) -> Result<Vec<Token>, Box<dyn Error>> {
         let mut accepted: Vec<(usize, u128, Token)> = vec![];
 
         while !current_states.is_empty() {
-            if input.len() <= offset {
-                Err("todo: out of bounds")?
+            // Perform all epsilon transitions
+            current_states = follow_epsilon(&nfa, current_states);
+
+            for state in &current_states {
+                let mut dest_accept = nfa.accept.iter().filter(|x| x.0 == *state);
+                match dest_accept.next() {
+                    None => {}
+                    Some((_, nfa_accept)) => {
+                        let chars_str: String = chars.iter().collect();
+                        let token = (nfa_accept.as_ref().unwrap().1)(&chars_str);
+                        accepted.push((offset, nfa_accept.as_ref().unwrap().0, token))
+                    }
+                }
             }
+
+            if input.len() <= offset {
+                break;
+            }
+
             let c = input[offset];
             chars.push(c);
             offset += 1;
-
-            // Perform all epsilon transitions
-            current_states = follow_epsilon(&nfa, current_states);
 
             // Transition via character
             let mut new_states = vec![];
@@ -100,19 +112,7 @@ fn execute_nfa(input: &str, nfa: Nfa) -> Result<Vec<Token>, Box<dyn Error>> {
                 for transition in &nfa.transitions {
                     let (source, dest, transition_function) = transition;
                     if *source == state && transition_function.takes_character(c) {
-                        let mut dest_accept = nfa.accept.iter().filter(|x| x.0 == *dest);
-                        match dest_accept.next() {
-                            None => {
-                                println!("c.. {:?} | {}", chars, dest);
-                                new_states.push(*dest);
-                            }
-                            Some((_, nfa_accept)) => {
-                                println!("into accept");
-                                let chars_str: String = chars.iter().collect();
-                                let token = (nfa_accept.as_ref().unwrap().1)(&chars_str);
-                                accepted.push((offset, nfa_accept.as_ref().unwrap().0, token))
-                            }
-                        }
+                        new_states.push(*dest);
                     }
                 }
             }
@@ -120,7 +120,6 @@ fn execute_nfa(input: &str, nfa: Nfa) -> Result<Vec<Token>, Box<dyn Error>> {
             current_states = new_states;
         }
 
-        println!("{:?}", chars);
         if accepted.is_empty() {
             Err("todo: accept is empty...")?
         }
@@ -136,10 +135,8 @@ fn execute_nfa(input: &str, nfa: Nfa) -> Result<Vec<Token>, Box<dyn Error>> {
         // Push the token
         let token = accepted.pop().unwrap();
         tokens.push(token.2);
-        println!("{:?}", tokens);
 
         // Increment input by n characters consumed
-        println!("d: {}", token.0);
         for _ in 0..token.0 {
             _ = input.remove(0);
         }
@@ -424,12 +421,20 @@ fn construct_regex() -> Vec<(RegEx, (u128, Box<TokenFunction>))> {
 
     // Whitespace
     regex.push((
-        RegEx::Star(Box::new(RegEx::Or(vec![
-            RegEx::Charset(Charset::Char(' ')),
-            RegEx::Charset(Charset::Char('\t')),
-            RegEx::Charset(Charset::Char('\n')),
-            RegEx::Charset(Charset::Char('\r')),
-        ]))),
+        RegEx::Concat(vec![
+            RegEx::Or(vec![
+                RegEx::Charset(Charset::Char(' ')),
+                RegEx::Charset(Charset::Char('\t')),
+                RegEx::Charset(Charset::Char('\n')),
+                RegEx::Charset(Charset::Char('\r')),
+            ]),
+            RegEx::Star(Box::new(RegEx::Or(vec![
+                RegEx::Charset(Charset::Char(' ')),
+                RegEx::Charset(Charset::Char('\t')),
+                RegEx::Charset(Charset::Char('\n')),
+                RegEx::Charset(Charset::Char('\r')),
+            ]))),
+        ]),
         (10, Box::new(|s| Token::Whitespace(s.to_string()))),
     ));
 
@@ -476,7 +481,7 @@ fn construct_regex() -> Vec<(RegEx, (u128, Box<TokenFunction>))> {
     regex.push((
         RegEx::Concat(vec![
             RegEx::Charset(Charset::Char('"')),
-            RegEx::Charset(Charset::CharExclude(vec!['"', '\n', '\t'])),
+            RegEx::Star(Box::new(RegEx::Charset(Charset::CharExclude(vec!['"', '\n', '\t'])))),
             RegEx::Charset(Charset::Char('"')),
         ]),
         (2, Box::new(|s| Token::StringConst(s.to_string()))),
