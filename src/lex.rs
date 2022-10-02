@@ -85,6 +85,7 @@ fn execute_nfa(input: &str, nfa: Nfa) -> Result<Vec<Token>, Box<dyn Error>> {
             // Perform all epsilon transitions
             current_states = follow_epsilon(&nfa, current_states);
 
+            // For those which are now in the accept state
             for state in &current_states {
                 let mut dest_accept = nfa.accept.iter().filter(|x| x.0 == *state);
                 match dest_accept.next() {
@@ -97,17 +98,18 @@ fn execute_nfa(input: &str, nfa: Nfa) -> Result<Vec<Token>, Box<dyn Error>> {
                 }
             }
 
+            // End of input
             if input.len() <= offset {
                 break;
             }
 
+            // Consume next character
             let c = input[offset];
             chars.push(c);
             offset += 1;
 
             // Transition via character
             let mut new_states = vec![];
-
             for state in current_states {
                 for transition in &nfa.transitions {
                     let (source, dest, transition_function) = transition;
@@ -116,13 +118,15 @@ fn execute_nfa(input: &str, nfa: Nfa) -> Result<Vec<Token>, Box<dyn Error>> {
                     }
                 }
             }
-
             current_states = new_states;
         }
 
         if accepted.is_empty() {
             // TODO: line numbers
-            Err(format!("lexer error: accept is empty, '{}'", chars.iter().collect::<String>()))?
+            Err(format!(
+                "lexer error: accept is empty, '{}'",
+                chars.iter().collect::<String>()
+            ))?
         }
 
         // Sort tokens by characters consumed (higher is better), then token priority (lower is better)
@@ -476,7 +480,7 @@ fn construct_regex() -> Vec<(RegEx, (u128, Box<TokenFunction>))> {
             RegEx::Charset(Charset::CharRange('0', '9')),
             RegEx::Star(Box::new(RegEx::Charset(Charset::CharRange('0', '9')))),
         ]),
-        (3, Box::new(|s| Token::FloatConst(s.parse::<f64>().unwrap()))),
+        (3, Box::new(|s| Token::FloatConst(s.to_string()))),
     ));
 
     // StrConst

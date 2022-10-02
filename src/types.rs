@@ -16,7 +16,7 @@ pub enum Token {
     /// Non-empty sequence of digits
     IntConst(u128),
     /// One or more digits, decimal point, one or more digits
-    FloatConst(f64),
+    FloatConst(String),
     /// false or true
     BoolConst(bool),
     /// Sequence of characters between double quotes,
