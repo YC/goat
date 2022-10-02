@@ -16,9 +16,12 @@ pub enum Charset {
     CharRange(char, char),
 }
 
+// (Priority, Function)
+type AcceptFunction = (u128, Box<TokenFunction>);
+
 pub struct Nfa {
     start: usize,
-    accept: (usize, Option<Box<TokenFunction>>),
+    accept: (usize, Option<AcceptFunction>),
     transitions: Vec<(usize, usize, NfaTransition)>,
 }
 
@@ -41,7 +44,7 @@ pub enum NfaTransition {
 
 type TokenFunction = dyn Fn(&str) -> Token;
 
-pub fn regexes_to_nfa(regexes: Vec<(RegEx, Box<TokenFunction>)>) -> Vec<Nfa> {
+pub fn regexes_to_nfa(regexes: Vec<(RegEx, (u128, Box<TokenFunction>))>) -> Vec<Nfa> {
     let nfas: Vec<Nfa> = vec![];
 
     for regex in regexes {
@@ -51,7 +54,7 @@ pub fn regexes_to_nfa(regexes: Vec<(RegEx, Box<TokenFunction>)>) -> Vec<Nfa> {
     nfas
 }
 
-pub fn regex_to_nfa(regex: &RegEx, f: Option<Box<TokenFunction>>) -> Nfa {
+pub fn regex_to_nfa(regex: &RegEx, f: Option<AcceptFunction>) -> Nfa {
     match regex {
         RegEx::Charset(c) => {
             // (start) -> char (accept)
@@ -235,30 +238,67 @@ fn test_regex_to_nfa_concat_literal() {
     assert_eq!(nfa.transitions[4], (4, 5, NfaTransition::Charset(Charset::Char('e'))));
 }
 
-pub fn construct_regex() -> Vec<(RegEx, Box<TokenFunction>)> {
-    let mut regex: Vec<(RegEx, Box<TokenFunction>)> = vec![];
+pub fn construct_regex() -> Vec<(RegEx, (u128, Box<TokenFunction>))> {
+    let mut regex: Vec<(RegEx, (u128, Box<TokenFunction>))> = vec![];
 
-    regex.push((Keyword::BEGIN.as_regex(), Box::new(|_| Token::Keyword(Keyword::BEGIN))));
-    regex.push((Keyword::BOOL.as_regex(), Box::new(|_| Token::Keyword(Keyword::BOOL))));
-    regex.push((Keyword::CALL.as_regex(), Box::new(|_| Token::Keyword(Keyword::CALL))));
-    regex.push((Keyword::DO.as_regex(), Box::new(|_| Token::Keyword(Keyword::DO))));
-    regex.push((Keyword::ELSE.as_regex(), Box::new(|_| Token::Keyword(Keyword::ELSE))));
-    regex.push((Keyword::END.as_regex(), Box::new(|_| Token::Keyword(Keyword::END))));
-    regex.push((Keyword::FALSE.as_regex(), Box::new(|_| Token::Keyword(Keyword::FALSE))));
-    regex.push((Keyword::FI.as_regex(), Box::new(|_| Token::Keyword(Keyword::FI))));
-    regex.push((Keyword::FLOAT.as_regex(), Box::new(|_| Token::Keyword(Keyword::FLOAT))));
-    regex.push((Keyword::IF.as_regex(), Box::new(|_| Token::Keyword(Keyword::IF))));
-    regex.push((Keyword::INT.as_regex(), Box::new(|_| Token::Keyword(Keyword::INT))));
-    regex.push((Keyword::OD.as_regex(), Box::new(|_| Token::Keyword(Keyword::OD))));
-    regex.push((Keyword::PROC.as_regex(), Box::new(|_| Token::Keyword(Keyword::PROC))));
-    regex.push((Keyword::REF.as_regex(), Box::new(|_| Token::Keyword(Keyword::REF))));
-    regex.push((Keyword::THEN.as_regex(), Box::new(|_| Token::Keyword(Keyword::THEN))));
-    regex.push((Keyword::TRUE.as_regex(), Box::new(|_| Token::Keyword(Keyword::TRUE))));
-    regex.push((Keyword::READ.as_regex(), Box::new(|_| Token::Keyword(Keyword::READ))));
-    regex.push((Keyword::VAL.as_regex(), Box::new(|_| Token::Keyword(Keyword::VAL))));
-    regex.push((Keyword::WHILE.as_regex(), Box::new(|_| Token::Keyword(Keyword::WHILE))));
-    regex.push((Keyword::WRITE.as_regex(), Box::new(|_| Token::Keyword(Keyword::WRITE))));
+    regex.push((
+        Keyword::BEGIN.as_regex(),
+        (1, Box::new(|_| Token::Keyword(Keyword::BEGIN))),
+    ));
+    regex.push((
+        Keyword::BOOL.as_regex(),
+        (1, Box::new(|_| Token::Keyword(Keyword::BOOL))),
+    ));
+    regex.push((
+        Keyword::CALL.as_regex(),
+        (1, Box::new(|_| Token::Keyword(Keyword::CALL))),
+    ));
+    regex.push((Keyword::DO.as_regex(), (1, Box::new(|_| Token::Keyword(Keyword::DO)))));
+    regex.push((
+        Keyword::ELSE.as_regex(),
+        (1, Box::new(|_| Token::Keyword(Keyword::ELSE))),
+    ));
+    regex.push((Keyword::END.as_regex(), (1, Box::new(|_| Token::Keyword(Keyword::END)))));
+    regex.push((
+        Keyword::FALSE.as_regex(),
+        (1, Box::new(|_| Token::Keyword(Keyword::FALSE))),
+    ));
+    regex.push((Keyword::FI.as_regex(), (1, Box::new(|_| Token::Keyword(Keyword::FI)))));
+    regex.push((
+        Keyword::FLOAT.as_regex(),
+        (1, Box::new(|_| Token::Keyword(Keyword::FLOAT))),
+    ));
+    regex.push((Keyword::IF.as_regex(), (1, Box::new(|_| Token::Keyword(Keyword::IF)))));
+    regex.push((Keyword::INT.as_regex(), (1, Box::new(|_| Token::Keyword(Keyword::INT)))));
+    regex.push((Keyword::OD.as_regex(), (1, Box::new(|_| Token::Keyword(Keyword::OD)))));
+    regex.push((
+        Keyword::PROC.as_regex(),
+        (1, Box::new(|_| Token::Keyword(Keyword::PROC))),
+    ));
+    regex.push((Keyword::REF.as_regex(), (1, Box::new(|_| Token::Keyword(Keyword::REF)))));
+    regex.push((
+        Keyword::THEN.as_regex(),
+        (1, Box::new(|_| Token::Keyword(Keyword::THEN))),
+    ));
+    regex.push((
+        Keyword::TRUE.as_regex(),
+        (1, Box::new(|_| Token::Keyword(Keyword::TRUE))),
+    ));
+    regex.push((
+        Keyword::READ.as_regex(),
+        (1, Box::new(|_| Token::Keyword(Keyword::READ))),
+    ));
+    regex.push((Keyword::VAL.as_regex(), (1, Box::new(|_| Token::Keyword(Keyword::VAL)))));
+    regex.push((
+        Keyword::WHILE.as_regex(),
+        (1, Box::new(|_| Token::Keyword(Keyword::WHILE))),
+    ));
+    regex.push((
+        Keyword::WRITE.as_regex(),
+        (1, Box::new(|_| Token::Keyword(Keyword::WRITE))),
+    ));
 
+    // Identifier
     regex.push((
         RegEx::Concat(vec![
             RegEx::Or(vec![
@@ -273,17 +313,19 @@ pub fn construct_regex() -> Vec<(RegEx, Box<TokenFunction>)> {
                 RegEx::Charset(Charset::Char('\'')),
             ]))),
         ]),
-        Box::new(|s| Token::Ident(s.to_string())),
+        (5, Box::new(|s| Token::Ident(s.to_string()))),
     ));
 
+    // IntConst
     regex.push((
         RegEx::Concat(vec![
             RegEx::Charset(Charset::CharRange('0', '9')),
             RegEx::Star(Box::new(RegEx::Charset(Charset::CharRange('0', '9')))),
         ]),
-        Box::new(|s| Token::IntConst(s.parse::<u128>().unwrap())),
+        (4, Box::new(|s| Token::IntConst(s.parse::<u128>().unwrap()))),
     ));
 
+    // FloatConst
     regex.push((
         RegEx::Concat(vec![
             RegEx::Charset(Charset::CharRange('0', '9')),
@@ -292,55 +334,60 @@ pub fn construct_regex() -> Vec<(RegEx, Box<TokenFunction>)> {
             RegEx::Charset(Charset::CharRange('0', '9')),
             RegEx::Star(Box::new(RegEx::Charset(Charset::CharRange('0', '9')))),
         ]),
-        Box::new(|s| Token::FloatConst(s.parse::<f64>().unwrap())),
+        (3, Box::new(|s| Token::FloatConst(s.parse::<f64>().unwrap()))),
     ));
 
+    // StrConst
     regex.push((
         RegEx::Concat(vec![
             RegEx::Charset(Charset::Char('"')),
             RegEx::Charset(Charset::Chars(false, vec!['"', '\n', '\t'])),
             RegEx::Charset(Charset::Char('"')),
         ]),
-        Box::new(|s| Token::StringConst(s.to_string())),
+        (2, Box::new(|s| Token::StringConst(s.to_string()))),
     ));
 
+    // BoolConst
     regex.push((
         RegEx::Or(vec![
             RegEx::Literal("true".to_string()),
             RegEx::Literal("false".to_string()),
         ]),
-        Box::new(|s| {
-            if s == "true" {
-                Token::BoolConst(true)
-            } else {
-                Token::BoolConst(false)
-            }
-        }),
+        (
+            2,
+            Box::new(|s| {
+                if s == "true" {
+                    Token::BoolConst(true)
+                } else {
+                    Token::BoolConst(false)
+                }
+            }),
+        ),
     ));
 
-    regex.push((RegEx::Literal("=".to_string()), Box::new(|_| Token::ASSIGN)));
-    regex.push((RegEx::Literal("(".to_string()), Box::new(|_| Token::LPAREN)));
-    regex.push((RegEx::Literal(")".to_string()), Box::new(|_| Token::RPAREN)));
-    regex.push((RegEx::Literal(";".to_string()), Box::new(|_| Token::SEMI)));
-    regex.push((RegEx::Literal("||".to_string()), Box::new(|_| Token::OR)));
-    regex.push((RegEx::Literal("&&".to_string()), Box::new(|_| Token::AND)));
-    regex.push((RegEx::Literal("!".to_string()), Box::new(|_| Token::NEG)));
-    regex.push((RegEx::Literal("==".to_string()), Box::new(|_| Token::EQ)));
-    regex.push((RegEx::Literal("!=".to_string()), Box::new(|_| Token::NE)));
+    regex.push((RegEx::Literal("=".to_string()), (1, Box::new(|_| Token::ASSIGN))));
+    regex.push((RegEx::Literal("(".to_string()), (1, Box::new(|_| Token::LPAREN))));
+    regex.push((RegEx::Literal(")".to_string()), (1, Box::new(|_| Token::RPAREN))));
+    regex.push((RegEx::Literal(";".to_string()), (1, Box::new(|_| Token::SEMI))));
+    regex.push((RegEx::Literal("||".to_string()), (1, Box::new(|_| Token::OR))));
+    regex.push((RegEx::Literal("&&".to_string()), (1, Box::new(|_| Token::AND))));
+    regex.push((RegEx::Literal("!".to_string()), (1, Box::new(|_| Token::NEG))));
+    regex.push((RegEx::Literal("==".to_string()), (1, Box::new(|_| Token::EQ))));
+    regex.push((RegEx::Literal("!=".to_string()), (1, Box::new(|_| Token::NE))));
 
-    regex.push((RegEx::Literal("<".to_string()), Box::new(|_| Token::LT)));
-    regex.push((RegEx::Literal("<=".to_string()), Box::new(|_| Token::LTE)));
-    regex.push((RegEx::Literal(">".to_string()), Box::new(|_| Token::GT)));
-    regex.push((RegEx::Literal(">=".to_string()), Box::new(|_| Token::GTE)));
+    regex.push((RegEx::Literal("<".to_string()), (1, Box::new(|_| Token::LT))));
+    regex.push((RegEx::Literal("<=".to_string()), (1, Box::new(|_| Token::LTE))));
+    regex.push((RegEx::Literal(">".to_string()), (1, Box::new(|_| Token::GT))));
+    regex.push((RegEx::Literal(">=".to_string()), (1, Box::new(|_| Token::GTE))));
 
-    regex.push((RegEx::Literal("+".to_string()), Box::new(|_| Token::ADD)));
-    regex.push((RegEx::Literal("-".to_string()), Box::new(|_| Token::SUB)));
-    regex.push((RegEx::Literal("*".to_string()), Box::new(|_| Token::MUL)));
-    regex.push((RegEx::Literal("/".to_string()), Box::new(|_| Token::DIV)));
+    regex.push((RegEx::Literal("+".to_string()), (1, Box::new(|_| Token::ADD))));
+    regex.push((RegEx::Literal("-".to_string()), (1, Box::new(|_| Token::SUB))));
+    regex.push((RegEx::Literal("*".to_string()), (1, Box::new(|_| Token::MUL))));
+    regex.push((RegEx::Literal("/".to_string()), (1, Box::new(|_| Token::DIV))));
 
-    regex.push((RegEx::Literal("(".to_string()), Box::new(|_| Token::LBRACKET)));
-    regex.push((RegEx::Literal(")".to_string()), Box::new(|_| Token::RBRACKET)));
-    regex.push((RegEx::Literal(",".to_string()), Box::new(|_| Token::COMMA)));
+    regex.push((RegEx::Literal("(".to_string()), (1, Box::new(|_| Token::LBRACKET))));
+    regex.push((RegEx::Literal(")".to_string()), (1, Box::new(|_| Token::RBRACKET))));
+    regex.push((RegEx::Literal(",".to_string()), (1, Box::new(|_| Token::COMMA))));
 
     println!("{:?}", regex.iter().map(|x| &x.0).collect::<Vec<&RegEx>>());
     regex
