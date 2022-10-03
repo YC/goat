@@ -1,6 +1,6 @@
+use crate::lex::lex;
 use std::{env, process};
 
-use crate::lex::lex;
 mod lex;
 mod types;
 

@@ -1,7 +1,9 @@
 use std::fmt::{Display, Formatter, Result};
 
-#[derive(Debug, Clone)]
-#[allow(dead_code)]
+/// Token with line number, column number
+pub type TokenInfo = (Token, (u64, u64));
+
+#[derive(Debug, Clone, Eq, PartialEq)]
 #[allow(clippy::upper_case_acronyms)]
 pub enum Token {
     /// Reserved tokens
@@ -9,6 +11,8 @@ pub enum Token {
 
     /// Whitespace
     Whitespace(String),
+    /// Newline
+    NewLine,
     /// Comment
     Comment(String),
 
@@ -54,6 +58,7 @@ pub enum Token {
 impl Token {
     fn as_str(&self) -> String {
         match self {
+            Token::NewLine => "\n".to_string(),
             Token::Comment(i) => i.to_string(),
             Token::Whitespace(i) => i.to_string(),
             Token::Ident(i) => i.to_string(),
@@ -92,7 +97,7 @@ impl Display for Token {
     }
 }
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 #[allow(clippy::upper_case_acronyms)]
 pub enum Keyword {
     BEGIN,

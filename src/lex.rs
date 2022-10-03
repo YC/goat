@@ -1,4 +1,4 @@
-use crate::types::{Keyword, Token};
+use crate::types::{Keyword, Token, TokenInfo};
 use std::error::Error;
 
 #[derive(Debug)]
@@ -64,22 +64,38 @@ impl NfaTransition {
 
 type TokenFunction = dyn Fn(&str) -> Token;
 
-pub fn lex(input: &str) -> Result<Vec<Token>, Box<dyn Error>> {
-    let r = construct_regex();
-    let nfa = regexes_to_nfa(r);
-    execute_nfa(input, nfa)
+pub fn lex(input: &str) -> Result<Vec<TokenInfo>, Box<dyn Error>> {
+    let regexes = construct_regex();
+
+    let mut nfas: Vec<Nfa> = vec![];
+    for regex in regexes {
+        let nfa = regex_to_nfa(&regex.0, Some(regex.1));
+        nfas.push(nfa);
+    }
+
+    let nfa = nfa_combine(nfas, false, None);
+    let tokens = execute_nfa(input, nfa)?;
+    let filtered = tokens
+        .into_iter()
+        .filter(|t|!matches!(t.0, Token::Whitespace(_) | Token::NewLine))
+        .collect::<Vec<TokenInfo>>();
+    Ok(filtered)
 }
 
-fn execute_nfa(input: &str, nfa: Nfa) -> Result<Vec<Token>, Box<dyn Error>> {
+/// Executes nfa based on input, and get list of tokens.
+fn execute_nfa(input: &str, nfa: Nfa) -> Result<Vec<TokenInfo>, Box<dyn Error>> {
     let mut input: Vec<char> = input.chars().into_iter().collect();
     let mut tokens = vec![];
+    let mut lineno: u64 = 1;
+    let mut linecol: u64 = 1;
 
     // While input is not all consumed
     while !input.is_empty() {
         let mut current_states: Vec<usize> = vec![0];
         let mut chars: Vec<char> = vec![];
-        let mut offset: usize = 0;
-        let mut accepted: Vec<(usize, u128, Token)> = vec![];
+        let mut offset: u64 = 0;
+        // Number of characters, priority of accept, token
+        let mut accepted: Vec<(u64, u128, Token)> = vec![];
 
         while !current_states.is_empty() {
             // Perform all epsilon transitions
@@ -99,12 +115,12 @@ fn execute_nfa(input: &str, nfa: Nfa) -> Result<Vec<Token>, Box<dyn Error>> {
             }
 
             // End of input
-            if input.len() <= offset {
+            if input.len() as u64 <= offset {
                 break;
             }
 
             // Consume next character
-            let c = input[offset];
+            let c = input[offset as usize];
             chars.push(c);
             offset += 1;
 
@@ -122,10 +138,11 @@ fn execute_nfa(input: &str, nfa: Nfa) -> Result<Vec<Token>, Box<dyn Error>> {
         }
 
         if accepted.is_empty() {
-            // TODO: line numbers
             Err(format!(
-                "lexer error: accept is empty, '{}'",
-                chars.iter().collect::<String>()
+                "lexer error: cannot consume input '{}', at line {} col {}",
+                chars.iter().collect::<String>(),
+                lineno,
+                linecol
             ))?
         }
 
@@ -139,7 +156,16 @@ fn execute_nfa(input: &str, nfa: Nfa) -> Result<Vec<Token>, Box<dyn Error>> {
 
         // Push the token
         let token = accepted.pop().unwrap();
-        tokens.push(token.2);
+
+        let pos = (lineno, linecol);
+        if token.2 == Token::NewLine {
+            lineno += 1;
+            linecol = 1;
+        } else {
+            linecol += token.0;
+        }
+
+        tokens.push((token.2, pos));
 
         // Increment input by n characters consumed
         for _ in 0..token.0 {
@@ -148,8 +174,10 @@ fn execute_nfa(input: &str, nfa: Nfa) -> Result<Vec<Token>, Box<dyn Error>> {
     }
 
     if !input.is_empty() {
-        // TODO: line numbers
-        Err("lexer error: unconsumed input")?
+        Err(format!(
+            "lexer error: unconsumed input, at line {} col {}",
+            lineno, linecol
+        ))?
     }
 
     Ok(tokens)
@@ -168,17 +196,6 @@ fn follow_epsilon(nfa: &Nfa, current_states: Vec<usize>) -> Vec<usize> {
 
     states.extend(current_states);
     states
-}
-
-fn regexes_to_nfa(regexes: Vec<(RegEx, (u128, Box<TokenFunction>))>) -> Nfa {
-    let mut nfas: Vec<Nfa> = vec![];
-
-    for regex in regexes {
-        let nfa = regex_to_nfa(&regex.0, Some(regex.1));
-        nfas.push(nfa);
-    }
-
-    nfa_combine(nfas, false, None)
 }
 
 pub fn regex_to_nfa(regex: &RegEx, f: Option<NfaAcceptFunction>) -> Nfa {
@@ -431,25 +448,24 @@ fn construct_regex() -> Vec<(RegEx, (u128, Box<TokenFunction>))> {
             RegEx::Or(vec![
                 RegEx::Charset(Charset::Char(' ')),
                 RegEx::Charset(Charset::Char('\t')),
-                RegEx::Charset(Charset::Char('\n')),
                 RegEx::Charset(Charset::Char('\r')),
             ]),
             RegEx::Star(Box::new(RegEx::Or(vec![
                 RegEx::Charset(Charset::Char(' ')),
                 RegEx::Charset(Charset::Char('\t')),
-                RegEx::Charset(Charset::Char('\n')),
                 RegEx::Charset(Charset::Char('\r')),
             ]))),
         ]),
         (10, Box::new(|s| Token::Whitespace(s.to_string()))),
     ));
 
+    // Newline
+    regex.push((RegEx::Charset(Charset::Char('\n')), (1, Box::new(|_| Token::NewLine))));
     // Comment
     regex.push((
         RegEx::Concat(vec![
             RegEx::Charset(Charset::Char('#')),
             RegEx::Star(Box::new(RegEx::Charset(Charset::CharExclude(vec!['\n'])))),
-            RegEx::Charset(Charset::Char('\n')),
         ]),
         (10, Box::new(|s| Token::Comment(s.to_string()))),
     ));
