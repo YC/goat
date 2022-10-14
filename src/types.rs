@@ -129,13 +129,6 @@ impl Display for Keyword {
 }
 
 impl Keyword {
-    // pub const VALUES: [Self; 20] = [
-    //     Self::BEGIN, Self::BOOL, Self::CALL, Self::DO, Self::ELSE, Self::END,
-    //     Self::FALSE, Self::FI, Self::FLOAT, Self::IF, Self::INT, Self::OD,
-    //     Self::PROC, Self::REF, Self::THEN, Self::TRUE, Self::READ, Self::VAL,
-    //     Self::WHILE, Self::WRITE
-    // ];
-
     pub fn as_str(&self) -> &'static str {
         match self {
             Keyword::READ => "read",

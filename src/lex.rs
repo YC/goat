@@ -2,7 +2,7 @@ use crate::types::{Keyword, Token, TokenInfo};
 use std::error::Error;
 
 #[derive(Debug)]
-pub enum RegEx {
+enum RegEx {
     Charset(Charset),
     Concat(Vec<RegEx>),
     Or(Vec<RegEx>),
@@ -11,16 +11,16 @@ pub enum RegEx {
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub enum Charset {
+enum Charset {
     Char(char),
     CharExclude(Vec<char>),
     CharRange(char, char),
 }
 
 // (Priority, Function)
-type NfaAcceptFunction = (u128, Box<TokenFunction>);
+type NfaAcceptFunction = (u64, Box<TokenFunction>);
 
-pub struct Nfa {
+struct Nfa {
     // Start state
     start: usize,
     // Accept state, which has a priority and an accept function which consumes
@@ -44,7 +44,7 @@ impl std::fmt::Debug for Nfa {
 
 #[derive(Debug, Eq, PartialEq)]
 #[allow(dead_code)]
-pub enum NfaTransition {
+enum NfaTransition {
     Charset(Charset),
     Empty,
 }
@@ -95,7 +95,7 @@ fn execute_nfa(input: &str, nfa: Nfa) -> Result<Vec<TokenInfo>, Box<dyn Error>> 
         let mut chars: Vec<char> = vec![];
         let mut offset: u64 = 0;
         // Number of characters, priority of accept, token
-        let mut accepted: Vec<(u64, u128, Token)> = vec![];
+        let mut accepted: Vec<(u64, u64, Token)> = vec![];
 
         while !current_states.is_empty() {
             // Perform all epsilon transitions
@@ -198,7 +198,7 @@ fn follow_epsilon(nfa: &Nfa, current_states: Vec<usize>) -> Vec<usize> {
     states
 }
 
-pub fn regex_to_nfa(regex: &RegEx, f: Option<NfaAcceptFunction>) -> Nfa {
+fn regex_to_nfa(regex: &RegEx, f: Option<NfaAcceptFunction>) -> Nfa {
     match regex {
         RegEx::Charset(c) => {
             // (start) -> char (accept)
@@ -382,8 +382,8 @@ fn nfa_combine(nfas: Vec<Nfa>, merge_accepts: bool, f: Option<NfaAcceptFunction>
     }
 }
 
-fn construct_regex() -> Vec<(RegEx, (u128, Box<TokenFunction>))> {
-    let mut regex: Vec<(RegEx, (u128, Box<TokenFunction>))> = vec![];
+fn construct_regex() -> Vec<(RegEx, (u64, Box<TokenFunction>))> {
+    let mut regex: Vec<(RegEx, (u64, Box<TokenFunction>))> = vec![];
 
     regex.push((
         Keyword::BEGIN.as_regex(),
@@ -566,7 +566,7 @@ fn construct_regex() -> Vec<(RegEx, (u128, Box<TokenFunction>))> {
 }
 
 impl Keyword {
-    pub fn as_regex(&self) -> RegEx {
+    fn as_regex(&self) -> RegEx {
         RegEx::Literal(self.to_string())
     }
 }
@@ -575,6 +575,7 @@ impl Keyword {
 fn test_regex_to_nfa_literal() {
     let regex = RegEx::Literal("hi".to_string());
     let nfa = regex_to_nfa(&regex, None);
+
     // (start) --h-> 1 --i-> (2, accept)
     assert_eq!(0, nfa.start);
     assert_eq!(1, nfa.accept.len());
@@ -595,7 +596,6 @@ fn test_regex_to_nfa_or_literal() {
     //            --e-> (1) --a-> (2) --b-> (3)
     // (0, start)                               --e--> (6, accept)
     //                --e-> (4) --c-> (5)
-
     assert_eq!(0, nfa.start);
     assert_eq!(1, nfa.accept.len());
     assert_eq!(6, nfa.accept[0].0);
