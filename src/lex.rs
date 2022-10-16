@@ -77,7 +77,7 @@ pub fn lex(input: &str) -> Result<Vec<TokenInfo>, Box<dyn Error>> {
     let tokens = execute_nfa(input, nfa)?;
     let filtered = tokens
         .into_iter()
-        .filter(|t|!matches!(t.0, Token::Whitespace(_) | Token::NewLine))
+        .filter(|t| !matches!(t.0, Token::Whitespace(_) | Token::NewLine))
         .collect::<Vec<TokenInfo>>();
     Ok(filtered)
 }

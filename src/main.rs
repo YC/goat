@@ -1,10 +1,13 @@
+use crate::parse::parse;
 use crate::lex::lex;
-use std::{env, process};
+use std::{env, process, error::Error};
 
+mod parse;
+mod ast;
 mod lex;
 mod types;
 
-fn main() {
+fn main() -> Result<(), Box<dyn Error>> {
     let mut pretty = false;
     let mut filename = None;
 
@@ -37,6 +40,11 @@ fn main() {
 
     let contents = std::fs::read_to_string(filename).expect("cannot read from file");
 
-    let tokens = lex(&contents);
+    let tokens = lex(&contents)?;
     println!("{:?}", tokens);
+
+    let parsed = parse(tokens);
+    println!("{:?}", parsed);
+
+    Ok(())
 }
