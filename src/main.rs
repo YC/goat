@@ -1,10 +1,10 @@
-use crate::parse::parse;
 use crate::lex::lex;
-use std::{env, process, error::Error};
+use crate::parse::parse;
+use std::{env, error::Error, process};
 
-mod parse;
 mod ast;
 mod lex;
+mod parse;
 mod types;
 
 fn main() -> Result<(), Box<dyn Error>> {
