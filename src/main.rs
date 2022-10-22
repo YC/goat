@@ -43,7 +43,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let tokens = lex(&contents)?;
     println!("{:?}", tokens);
 
-    let parsed = parse(tokens);
+    let parsed = parse(&tokens);
     println!("{:?}", parsed);
 
     Ok(())

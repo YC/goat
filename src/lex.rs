@@ -149,7 +149,7 @@ fn execute_nfa(input: &str, nfa: Nfa) -> Result<Vec<TokenInfo>, Box<dyn Error>> 
         // Sort tokens by characters consumed (higher is better), then token priority (lower is better)
         accepted.sort_by(|a, b| {
             if a.0 == b.0 {
-                return a.1.partial_cmp(&b.1).unwrap();
+                return b.1.partial_cmp(&a.1).unwrap();
             }
             b.1.partial_cmp(&a.1).unwrap()
         });
