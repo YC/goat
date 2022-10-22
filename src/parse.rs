@@ -61,12 +61,66 @@ fn parse_proc(tokens: &Vec<TokenInfo>, index: &mut usize) -> Result<Procedure, B
 
 fn parse_header(tokens: &Vec<TokenInfo>, index: &mut usize) -> Result<(String, Vec<Parameter>), Box<dyn Error>> {
     // Identifier after proc
-    let ident_token = get_next(tokens, *index)?;
-    let ident: String = match &ident_token.0 {
-        Token::Ident(t) => t.clone(),
-        _ => Err(format!("Expected identifier after proc, found {:?}", ident_token))?,
+    let ident = parse_identifier(tokens, index)?;
+
+    // (
+    match_next(tokens, Token::LPAREN, *index)?;
+    *index += 1;
+
+    // 0 or more parameters
+    let mut parameters = vec![];
+    while get_next(tokens, *index)?.0 != Token::RPAREN {
+        // Parameter
+        parameters.push(parse_parameter(tokens, index)?);
+
+        // Comma
+        if get_next(tokens, *index)?.0 != Token::COMMA {
+            break;
+        } else {
+            *index += 1;
+        }
+    }
+
+    // )
+    match_next(tokens, Token::RPAREN, *index)?;
+    *index += 1;
+
+    Ok((ident, parameters))
+}
+
+fn parse_parameter(tokens: &Vec<TokenInfo>, index: &mut usize) -> Result<Parameter, Box<dyn Error>> {
+    let indicator_token = get_next(tokens, *index)?;
+    let indicator = match indicator_token.0 {
+        Token::Keyword(Keyword::VAL) => ParameterPassIndicator::Val,
+        Token::Keyword(Keyword::REF) => ParameterPassIndicator::Ref,
+        _ => Err(format!("Expected ref/val, but found {:?}", indicator_token))?,
     };
     *index += 1;
 
-    Ok((ident, vec![]))
+    let type_token = get_next(tokens, *index)?;
+    let r#type = match type_token.0 {
+        Token::Keyword(Keyword::BOOL) => ParameterType::Bool,
+        Token::Keyword(Keyword::INT) => ParameterType::Int,
+        Token::Keyword(Keyword::FLOAT) => ParameterType::Float,
+        _ => Err(format!("Expected type, but found {:?}", type_token))?,
+    };
+    *index += 1;
+
+    let ident = parse_identifier(tokens, index)?;
+
+    Ok(Parameter {
+        passing_indicator: indicator,
+        r#type,
+        identifier: ident,
+    })
+}
+
+fn parse_identifier(tokens: &Vec<TokenInfo>, index: &mut usize) -> Result<Identifier, Box<dyn Error>> {
+    let ident_token = get_next(tokens, *index)?;
+    let ident: String = match &ident_token.0 {
+        Token::Ident(t) => t.clone(),
+        _ => Err(format!("Expected identifier, found {:?}", ident_token))?,
+    };
+    *index += 1;
+    Ok(ident)
 }
