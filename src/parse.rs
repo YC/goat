@@ -35,7 +35,11 @@ fn parse_proc(tokens: &Vec<TokenInfo>, index: &mut usize) -> Result<Procedure, B
     match_next(tokens, Token::Keyword(Keyword::PROC), *index)?;
     *index += 1;
 
-    let (ident, parameters) = parse_header(tokens, index)?;
+    // Header
+    let (identifier, parameters) = parse_header(tokens, index)?;
+
+    // Body
+    let body = parse_body(tokens, index)?;
 
     // TODO: remove
     for i in *index..tokens.len() {
@@ -50,18 +54,15 @@ fn parse_proc(tokens: &Vec<TokenInfo>, index: &mut usize) -> Result<Procedure, B
     *index += 1;
 
     Ok(Procedure {
-        identifier: ident,
+        identifier,
         parameters,
-        body: ProcBody {
-            variable_declarations: vec![],
-            statements: vec![],
-        },
+        body,
     })
 }
 
 fn parse_header(tokens: &Vec<TokenInfo>, index: &mut usize) -> Result<(String, Vec<Parameter>), Box<dyn Error>> {
     // Identifier after proc
-    let ident = parse_identifier(tokens, index)?;
+    let identifier = parse_identifier(tokens, index)?;
 
     // (
     match_next(tokens, Token::LPAREN, *index)?;
@@ -85,7 +86,7 @@ fn parse_header(tokens: &Vec<TokenInfo>, index: &mut usize) -> Result<(String, V
     match_next(tokens, Token::RPAREN, *index)?;
     *index += 1;
 
-    Ok((ident, parameters))
+    Ok((identifier, parameters))
 }
 
 fn parse_parameter(tokens: &Vec<TokenInfo>, index: &mut usize) -> Result<Parameter, Box<dyn Error>> {
@@ -97,21 +98,14 @@ fn parse_parameter(tokens: &Vec<TokenInfo>, index: &mut usize) -> Result<Paramet
     };
     *index += 1;
 
-    let type_token = get_next(tokens, *index)?;
-    let r#type = match type_token.0 {
-        Token::Keyword(Keyword::BOOL) => ParameterType::Bool,
-        Token::Keyword(Keyword::INT) => ParameterType::Int,
-        Token::Keyword(Keyword::FLOAT) => ParameterType::Float,
-        _ => Err(format!("Expected type, but found {:?}", type_token))?,
-    };
-    *index += 1;
+    let r#type = parse_type(tokens, index)?;
 
-    let ident = parse_identifier(tokens, index)?;
+    let identifier = parse_identifier(tokens, index)?;
 
     Ok(Parameter {
         passing_indicator: indicator,
         r#type,
-        identifier: ident,
+        identifier,
     })
 }
 
@@ -123,4 +117,102 @@ fn parse_identifier(tokens: &Vec<TokenInfo>, index: &mut usize) -> Result<Identi
     };
     *index += 1;
     Ok(ident)
+}
+
+fn parse_type(tokens: &Vec<TokenInfo>, index: &mut usize) -> Result<ParameterType, Box<dyn Error>> {
+    let type_token = get_next(tokens, *index)?;
+    let r#type = match type_token.0 {
+        Token::Keyword(Keyword::BOOL) => ParameterType::Bool,
+        Token::Keyword(Keyword::INT) => ParameterType::Int,
+        Token::Keyword(Keyword::FLOAT) => ParameterType::Float,
+        _ => Err(format!("Expected type, but found {:?}", type_token))?,
+    };
+    *index += 1;
+    Ok(r#type)
+}
+
+fn parse_body(tokens: &Vec<TokenInfo>, index: &mut usize) -> Result<ProcBody, Box<dyn Error>> {
+    let mut variable_declarations = vec![];
+
+    while get_next(tokens, *index)?.0 != Token::Keyword(Keyword::BEGIN) {
+        variable_declarations.push(parse_variable_declaration(tokens, index)?);
+    }
+
+    Ok(ProcBody {
+        variable_declarations,
+        statements: vec![],
+    })
+}
+
+fn parse_variable_declaration(
+    tokens: &Vec<TokenInfo>,
+    index: &mut usize,
+) -> Result<VariableDeclaration, Box<dyn Error>> {
+    // Type
+    let r#type = parse_type(tokens, index)?;
+
+    // Identifier Shape
+    let identifier_declaration = parse_identifier_shape_declaration(tokens, index)?;
+
+    // ;
+    match_next(tokens, Token::SEMI, *index)?;
+    *index += 1;
+
+    Ok(VariableDeclaration {
+        r#type,
+        identifier_declaration,
+    })
+}
+
+fn parse_identifier_shape_declaration(
+    tokens: &Vec<TokenInfo>,
+    index: &mut usize,
+) -> Result<IdentifierShapeDeclaration, Box<dyn Error>> {
+    // Identifier
+    let identifier = parse_identifier(tokens, index)?;
+
+    // No left bracket
+    if get_next(tokens, *index)?.0 != Token::LBRACKET {
+        return Ok(IdentifierShapeDeclaration::Identifier(identifier));
+    }
+    // With left bracket
+    *index += 1;
+
+    let next_token = get_next(tokens, *index)?;
+    let left = match next_token.0 {
+        Token::IntConst(left) => left,
+        _ => Err(format!(
+            "Expecting IntConst for shape m at TODO, but found {:?}",
+            next_token
+        ))?,
+    };
+    // The int constant m
+    *index += 1;
+
+    if get_next(tokens, *index)?.0 != Token::COMMA {
+        // Right bracket
+        match_next(tokens, Token::RBRACKET, *index)?;
+        *index += 1;
+
+        return Ok(IdentifierShapeDeclaration::IdentifierArray(identifier, left));
+    }
+    // The comma
+    *index += 1;
+
+    let next_token = get_next(tokens, *index)?;
+    let right = match next_token.0 {
+        Token::IntConst(left) => left,
+        _ => Err(format!(
+            "Expecting IntConst for shape n at TODO, but found {:?}",
+            next_token
+        ))?,
+    };
+    // The int constant n
+    *index += 1;
+
+    // Right bracket
+    match_next(tokens, Token::RBRACKET, *index)?;
+    *index += 1;
+
+    Ok(IdentifierShapeDeclaration::IdentifierArray2D(identifier, left, right))
 }

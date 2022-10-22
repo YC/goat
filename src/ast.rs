@@ -50,10 +50,7 @@ pub struct ProcBody {
 #[derive(Debug)]
 pub struct VariableDeclaration {
     pub r#type: ParameterType,
-    pub identifier: Identifier,
-
-    // [n] or [m, n]
-    pub shape: (u64, u64),
+    pub identifier_declaration: IdentifierShapeDeclaration,
 }
 
 #[derive(Debug)]
@@ -93,6 +90,13 @@ pub enum IdentifierShape {
     Identifier(Identifier),
     IdentifierArray(Identifier, Box<Expression>),
     IdentifierArray2D(Identifier, Box<Expression>, Box<Expression>),
+}
+
+#[derive(Debug)]
+pub enum IdentifierShapeDeclaration {
+    Identifier(Identifier),
+    IdentifierArray(Identifier, u128),
+    IdentifierArray2D(Identifier, u128, u128),
 }
 
 #[derive(Debug)]
