@@ -13,13 +13,14 @@ pub fn parse(tokens: &Vec<TokenInfo>) -> Result<GoatProgram, Box<dyn Error>> {
     Ok(GoatProgram { procedure: procs })
 }
 
-fn match_next(tokens: &Vec<TokenInfo>, token: Token, index: usize) -> Result<(), Box<dyn Error>> {
-    if index >= tokens.len() {
+fn match_next(tokens: &Vec<TokenInfo>, token: Token, index: &mut usize) -> Result<(), Box<dyn Error>> {
+    if *index >= tokens.len() {
         Err("No more input available")?
     }
-    if tokens[index].0 != token {
-        Err(format!("Expected token {:?}, but found {:?}", token, tokens[index]))?
+    if tokens[*index].0 != token {
+        Err(format!("Expected token {:?}, but found {:?}", token, tokens[*index]))?
     }
+    *index += 1;
     Ok(())
 }
 
@@ -32,8 +33,7 @@ fn get_next(tokens: &Vec<TokenInfo>, index: usize) -> Result<&TokenInfo, Box<dyn
 
 fn parse_proc(tokens: &Vec<TokenInfo>, index: &mut usize) -> Result<Procedure, Box<dyn Error>> {
     // proc
-    match_next(tokens, Token::Keyword(Keyword::PROC), *index)?;
-    *index += 1;
+    match_next(tokens, Token::Keyword(Keyword::PROC), index)?;
 
     // Header
     let (identifier, parameters) = parse_header(tokens, index)?;
@@ -50,8 +50,7 @@ fn parse_proc(tokens: &Vec<TokenInfo>, index: &mut usize) -> Result<Procedure, B
     }
 
     // end
-    match_next(tokens, Token::Keyword(Keyword::END), *index)?;
-    *index += 1;
+    match_next(tokens, Token::Keyword(Keyword::END), index)?;
 
     Ok(Procedure {
         identifier,
@@ -65,8 +64,7 @@ fn parse_header(tokens: &Vec<TokenInfo>, index: &mut usize) -> Result<(String, V
     let identifier = parse_identifier(tokens, index)?;
 
     // (
-    match_next(tokens, Token::LPAREN, *index)?;
-    *index += 1;
+    match_next(tokens, Token::LPAREN, index)?;
 
     // 0 or more parameters
     let mut parameters = vec![];
@@ -83,8 +81,7 @@ fn parse_header(tokens: &Vec<TokenInfo>, index: &mut usize) -> Result<(String, V
     }
 
     // )
-    match_next(tokens, Token::RPAREN, *index)?;
-    *index += 1;
+    match_next(tokens, Token::RPAREN, index)?;
 
     Ok((identifier, parameters))
 }
@@ -155,8 +152,7 @@ fn parse_variable_declaration(
     let identifier_declaration = parse_identifier_shape_declaration(tokens, index)?;
 
     // ;
-    match_next(tokens, Token::SEMI, *index)?;
-    *index += 1;
+    match_next(tokens, Token::SEMI, index)?;
 
     Ok(VariableDeclaration {
         r#type,
@@ -191,8 +187,7 @@ fn parse_identifier_shape_declaration(
 
     if get_next(tokens, *index)?.0 != Token::COMMA {
         // Right bracket
-        match_next(tokens, Token::RBRACKET, *index)?;
-        *index += 1;
+        match_next(tokens, Token::RBRACKET, index)?;
 
         return Ok(IdentifierShapeDeclaration::IdentifierArray(identifier, left));
     }
@@ -211,8 +206,7 @@ fn parse_identifier_shape_declaration(
     *index += 1;
 
     // Right bracket
-    match_next(tokens, Token::RBRACKET, *index)?;
-    *index += 1;
+    match_next(tokens, Token::RBRACKET, index)?;
 
     Ok(IdentifierShapeDeclaration::IdentifierArray2D(identifier, left, right))
 }

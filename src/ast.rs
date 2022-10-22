@@ -100,6 +100,7 @@ pub enum IdentifierShapeDeclaration {
 }
 
 #[derive(Debug)]
+#[allow(clippy::upper_case_acronyms)]
 pub enum Binop {
     Add,
     Minus,
@@ -119,6 +120,7 @@ pub enum Binop {
 }
 
 #[derive(Debug)]
+#[allow(clippy::upper_case_acronyms)]
 pub enum Unop {
     NOT,
     Negative,
