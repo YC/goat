@@ -486,6 +486,10 @@ fn parse_expression_terminal(tokens: &Vec<TokenInfo>, index: &mut usize) -> Resu
             *index += 1;
             Expression::FloatConst(n.into())
         }
+        Token::StringConst(n) => {
+            *index += 1;
+            Expression::StringConst(n.into())
+        }
         _ => Err(format!("... {:?}", next_token))?,
     };
 

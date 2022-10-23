@@ -77,7 +77,7 @@ pub fn lex(input: &str) -> Result<Vec<TokenInfo>, Box<dyn Error>> {
     let tokens = execute_nfa(input, nfa)?;
     let filtered = tokens
         .into_iter()
-        .filter(|t| !matches!(t.0, Token::Whitespace(_) | Token::NewLine))
+        .filter(|t| !matches!(t.0, Token::Whitespace(_) | Token::NewLine | Token::Comment(_)))
         .collect::<Vec<TokenInfo>>();
     Ok(filtered)
 }
@@ -516,7 +516,10 @@ fn construct_regex() -> Vec<(RegEx, (u64, Box<TokenFunction>))> {
             RegEx::Star(Box::new(RegEx::Charset(Charset::CharExclude(vec!['"', '\n', '\t'])))),
             RegEx::Charset(Charset::Char('"')),
         ]),
-        (2, Box::new(|s| Token::StringConst(s.to_string()))),
+        (
+            2,
+            Box::new(|s| Token::StringConst(s.strip_prefix("\"").unwrap().strip_suffix("\"").unwrap().to_string())),
+        ),
     ));
 
     // BoolConst
