@@ -518,7 +518,7 @@ fn construct_regex() -> Vec<(RegEx, (u64, Box<TokenFunction>))> {
         ]),
         (
             2,
-            Box::new(|s| Token::StringConst(s.strip_prefix("\"").unwrap().strip_suffix("\"").unwrap().to_string())),
+            Box::new(|s| Token::StringConst(s.strip_prefix('\"').unwrap().strip_suffix('\"').unwrap().to_string())),
         ),
     ));
 

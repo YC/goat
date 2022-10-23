@@ -307,10 +307,7 @@ fn wrap_bracket(wrap: bool, input: String) -> String {
 
 impl Expression {
     fn is_binop(&self) -> bool {
-        match self {
-            Expression::BinopExpr(_, _, _) => true,
-            _ => false,
-        }
+        matches!(self, Expression::BinopExpr(_, _, _))
     }
 }
 
