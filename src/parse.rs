@@ -41,6 +41,12 @@ fn parse_proc(tokens: &Vec<TokenInfo>, index: &mut usize) -> Result<Procedure, B
     // Header
     let (identifier, parameters) = parse_header(tokens, index)?;
 
+    // Variable declarations
+    let mut variable_declarations = vec![];
+    while get_next(tokens, *index)?.0 != Token::Keyword(Keyword::BEGIN) {
+        variable_declarations.push(parse_variable_declaration(tokens, index)?);
+    }
+
     // Body
     let body = parse_body(tokens, index)?;
 
@@ -58,6 +64,7 @@ fn parse_proc(tokens: &Vec<TokenInfo>, index: &mut usize) -> Result<Procedure, B
     Ok(Procedure {
         identifier,
         parameters,
+        variable_declarations,
         body,
     })
 }
@@ -140,17 +147,8 @@ fn parse_type(tokens: &Vec<TokenInfo>, index: &mut usize) -> Result<ParameterTyp
     Ok(r#type)
 }
 
-fn parse_body(tokens: &Vec<TokenInfo>, index: &mut usize) -> Result<ProcBody, Box<dyn Error>> {
-    let mut variable_declarations = vec![];
-
-    while get_next(tokens, *index)?.0 != Token::Keyword(Keyword::BEGIN) {
-        variable_declarations.push(parse_variable_declaration(tokens, index)?);
-    }
-
-    Ok(ProcBody {
-        variable_declarations,
-        statements: vec![],
-    })
+fn parse_body(_tokens: &Vec<TokenInfo>, _index: &mut usize) -> Result<ProcBody, Box<dyn Error>> {
+    Ok(ProcBody { statements: vec![] })
 }
 
 fn parse_variable_declaration(

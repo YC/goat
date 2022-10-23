@@ -36,15 +36,16 @@ fn main() -> Result<(), Box<dyn Error>> {
         Some(value) => value,
     };
 
-    println!("{} invoked with file: {}, pretty: {}", arguments[0], filename, pretty);
+    eprintln!("{} invoked with file: {}, pretty: {}", arguments[0], filename, pretty);
 
     let contents = std::fs::read_to_string(filename).expect("cannot read from file");
 
     let tokens = lex(&contents)?;
-    println!("{:?}", tokens);
+    eprintln!("{:?}", tokens);
 
-    let parsed = parse(&tokens);
-    println!("{:?}", parsed);
+    let parsed = parse(&tokens)?;
+    eprintln!("{:?}", parsed);
+    println!("{}", parsed);
 
     Ok(())
 }
