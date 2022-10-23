@@ -138,7 +138,7 @@ impl Display for IdentifierShapeDeclaration {
         let s = match self {
             Self::Identifier(ident) => ident.clone(),
             Self::IdentifierArray(ident, m) => format!("{}[{}]", ident, m),
-            Self::IdentifierArray2D(ident, m, n) => format!("{}[{},{}]", ident, m, n),
+            Self::IdentifierArray2D(ident, m, n) => format!("{}[{}, {}]", ident, m, n),
         };
         write!(f, "{}", s)
     }

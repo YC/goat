@@ -47,16 +47,11 @@ fn parse_proc(tokens: &Vec<TokenInfo>, index: &mut usize) -> Result<Procedure, B
         variable_declarations.push(parse_variable_declaration(tokens, index)?);
     }
 
+    // begin
+    match_next(tokens, Token::Keyword(Keyword::BEGIN), index)?;
+
     // Body
     let body = parse_body(tokens, index)?;
-
-    // TODO: remove
-    for i in *index..tokens.len() {
-        if tokens[i].0 == Token::Keyword(Keyword::END) {
-            *index = i;
-            break;
-        }
-    }
 
     // end
     match_next(tokens, Token::Keyword(Keyword::END), index)?;
@@ -147,10 +142,6 @@ fn parse_type(tokens: &Vec<TokenInfo>, index: &mut usize) -> Result<ParameterTyp
     Ok(r#type)
 }
 
-fn parse_body(_tokens: &Vec<TokenInfo>, _index: &mut usize) -> Result<ProcBody, Box<dyn Error>> {
-    Ok(ProcBody { statements: vec![] })
-}
-
 fn parse_variable_declaration(
     tokens: &Vec<TokenInfo>,
     index: &mut usize,
@@ -219,4 +210,255 @@ fn parse_identifier_shape_declaration(
     match_next(tokens, Token::RBRACKET, index)?;
 
     Ok(IdentifierShapeDeclaration::IdentifierArray2D(identifier, left, right))
+}
+
+fn parse_body(tokens: &Vec<TokenInfo>, index: &mut usize) -> Result<ProcBody, Box<dyn Error>> {
+    let statements = parse_statement_list(tokens, index)?;
+    Ok(ProcBody { statements })
+}
+
+fn parse_statement_list(tokens: &Vec<TokenInfo>, index: &mut usize) -> Result<Vec<Statement>, Box<dyn Error>> {
+    let mut statements = vec![];
+    while get_next(tokens, *index)?.0 != Token::Keyword(Keyword::END)
+        && get_next(tokens, *index)?.0 != Token::Keyword(Keyword::FI)
+        && get_next(tokens, *index)?.0 != Token::Keyword(Keyword::ELSE)
+        && get_next(tokens, *index)?.0 != Token::Keyword(Keyword::OD)
+    {
+        statements.push(parse_statement(tokens, index)?)
+    }
+    Ok(statements)
+}
+
+fn parse_statement(tokens: &Vec<TokenInfo>, index: &mut usize) -> Result<Statement, Box<dyn Error>> {
+    let next_token = get_next(tokens, *index)?;
+
+    let statement = match next_token.0 {
+        Token::Ident(_) => {
+            // <id> [ <expr>, <expr> ] := <expr>;
+            let identifier_shape = parse_identifier_shape(tokens, index)?;
+            match_next(tokens, Token::ASSIGN, index)?;
+            let expr = parse_expression(tokens, index)?;
+            match_next(tokens, Token::SEMI, index)?;
+            Statement::Assign(identifier_shape, expr)
+        }
+        Token::Keyword(Keyword::READ) => {
+            // read <id> [ <expr>, <expr> ];
+            match_next(tokens, Token::Keyword(Keyword::READ), index)?;
+            let identifier_shape = parse_identifier_shape(tokens, index)?;
+            match_next(tokens, Token::SEMI, index)?;
+            Statement::Read(identifier_shape)
+        }
+        Token::Keyword(Keyword::WRITE) => {
+            // write <expr>;
+            match_next(tokens, Token::Keyword(Keyword::WRITE), index)?;
+            let expr = parse_expression(tokens, index)?;
+            match_next(tokens, Token::SEMI, index)?;
+            Statement::Write(expr)
+        }
+        Token::Keyword(Keyword::CALL) => {
+            // call
+            match_next(tokens, Token::Keyword(Keyword::CALL), index)?;
+
+            // <id>
+            let identifier = parse_identifier(tokens, index)?;
+
+            // (
+            match_next(tokens, Token::LPAREN, index)?;
+
+            // <expr-list>
+            let mut params = vec![];
+            while get_next(tokens, *index)?.0 != Token::RPAREN {
+                params.push(parse_expression(tokens, index)?);
+            }
+
+            // );
+            match_next(tokens, Token::RPAREN, index)?;
+            match_next(tokens, Token::SEMI, index)?;
+
+            Statement::Call(identifier, params)
+        }
+        Token::Keyword(Keyword::WHILE) => {
+            // while <expr> do <stmt-list> od
+            match_next(tokens, Token::Keyword(Keyword::WHILE), index)?;
+            let expr = parse_expression(tokens, index)?;
+            match_next(tokens, Token::Keyword(Keyword::DO), index)?;
+            let statement_list = parse_statement_list(tokens, index)?;
+            match_next(tokens, Token::Keyword(Keyword::OD), index)?;
+            Statement::While(expr, statement_list)
+        }
+        Token::Keyword(Keyword::IF) => {
+            // if <expr> then <stmt-list> fi
+            match_next(tokens, Token::Keyword(Keyword::IF), index)?;
+            let expr = parse_expression(tokens, index)?;
+            match_next(tokens, Token::Keyword(Keyword::THEN), index)?;
+            let stmt_list = parse_statement_list(tokens, index)?;
+
+            let next_token = get_next(tokens, *index)?;
+            if next_token.0 != Token::Keyword(Keyword::ELSE) {
+                match_next(tokens, Token::Keyword(Keyword::FI), index)?;
+                Statement::If(expr, stmt_list)
+            } else {
+                // if <expr> then <stmt-list> else <stmt-list> fi
+                match_next(tokens, Token::Keyword(Keyword::ELSE), index)?;
+                let else_stmt_list = parse_statement_list(tokens, index)?;
+                match_next(tokens, Token::Keyword(Keyword::FI), index)?;
+                Statement::IfElse(expr, stmt_list, else_stmt_list)
+            }
+        }
+        _ => Err(format!(
+            "Expected statement at {:?}, but found {:?}",
+            next_token.1, next_token.0
+        ))?,
+    };
+
+    Ok(statement)
+}
+
+fn parse_expression(tokens: &Vec<TokenInfo>, index: &mut usize) -> Result<Expression, Box<dyn Error>> {
+    let next_token = get_next(tokens, *index)?;
+
+    let expr_left = match &next_token.0 {
+        Token::Ident(_) => Expression::IdentifierShape(parse_identifier_shape(tokens, index)?),
+        Token::IntConst(n) => {
+            *index += 1;
+            Expression::IntConst(*n)
+        }
+        Token::Keyword(Keyword::TRUE) => {
+            *index += 1;
+            Expression::BoolConst(true)
+        }
+        Token::Keyword(Keyword::FALSE) => {
+            *index += 1;
+            Expression::BoolConst(false)
+        }
+        Token::BoolConst(b) => {
+            *index += 1;
+            Expression::BoolConst(*b)
+        }
+        Token::FloatConst(n) => {
+            *index += 1;
+            Expression::FloatConst(n.into())
+        }
+        Token::NEG => {
+            match_next(tokens, Token::NEG, index)?;
+            let subexpr = parse_expression(tokens, index)?;
+            Expression::UnopExpr(Unop::NOT, Box::new(subexpr))
+        }
+        Token::SUB => {
+            match_next(tokens, Token::SUB, index)?;
+            let subexpr = parse_expression(tokens, index)?;
+            Expression::UnopExpr(Unop::Negative, Box::new(subexpr))
+        }
+        Token::LBRACKET => {
+            match_next(tokens, Token::LBRACKET, index)?;
+            let subexpr = parse_expression(tokens, index)?;
+            match_next(tokens, Token::RBRACKET, index)?;
+            subexpr
+        }
+        _ => Err(format!(
+            "Expected expression at {:?}, found {:?}",
+            next_token.1, next_token.0
+        ))?,
+    };
+
+    let next_token = get_next(tokens, *index)?;
+    let expr = match next_token.0 {
+        Token::ADD => {
+            match_next(tokens, Token::ADD, index)?;
+            let expr_right = parse_expression(tokens, index)?;
+            Expression::BinopExpr(Binop::Add, Box::new(expr_left), Box::new(expr_right))
+        }
+        Token::SUB => {
+            match_next(tokens, Token::SUB, index)?;
+            let expr_right = parse_expression(tokens, index)?;
+            Expression::BinopExpr(Binop::Minus, Box::new(expr_left), Box::new(expr_right))
+        }
+        Token::MUL => {
+            match_next(tokens, Token::MUL, index)?;
+            let expr_right = parse_expression(tokens, index)?;
+            Expression::BinopExpr(Binop::Multiply, Box::new(expr_left), Box::new(expr_right))
+        }
+        Token::DIV => {
+            match_next(tokens, Token::DIV, index)?;
+            let expr_right = parse_expression(tokens, index)?;
+            Expression::BinopExpr(Binop::Divide, Box::new(expr_left), Box::new(expr_right))
+        }
+        Token::OR => {
+            match_next(tokens, Token::OR, index)?;
+            let expr_right = parse_expression(tokens, index)?;
+            Expression::BinopExpr(Binop::OR, Box::new(expr_left), Box::new(expr_right))
+        }
+        Token::AND => {
+            match_next(tokens, Token::AND, index)?;
+            let expr_right = parse_expression(tokens, index)?;
+            Expression::BinopExpr(Binop::AND, Box::new(expr_left), Box::new(expr_right))
+        }
+        Token::EQ => {
+            match_next(tokens, Token::EQ, index)?;
+            let expr_right = parse_expression(tokens, index)?;
+            Expression::BinopExpr(Binop::EQ, Box::new(expr_left), Box::new(expr_right))
+        }
+        Token::NE => {
+            match_next(tokens, Token::NE, index)?;
+            let expr_right = parse_expression(tokens, index)?;
+            Expression::BinopExpr(Binop::NEQ, Box::new(expr_left), Box::new(expr_right))
+        }
+        Token::LT => {
+            match_next(tokens, Token::LT, index)?;
+            let expr_right = parse_expression(tokens, index)?;
+            Expression::BinopExpr(Binop::LT, Box::new(expr_left), Box::new(expr_right))
+        }
+        Token::LTE => {
+            match_next(tokens, Token::LTE, index)?;
+            let expr_right = parse_expression(tokens, index)?;
+            Expression::BinopExpr(Binop::LTE, Box::new(expr_left), Box::new(expr_right))
+        }
+        Token::GT => {
+            match_next(tokens, Token::GT, index)?;
+            let expr_right = parse_expression(tokens, index)?;
+            Expression::BinopExpr(Binop::GT, Box::new(expr_left), Box::new(expr_right))
+        }
+        Token::GTE => {
+            match_next(tokens, Token::GTE, index)?;
+            let expr_right = parse_expression(tokens, index)?;
+            Expression::BinopExpr(Binop::GTE, Box::new(expr_left), Box::new(expr_right))
+        }
+        _ => expr_left,
+    };
+
+    Ok(expr)
+}
+
+fn parse_identifier_shape(tokens: &Vec<TokenInfo>, index: &mut usize) -> Result<IdentifierShape, Box<dyn Error>> {
+    // Identifier
+    let identifier = parse_identifier(tokens, index)?;
+
+    // No left bracket
+    if get_next(tokens, *index)?.0 != Token::LBRACKET {
+        return Ok(IdentifierShape::Identifier(identifier));
+    }
+    // With left bracket
+    *index += 1;
+
+    let expr_left = parse_expression(tokens, index)?;
+
+    if get_next(tokens, *index)?.0 != Token::COMMA {
+        // Right bracket
+        match_next(tokens, Token::RBRACKET, index)?;
+
+        return Ok(IdentifierShape::IdentifierArray(identifier, Box::new(expr_left)));
+    }
+    // The comma
+    *index += 1;
+
+    let expr_right = parse_expression(tokens, index)?;
+
+    // Right bracket
+    match_next(tokens, Token::RBRACKET, index)?;
+
+    Ok(IdentifierShape::IdentifierArray2D(
+        identifier,
+        Box::new(expr_left),
+        Box::new(expr_right),
+    ))
 }
