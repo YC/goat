@@ -290,7 +290,7 @@ impl Display for Expression {
                 )
             }
             Self::UnopExpr(op, expr) => {
-                format!("{}{}", op, expr)
+                format!("{}{}", op, wrap_bracket(expr.is_binop(), expr.to_string()))
             }
         };
         write!(f, "{}", s)

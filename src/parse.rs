@@ -343,14 +343,13 @@ fn parse_expression_and(tokens: &Vec<TokenInfo>, index: &mut usize) -> Result<Ex
 }
 
 fn parse_expression_not(tokens: &Vec<TokenInfo>, index: &mut usize) -> Result<Expression, Box<dyn Error>> {
-    let mut current = parse_expression_comparison(tokens, index)?;
-
-    while let Token::NOT = get_next(tokens, *index)?.0 {
+    if let Token::NOT = get_next(tokens, *index)?.0 {
         match_next(tokens, Token::NOT, index)?;
-        current = Expression::UnopExpr(Unop::NOT, Box::new(current));
+        let right = parse_expression_not(tokens, index)?;
+        Ok(Expression::UnopExpr(Unop::NOT, Box::new(right)))
+    } else {
+        Ok(parse_expression_comparison(tokens, index)?)
     }
-
-    Ok(current)
 }
 
 fn parse_expression_comparison(tokens: &Vec<TokenInfo>, index: &mut usize) -> Result<Expression, Box<dyn Error>> {
@@ -424,19 +423,19 @@ fn parse_expression_add_sub(tokens: &Vec<TokenInfo>, index: &mut usize) -> Resul
 }
 
 fn parse_expression_mul_div(tokens: &Vec<TokenInfo>, index: &mut usize) -> Result<Expression, Box<dyn Error>> {
-    let mut current = parse_expression_terminal(tokens, index)?;
+    let mut current = parse_expression_unary_minus(tokens, index)?;
 
     loop {
         let next_token = get_next(tokens, *index)?;
         if let Token::MUL = next_token.0 {
             match_next(tokens, Token::MUL, index)?;
-            let right = parse_expression_terminal(tokens, index)?;
+            let right = parse_expression_unary_minus(tokens, index)?;
             current = Expression::BinopExpr(Binop::Multiply, Box::new(current), Box::new(right));
             continue;
         }
         if let Token::DIV = next_token.0 {
             match_next(tokens, Token::DIV, index)?;
-            let right = parse_expression_terminal(tokens, index)?;
+            let right = parse_expression_unary_minus(tokens, index)?;
             current = Expression::BinopExpr(Binop::Divide, Box::new(current), Box::new(right));
             continue;
         }
@@ -444,6 +443,16 @@ fn parse_expression_mul_div(tokens: &Vec<TokenInfo>, index: &mut usize) -> Resul
     }
 
     Ok(current)
+}
+
+fn parse_expression_unary_minus(tokens: &Vec<TokenInfo>, index: &mut usize) -> Result<Expression, Box<dyn Error>> {
+    if let Token::SUB = get_next(tokens, *index)?.0 {
+        match_next(tokens, Token::SUB, index)?;
+        let right = parse_expression_unary_minus(tokens, index)?;
+        Ok(Expression::UnopExpr(Unop::Minus, Box::new(right)))
+    } else {
+        Ok(parse_expression_terminal(tokens, index)?)
+    }
 }
 
 fn parse_expression_terminal(tokens: &Vec<TokenInfo>, index: &mut usize) -> Result<Expression, Box<dyn Error>> {
@@ -455,13 +464,6 @@ fn parse_expression_terminal(tokens: &Vec<TokenInfo>, index: &mut usize) -> Resu
         let expr = parse_expression(tokens, index)?;
         match_next(tokens, Token::RPAREN, index)?;
         return Ok(expr);
-    }
-
-    // Unary minus has highest precedence
-    if let Token::SUB = next_token.0 {
-        match_next(tokens, Token::SUB, index)?;
-        let subexpr = parse_expression(tokens, index)?;
-        return Ok(Expression::UnopExpr(Unop::Minus, Box::new(subexpr)));
     }
 
     let expr = match &next_token.0 {
