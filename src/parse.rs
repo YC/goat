@@ -315,9 +315,156 @@ fn parse_statement(tokens: &Vec<TokenInfo>, index: &mut usize) -> Result<Stateme
 }
 
 fn parse_expression(tokens: &Vec<TokenInfo>, index: &mut usize) -> Result<Expression, Box<dyn Error>> {
+    parse_expression_or(tokens, index)
+}
+
+fn parse_expression_or(tokens: &Vec<TokenInfo>, index: &mut usize) -> Result<Expression, Box<dyn Error>> {
+    let mut current = parse_expression_and(tokens, index)?;
+
+    while let Token::OR = get_next(tokens, *index)?.0 {
+        match_next(tokens, Token::OR, index)?;
+        let right = parse_expression_and(tokens, index)?;
+        current = Expression::BinopExpr(Binop::OR, Box::new(current), Box::new(right));
+    }
+
+    Ok(current)
+}
+
+fn parse_expression_and(tokens: &Vec<TokenInfo>, index: &mut usize) -> Result<Expression, Box<dyn Error>> {
+    let mut current = parse_expression_not(tokens, index)?;
+
+    while let Token::AND = get_next(tokens, *index)?.0 {
+        match_next(tokens, Token::AND, index)?;
+        let right = parse_expression_not(tokens, index)?;
+        current = Expression::BinopExpr(Binop::AND, Box::new(current), Box::new(right));
+    }
+
+    Ok(current)
+}
+
+fn parse_expression_not(tokens: &Vec<TokenInfo>, index: &mut usize) -> Result<Expression, Box<dyn Error>> {
+    let mut current = parse_expression_comparison(tokens, index)?;
+
+    while let Token::NOT = get_next(tokens, *index)?.0 {
+        match_next(tokens, Token::NOT, index)?;
+        current = Expression::UnopExpr(Unop::NOT, Box::new(current));
+    }
+
+    Ok(current)
+}
+
+fn parse_expression_comparison(tokens: &Vec<TokenInfo>, index: &mut usize) -> Result<Expression, Box<dyn Error>> {
+    let mut current = parse_expression_add_sub(tokens, index)?;
+
+    loop {
+        let next_token = get_next(tokens, *index)?;
+        if let Token::GT = next_token.0 {
+            match_next(tokens, Token::GT, index)?;
+            let right = parse_expression_add_sub(tokens, index)?;
+            current = Expression::BinopExpr(Binop::GT, Box::new(current), Box::new(right));
+            continue;
+        }
+        if let Token::GTE = next_token.0 {
+            match_next(tokens, Token::GTE, index)?;
+            let right = parse_expression_add_sub(tokens, index)?;
+            current = Expression::BinopExpr(Binop::GTE, Box::new(current), Box::new(right));
+            continue;
+        }
+        if let Token::LT = next_token.0 {
+            match_next(tokens, Token::LT, index)?;
+            let right = parse_expression_add_sub(tokens, index)?;
+            current = Expression::BinopExpr(Binop::LT, Box::new(current), Box::new(right));
+            continue;
+        }
+        if let Token::LTE = next_token.0 {
+            match_next(tokens, Token::LTE, index)?;
+            let right = parse_expression_add_sub(tokens, index)?;
+            current = Expression::BinopExpr(Binop::LTE, Box::new(current), Box::new(right));
+            continue;
+        }
+        if let Token::EQ = next_token.0 {
+            match_next(tokens, Token::EQ, index)?;
+            let right = parse_expression_add_sub(tokens, index)?;
+            current = Expression::BinopExpr(Binop::EQ, Box::new(current), Box::new(right));
+            continue;
+        }
+        if let Token::NE = next_token.0 {
+            match_next(tokens, Token::NE, index)?;
+            let right = parse_expression_add_sub(tokens, index)?;
+            current = Expression::BinopExpr(Binop::NEQ, Box::new(current), Box::new(right));
+            continue;
+        }
+        break;
+    }
+
+    Ok(current)
+}
+
+fn parse_expression_add_sub(tokens: &Vec<TokenInfo>, index: &mut usize) -> Result<Expression, Box<dyn Error>> {
+    let mut current = parse_expression_mul_div(tokens, index)?;
+
+    loop {
+        let next_token = get_next(tokens, *index)?;
+        if let Token::ADD = next_token.0 {
+            match_next(tokens, Token::ADD, index)?;
+            let right = parse_expression_mul_div(tokens, index)?;
+            current = Expression::BinopExpr(Binop::Add, Box::new(current), Box::new(right));
+            continue;
+        }
+        if let Token::SUB = next_token.0 {
+            match_next(tokens, Token::SUB, index)?;
+            let right = parse_expression_mul_div(tokens, index)?;
+            current = Expression::BinopExpr(Binop::Minus, Box::new(current), Box::new(right));
+            continue;
+        }
+        break;
+    }
+
+    Ok(current)
+}
+
+fn parse_expression_mul_div(tokens: &Vec<TokenInfo>, index: &mut usize) -> Result<Expression, Box<dyn Error>> {
+    let mut current = parse_expression_terminal(tokens, index)?;
+
+    loop {
+        let next_token = get_next(tokens, *index)?;
+        if let Token::MUL = next_token.0 {
+            match_next(tokens, Token::MUL, index)?;
+            let right = parse_expression_terminal(tokens, index)?;
+            current = Expression::BinopExpr(Binop::Multiply, Box::new(current), Box::new(right));
+            continue;
+        }
+        if let Token::DIV = next_token.0 {
+            match_next(tokens, Token::DIV, index)?;
+            let right = parse_expression_terminal(tokens, index)?;
+            current = Expression::BinopExpr(Binop::Divide, Box::new(current), Box::new(right));
+            continue;
+        }
+        break;
+    }
+
+    Ok(current)
+}
+
+fn parse_expression_terminal(tokens: &Vec<TokenInfo>, index: &mut usize) -> Result<Expression, Box<dyn Error>> {
     let next_token = get_next(tokens, *index)?;
 
-    let expr_left = match &next_token.0 {
+    // Brackets
+    if let Token::LPAREN = next_token.0 {
+        match_next(tokens, Token::LPAREN, index)?;
+        let expr = parse_expression(tokens, index)?;
+        match_next(tokens, Token::RPAREN, index)?;
+        return Ok(expr);
+    }
+
+    // Unary minus has highest precedence
+    if let Token::SUB = next_token.0 {
+        match_next(tokens, Token::SUB, index)?;
+        let subexpr = parse_expression(tokens, index)?;
+        return Ok(Expression::UnopExpr(Unop::Minus, Box::new(subexpr)));
+    }
+
+    let expr = match &next_token.0 {
         Token::Ident(_) => Expression::IdentifierShape(parse_identifier_shape(tokens, index)?),
         Token::IntConst(n) => {
             *index += 1;
@@ -339,91 +486,7 @@ fn parse_expression(tokens: &Vec<TokenInfo>, index: &mut usize) -> Result<Expres
             *index += 1;
             Expression::FloatConst(n.into())
         }
-        Token::NEG => {
-            match_next(tokens, Token::NEG, index)?;
-            let subexpr = parse_expression(tokens, index)?;
-            Expression::UnopExpr(Unop::NOT, Box::new(subexpr))
-        }
-        Token::SUB => {
-            match_next(tokens, Token::SUB, index)?;
-            let subexpr = parse_expression(tokens, index)?;
-            Expression::UnopExpr(Unop::Negative, Box::new(subexpr))
-        }
-        Token::LBRACKET => {
-            match_next(tokens, Token::LBRACKET, index)?;
-            let subexpr = parse_expression(tokens, index)?;
-            match_next(tokens, Token::RBRACKET, index)?;
-            subexpr
-        }
-        _ => Err(format!(
-            "Expected expression at {:?}, found {:?}",
-            next_token.1, next_token.0
-        ))?,
-    };
-
-    let next_token = get_next(tokens, *index)?;
-    let expr = match next_token.0 {
-        Token::ADD => {
-            match_next(tokens, Token::ADD, index)?;
-            let expr_right = parse_expression(tokens, index)?;
-            Expression::BinopExpr(Binop::Add, Box::new(expr_left), Box::new(expr_right))
-        }
-        Token::SUB => {
-            match_next(tokens, Token::SUB, index)?;
-            let expr_right = parse_expression(tokens, index)?;
-            Expression::BinopExpr(Binop::Minus, Box::new(expr_left), Box::new(expr_right))
-        }
-        Token::MUL => {
-            match_next(tokens, Token::MUL, index)?;
-            let expr_right = parse_expression(tokens, index)?;
-            Expression::BinopExpr(Binop::Multiply, Box::new(expr_left), Box::new(expr_right))
-        }
-        Token::DIV => {
-            match_next(tokens, Token::DIV, index)?;
-            let expr_right = parse_expression(tokens, index)?;
-            Expression::BinopExpr(Binop::Divide, Box::new(expr_left), Box::new(expr_right))
-        }
-        Token::OR => {
-            match_next(tokens, Token::OR, index)?;
-            let expr_right = parse_expression(tokens, index)?;
-            Expression::BinopExpr(Binop::OR, Box::new(expr_left), Box::new(expr_right))
-        }
-        Token::AND => {
-            match_next(tokens, Token::AND, index)?;
-            let expr_right = parse_expression(tokens, index)?;
-            Expression::BinopExpr(Binop::AND, Box::new(expr_left), Box::new(expr_right))
-        }
-        Token::EQ => {
-            match_next(tokens, Token::EQ, index)?;
-            let expr_right = parse_expression(tokens, index)?;
-            Expression::BinopExpr(Binop::EQ, Box::new(expr_left), Box::new(expr_right))
-        }
-        Token::NE => {
-            match_next(tokens, Token::NE, index)?;
-            let expr_right = parse_expression(tokens, index)?;
-            Expression::BinopExpr(Binop::NEQ, Box::new(expr_left), Box::new(expr_right))
-        }
-        Token::LT => {
-            match_next(tokens, Token::LT, index)?;
-            let expr_right = parse_expression(tokens, index)?;
-            Expression::BinopExpr(Binop::LT, Box::new(expr_left), Box::new(expr_right))
-        }
-        Token::LTE => {
-            match_next(tokens, Token::LTE, index)?;
-            let expr_right = parse_expression(tokens, index)?;
-            Expression::BinopExpr(Binop::LTE, Box::new(expr_left), Box::new(expr_right))
-        }
-        Token::GT => {
-            match_next(tokens, Token::GT, index)?;
-            let expr_right = parse_expression(tokens, index)?;
-            Expression::BinopExpr(Binop::GT, Box::new(expr_left), Box::new(expr_right))
-        }
-        Token::GTE => {
-            match_next(tokens, Token::GTE, index)?;
-            let expr_right = parse_expression(tokens, index)?;
-            Expression::BinopExpr(Binop::GTE, Box::new(expr_left), Box::new(expr_right))
-        }
-        _ => expr_left,
+        _ => Err(format!("... {:?}", next_token))?,
     };
 
     Ok(expr)

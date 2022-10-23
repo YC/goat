@@ -543,7 +543,7 @@ fn construct_regex() -> Vec<(RegEx, (u64, Box<TokenFunction>))> {
     regex.push((RegEx::Literal(";".to_string()), (1, Box::new(|_| Token::SEMI))));
     regex.push((RegEx::Literal("||".to_string()), (1, Box::new(|_| Token::OR))));
     regex.push((RegEx::Literal("&&".to_string()), (1, Box::new(|_| Token::AND))));
-    regex.push((RegEx::Literal("!".to_string()), (1, Box::new(|_| Token::NEG))));
+    regex.push((RegEx::Literal("!".to_string()), (1, Box::new(|_| Token::NOT))));
     regex.push((RegEx::Literal("=".to_string()), (1, Box::new(|_| Token::EQ))));
     regex.push((RegEx::Literal("!=".to_string()), (1, Box::new(|_| Token::NE))));
 

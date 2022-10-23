@@ -36,7 +36,7 @@ pub enum Token {
     SEMI,
     OR,
     AND,
-    NEG,
+    NOT,
     EQ,
     NE,
 
@@ -73,7 +73,7 @@ impl Token {
             Token::SEMI => ";".to_string(),
             Token::EQ => "=".to_string(),
             Token::NE => "!=".to_string(),
-            Token::NEG => "!".to_string(),
+            Token::NOT => "!".to_string(),
             Token::OR => "||".to_string(),
             Token::AND => "&&".to_string(),
             Token::LT => "<".to_string(),

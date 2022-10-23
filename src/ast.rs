@@ -378,14 +378,14 @@ impl Display for Binop {
 #[allow(clippy::upper_case_acronyms)]
 pub enum Unop {
     NOT,
-    Negative,
+    Minus,
 }
 
 impl Display for Unop {
     fn fmt(&self, f: &mut Formatter) -> Result {
         let s = match self {
             Unop::NOT => "!",
-            Unop::Negative => "-",
+            Unop::Minus => "-",
         };
         write!(f, "{}", s)
     }
