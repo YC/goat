@@ -39,7 +39,7 @@ impl Display for Procedure {
     fn fmt(&self, f: &mut Formatter) -> Result {
         write!(
             f,
-            "proc {} ({})\n{}{}begin\n???\nend",
+            "proc {} ({})\n{}{}begin\n{}\nend",
             self.identifier,
             self.parameters
                 .iter()
@@ -56,6 +56,7 @@ impl Display for Procedure {
             } else {
                 "\n"
             },
+            self.body
         )
     }
 }
@@ -114,6 +115,18 @@ pub struct ProcBody {
     pub statements: Vec<Statement>,
 }
 
+impl Display for ProcBody {
+    fn fmt(&self, f: &mut Formatter) -> Result {
+        let s = self
+            .statements
+            .iter()
+            .map(|s| format!("{}", s))
+            .collect::<Vec<String>>()
+            .join("\n");
+        write!(f, "{}", s)
+    }
+}
+
 #[derive(Debug)]
 pub struct VariableDeclaration {
     pub r#type: ParameterType,
@@ -156,6 +169,89 @@ pub enum Statement {
     While(Expression, Vec<Statement>),
 }
 
+impl Display for Statement {
+    fn fmt(&self, f: &mut Formatter) -> Result {
+        write!(f, "{}", pad_space(self.pretty_print(), 1))
+    }
+}
+
+fn pad_space(s: String, level: u64) -> String {
+    let repeat = " ".repeat(level as usize * 4);
+    s.split('\n')
+        .map(|s| repeat.clone() + s)
+        .collect::<Vec<String>>()
+        .join("\n")
+}
+
+impl Statement {
+    fn pretty_print(&self) -> String {
+        match self {
+            Statement::Assign(ident, expr) => {
+                format!("{} := {};", ident, expr)
+            }
+            Statement::Read(ident) => {
+                format!("read {};", ident)
+            }
+            Statement::Write(expr) => {
+                format!("write {};", expr)
+            }
+            Statement::Call(ident, expr_list) => {
+                format!(
+                    "call {}({});",
+                    ident,
+                    expr_list
+                        .iter()
+                        .map(|s| format!("{}", s))
+                        .collect::<Vec<String>>()
+                        .join(", ")
+                )
+            }
+            Statement::While(expr, stmt_list) => {
+                format!(
+                    "while {} do\n{}{}od",
+                    expr,
+                    stmt_list
+                        .iter()
+                        .map(|s| format!("{}", s))
+                        .collect::<Vec<String>>()
+                        .join("\n"),
+                    if !stmt_list.is_empty() { "\n" } else { "" },
+                )
+            }
+            Statement::If(expr, stmt_list) => {
+                format!(
+                    "if {} then\n{}{}fi",
+                    expr,
+                    stmt_list
+                        .iter()
+                        .map(|s| format!("{}", s))
+                        .collect::<Vec<String>>()
+                        .join("\n"),
+                    if !stmt_list.is_empty() { "\n" } else { "" },
+                )
+            }
+            Statement::IfElse(expr, stmt_if, stmt_else) => {
+                format!(
+                    "if {} then\n{}{}else\n{}{}fi",
+                    expr,
+                    stmt_if
+                        .iter()
+                        .map(|s| format!("{}", s))
+                        .collect::<Vec<String>>()
+                        .join("\n"),
+                    if !stmt_if.is_empty() { "\n" } else { "" },
+                    stmt_else
+                        .iter()
+                        .map(|s| format!("{}", s))
+                        .collect::<Vec<String>>()
+                        .join("\n"),
+                    if !stmt_else.is_empty() { "\n" } else { "" },
+                )
+            }
+        }
+    }
+}
+
 #[derive(Debug)]
 pub enum Expression {
     /// identifier with shape
@@ -176,11 +272,42 @@ pub enum Expression {
     UnopExpr(Unop, Box<Expression>),
 }
 
+impl Display for Expression {
+    fn fmt(&self, f: &mut Formatter) -> Result {
+        let s = match self {
+            Self::IdentifierShape(s) => s.to_string(),
+            Self::IntConst(n) => n.to_string(),
+            Self::FloatConst(n) => n.to_string(),
+            Self::BoolConst(true) => "true".to_string(),
+            Self::BoolConst(false) => "false".to_string(),
+            Self::StringConst(s) => format!("\"{}\"", s),
+            Self::BinopExpr(op, expr_left, expr_right) => {
+                format!("?e?")
+            }
+            Self::UnopExpr(op, expr) => {
+                format!("{}{}", op, expr)
+            }
+        };
+        write!(f, "{}", s)
+    }
+}
+
 #[derive(Debug)]
 pub enum IdentifierShape {
     Identifier(Identifier),
     IdentifierArray(Identifier, Box<Expression>),
     IdentifierArray2D(Identifier, Box<Expression>, Box<Expression>),
+}
+
+impl Display for IdentifierShape {
+    fn fmt(&self, f: &mut Formatter) -> Result {
+        let s = match self {
+            Self::Identifier(ident) => ident.clone(),
+            Self::IdentifierArray(ident, m) => format!("{}[{}]", ident, m),
+            Self::IdentifierArray2D(ident, m, n) => format!("{}[{}, {}]", ident, m, n),
+        };
+        write!(f, "{}", s)
+    }
 }
 
 #[derive(Debug)]
@@ -203,9 +330,41 @@ pub enum Binop {
     GTE,
 }
 
+impl Display for Binop {
+    fn fmt(&self, f: &mut Formatter) -> Result {
+        let s = match self {
+            Binop::Add => "+",
+            Binop::Minus => "-",
+            Binop::Multiply => "*",
+            Binop::Divide => "/",
+
+            Binop::OR => "||",
+            Binop::AND => "&&",
+            Binop::EQ => "=",
+            Binop::NEQ => "!=",
+
+            Binop::LT => "<",
+            Binop::LTE => "<=",
+            Binop::GT => ">",
+            Binop::GTE => ">=",
+        };
+        write!(f, "{}", s)
+    }
+}
+
 #[derive(Debug)]
 #[allow(clippy::upper_case_acronyms)]
 pub enum Unop {
     NOT,
     Negative,
+}
+
+impl Display for Unop {
+    fn fmt(&self, f: &mut Formatter) -> Result {
+        let s = match self {
+            Unop::NOT => "!",
+            Unop::Negative => "-",
+        };
+        write!(f, "{}", s)
+    }
 }
