@@ -282,13 +282,35 @@ impl Display for Expression {
             Self::BoolConst(false) => "false".to_string(),
             Self::StringConst(s) => format!("\"{}\"", s),
             Self::BinopExpr(op, expr_left, expr_right) => {
-                format!("?e?")
+                format!(
+                    "{} {} {}",
+                    wrap_bracket(expr_left.is_binop(), expr_left.to_string()),
+                    op,
+                    wrap_bracket(expr_right.is_binop(), expr_right.to_string())
+                )
             }
             Self::UnopExpr(op, expr) => {
                 format!("{}{}", op, expr)
             }
         };
         write!(f, "{}", s)
+    }
+}
+
+fn wrap_bracket(wrap: bool, input: String) -> String {
+    if wrap {
+        format!("({})", input)
+    } else {
+        input
+    }
+}
+
+impl Expression {
+    fn is_binop(&self) -> bool {
+        match self {
+            Expression::BinopExpr(_, _, _) => true,
+            _ => false,
+        }
     }
 }
 
