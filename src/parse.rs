@@ -266,9 +266,18 @@ fn parse_statement(tokens: &Vec<TokenInfo>, index: &mut usize) -> Result<Stateme
             match_next(tokens, Token::LPAREN, index)?;
 
             // <expr-list>
+            // 0 or more parameters
             let mut params = vec![];
             while get_next(tokens, *index)?.0 != Token::RPAREN {
+                // Parameter
                 params.push(parse_expression(tokens, index)?);
+
+                // Comma
+                if get_next(tokens, *index)?.0 != Token::COMMA {
+                    break;
+                } else {
+                    *index += 1;
+                }
             }
 
             // );
@@ -492,7 +501,10 @@ fn parse_expression_terminal(tokens: &Vec<TokenInfo>, index: &mut usize) -> Resu
             *index += 1;
             Expression::StringConst(n.into())
         }
-        _ => Err(format!("... {:?}", next_token))?,
+        _ => Err(format!(
+            "Expected expression at {:?}, but found {:?}",
+            next_token.1, next_token.0
+        ))?,
     };
 
     Ok(expr)
