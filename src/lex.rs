@@ -1,4 +1,4 @@
-use crate::types::{Keyword, Token, TokenInfo};
+use crate::tokens::{Keyword, Token, TokenInfo};
 use std::error::Error;
 
 #[derive(Debug)]

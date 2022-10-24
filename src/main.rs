@@ -5,7 +5,7 @@ use std::{env, error::Error, process};
 mod ast;
 mod lex;
 mod parse;
-mod types;
+mod tokens;
 
 fn main() -> Result<(), Box<dyn Error>> {
     let mut pretty = false;

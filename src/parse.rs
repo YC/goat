@@ -1,5 +1,5 @@
 use crate::ast::*;
-use crate::types::{Keyword, Token, TokenInfo};
+use crate::tokens::{Keyword, Token, TokenInfo};
 use std::error::Error;
 
 pub fn parse(tokens: &Vec<TokenInfo>) -> Result<GoatProgram, Box<dyn Error>> {
