@@ -18,7 +18,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         }
 
         if argument == "--help" {
-            println!("usage: {} [-p] input", arguments[0]);
+            println!("usage: {} [-p] source.gt", arguments[0]);
             process::exit(0);
         }
         if argument == "-p" {
