@@ -49,10 +49,8 @@ fn parse_proc(tokens: &Vec<TokenInfo>, index: &mut usize) -> Result<Procedure, B
 
     // begin
     match_next(tokens, Token::Keyword(Keyword::BEGIN), index)?;
-
     // Body
     let body = parse_body(tokens, index)?;
-
     // end
     match_next(tokens, Token::Keyword(Keyword::END), index)?;
 
@@ -97,8 +95,8 @@ fn parse_parameter(tokens: &Vec<TokenInfo>, index: &mut usize) -> Result<Paramet
         Token::Keyword(Keyword::VAL) => ParameterPassIndicator::Val,
         Token::Keyword(Keyword::REF) => ParameterPassIndicator::Ref,
         _ => Err(format!(
-            "Expected ref/val at {:?}, but found {:?}",
-            indicator_token.1, indicator_token.0
+            "Expected ref/val, but found {:?} at {:?}",
+            indicator_token.0, indicator_token.1
         ))?,
     };
     *index += 1;
@@ -119,8 +117,8 @@ fn parse_identifier(tokens: &Vec<TokenInfo>, index: &mut usize) -> Result<Identi
     let ident: String = match &ident_token.0 {
         Token::Ident(t) => t.clone(),
         _ => Err(format!(
-            "Expected identifier at {:?}, but found {:?}",
-            ident_token.1, ident_token.0
+            "Expected identifier, but found {:?} at {:?}",
+            ident_token.0, ident_token.1
         ))?,
     };
     *index += 1;
@@ -134,8 +132,8 @@ fn parse_type(tokens: &Vec<TokenInfo>, index: &mut usize) -> Result<ParameterTyp
         Token::Keyword(Keyword::INT) => ParameterType::Int,
         Token::Keyword(Keyword::FLOAT) => ParameterType::Float,
         _ => Err(format!(
-            "Expected type at {:?}, but found {:?}",
-            type_token.1, type_token.0
+            "Expected type, but found {:?} at {:?}",
+            type_token.0, type_token.1
         ))?,
     };
     *index += 1;
@@ -179,8 +177,8 @@ fn parse_identifier_shape_declaration(
     let left = match next_token.0 {
         Token::IntConst(left) => left,
         _ => Err(format!(
-            "Expecting IntConst for shape m at {:?}, but found {:?}",
-            next_token.1, next_token.0
+            "Expecting IntConst for shape m, but found {:?} at {:?}",
+            next_token.0, next_token.1
         ))?,
     };
     // The int constant m
@@ -199,8 +197,8 @@ fn parse_identifier_shape_declaration(
     let right = match next_token.0 {
         Token::IntConst(left) => left,
         _ => Err(format!(
-            "Expecting IntConst for shape n at {:?}, but found {:?}",
-            next_token.1, next_token.0
+            "Expecting IntConst for shape n, but found {:?} at {:?}",
+            next_token.0, next_token.1
         ))?,
     };
     // The int constant n
@@ -258,10 +256,8 @@ fn parse_statement(tokens: &Vec<TokenInfo>, index: &mut usize) -> Result<Stateme
         Token::Keyword(Keyword::CALL) => {
             // call
             match_next(tokens, Token::Keyword(Keyword::CALL), index)?;
-
             // <id>
             let identifier = parse_identifier(tokens, index)?;
-
             // (
             match_next(tokens, Token::LPAREN, index)?;
 
@@ -315,8 +311,8 @@ fn parse_statement(tokens: &Vec<TokenInfo>, index: &mut usize) -> Result<Stateme
             }
         }
         _ => Err(format!(
-            "Expected statement at {:?}, but found {:?}",
-            next_token.1, next_token.0
+            "Expected statement, but found {:?} at {:?}",
+            next_token.0, next_token.1
         ))?,
     };
 
@@ -502,8 +498,8 @@ fn parse_expression_terminal(tokens: &Vec<TokenInfo>, index: &mut usize) -> Resu
             Expression::StringConst(n.into())
         }
         _ => Err(format!(
-            "Expected expression at {:?}, but found {:?}",
-            next_token.1, next_token.0
+            "Expected expression, but found {:?} at {:?}",
+            next_token.0, next_token.1
         ))?,
     };
 
