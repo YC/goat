@@ -36,16 +36,35 @@ fn main() -> Result<(), Box<dyn Error>> {
         Some(value) => value,
     };
 
-    eprintln!("{} invoked with file: {}, pretty: {}", arguments[0], filename, pretty);
+    eprintln!(
+        "{} invoked with source file: {}, pretty: {}",
+        arguments[0], filename, pretty
+    );
 
     let contents = std::fs::read_to_string(filename).expect("cannot read from file");
 
-    let tokens = lex(&contents)?;
-    eprintln!("{:?}", tokens);
+    let tokens = match lex(&contents) {
+        Ok(tokens) => tokens,
+        Err(e) => {
+            eprintln!("Lexer error: {}", e);
+            process::exit(2);
+        }
+    };
+    if pretty {
+        eprintln!("{:?}", tokens);
+    }
 
-    let parsed = parse(&tokens)?;
-    eprintln!("{:?}", parsed);
-    println!("{}", parsed);
+    let ast = match parse(&tokens) {
+        Ok(ast) => ast,
+        Err(e) => {
+            eprintln!("Parser error: {}", e);
+            process::exit(3);
+        }
+    };
+    if pretty {
+        eprintln!("{:?}", ast);
+        println!("{}", ast);
+    }
 
     Ok(())
 }
