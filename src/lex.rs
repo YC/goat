@@ -151,7 +151,7 @@ fn execute_nfa(input: &str, nfa: Nfa) -> Result<Vec<TokenInfo>, Box<dyn Error>> 
             if a.0 == b.0 {
                 return b.1.partial_cmp(&a.1).unwrap();
             }
-            b.1.partial_cmp(&a.1).unwrap()
+            a.1.partial_cmp(&b.1).unwrap()
         });
 
         // Push the token
