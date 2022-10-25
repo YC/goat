@@ -22,5 +22,5 @@ Execute:
 ```
 ./goat [-p] source.gt
 ```
-If `-p` is specified, pretty printing of the source will be performed.\
+If `-p` is specified, pretty printing of the source will be performed per stage 1 specification.\
 Otherwise, `goat` will compile `<source>.gt` into `<source>.o`.

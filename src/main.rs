@@ -17,14 +17,15 @@ fn main() -> Result<(), Box<dyn Error>> {
             continue;
         }
 
-        if argument == "--help" {
+        if argument == "--help" || argument == "-h" {
             println!("usage: {} [-p] source.gt", arguments[0]);
             process::exit(0);
         }
-        if argument == "-p" {
+        if argument == "-p" || argument == "--pretty-print" {
             pretty = true;
             continue;
         }
+
         filename = Some(argument);
     }
 

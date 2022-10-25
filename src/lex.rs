@@ -139,7 +139,7 @@ fn execute_nfa(input: &str, nfa: Nfa) -> Result<Vec<TokenInfo>, Box<dyn Error>> 
 
         if accepted.is_empty() {
             Err(format!(
-                "lexer error: cannot consume input '{}', at line {} col {}",
+                "cannot consume input '{}', at line {} col {}",
                 chars.iter().collect::<String>(),
                 lineno,
                 linecol
@@ -174,10 +174,7 @@ fn execute_nfa(input: &str, nfa: Nfa) -> Result<Vec<TokenInfo>, Box<dyn Error>> 
     }
 
     if !input.is_empty() {
-        Err(format!(
-            "lexer error: unconsumed input, at line {} col {}",
-            lineno, linecol
-        ))?
+        Err(format!("unconsumed input, at line {} col {}", lineno, linecol))?
     }
 
     Ok(tokens)

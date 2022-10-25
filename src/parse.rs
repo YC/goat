@@ -27,7 +27,7 @@ fn match_next(tokens: &Vec<TokenInfo>, token: Token, index: &mut usize) -> Resul
     Ok(())
 }
 
-fn get_next(tokens: &Vec<TokenInfo>, index: usize) -> Result<&TokenInfo, Box<dyn Error>> {
+fn peek_next(tokens: &Vec<TokenInfo>, index: usize) -> Result<&TokenInfo, Box<dyn Error>> {
     if index >= tokens.len() {
         Err("No more input available")?
     }
@@ -43,7 +43,7 @@ fn parse_proc(tokens: &Vec<TokenInfo>, index: &mut usize) -> Result<Procedure, B
 
     // Variable declarations
     let mut variable_declarations = vec![];
-    while get_next(tokens, *index)?.0 != Token::Keyword(Keyword::BEGIN) {
+    while peek_next(tokens, *index)?.0 != Token::Keyword(Keyword::BEGIN) {
         variable_declarations.push(parse_variable_declaration(tokens, index)?);
     }
 
@@ -73,12 +73,12 @@ fn parse_header(tokens: &Vec<TokenInfo>, index: &mut usize) -> Result<(String, V
 
     // 0 or more parameters
     let mut parameters = vec![];
-    while get_next(tokens, *index)?.0 != Token::RPAREN {
+    while peek_next(tokens, *index)?.0 != Token::RPAREN {
         // Parameter
         parameters.push(parse_parameter(tokens, index)?);
 
         // Comma
-        if get_next(tokens, *index)?.0 != Token::COMMA {
+        if peek_next(tokens, *index)?.0 != Token::COMMA {
             break;
         } else {
             *index += 1;
@@ -92,7 +92,7 @@ fn parse_header(tokens: &Vec<TokenInfo>, index: &mut usize) -> Result<(String, V
 }
 
 fn parse_parameter(tokens: &Vec<TokenInfo>, index: &mut usize) -> Result<Parameter, Box<dyn Error>> {
-    let indicator_token = get_next(tokens, *index)?;
+    let indicator_token = peek_next(tokens, *index)?;
     let indicator = match indicator_token.0 {
         Token::Keyword(Keyword::VAL) => ParameterPassIndicator::Val,
         Token::Keyword(Keyword::REF) => ParameterPassIndicator::Ref,
@@ -115,7 +115,7 @@ fn parse_parameter(tokens: &Vec<TokenInfo>, index: &mut usize) -> Result<Paramet
 }
 
 fn parse_identifier(tokens: &Vec<TokenInfo>, index: &mut usize) -> Result<Identifier, Box<dyn Error>> {
-    let ident_token = get_next(tokens, *index)?;
+    let ident_token = peek_next(tokens, *index)?;
     let ident: String = match &ident_token.0 {
         Token::Ident(t) => t.clone(),
         _ => Err(format!(
@@ -128,7 +128,7 @@ fn parse_identifier(tokens: &Vec<TokenInfo>, index: &mut usize) -> Result<Identi
 }
 
 fn parse_type(tokens: &Vec<TokenInfo>, index: &mut usize) -> Result<ParameterType, Box<dyn Error>> {
-    let type_token = get_next(tokens, *index)?;
+    let type_token = peek_next(tokens, *index)?;
     let r#type = match type_token.0 {
         Token::Keyword(Keyword::BOOL) => ParameterType::Bool,
         Token::Keyword(Keyword::INT) => ParameterType::Int,
@@ -169,13 +169,13 @@ fn parse_identifier_shape_declaration(
     let identifier = parse_identifier(tokens, index)?;
 
     // No left bracket
-    if get_next(tokens, *index)?.0 != Token::LBRACKET {
+    if peek_next(tokens, *index)?.0 != Token::LBRACKET {
         return Ok(IdentifierShapeDeclaration::Identifier(identifier));
     }
     // With left bracket
     *index += 1;
 
-    let next_token = get_next(tokens, *index)?;
+    let next_token = peek_next(tokens, *index)?;
     let left = match next_token.0 {
         Token::IntConst(left) => left,
         _ => Err(format!(
@@ -186,7 +186,7 @@ fn parse_identifier_shape_declaration(
     // The int constant m
     *index += 1;
 
-    if get_next(tokens, *index)?.0 != Token::COMMA {
+    if peek_next(tokens, *index)?.0 != Token::COMMA {
         // Right bracket
         match_next(tokens, Token::RBRACKET, index)?;
 
@@ -195,7 +195,7 @@ fn parse_identifier_shape_declaration(
     // The comma
     *index += 1;
 
-    let next_token = get_next(tokens, *index)?;
+    let next_token = peek_next(tokens, *index)?;
     let right = match next_token.0 {
         Token::IntConst(left) => left,
         _ => Err(format!(
@@ -219,10 +219,10 @@ fn parse_body(tokens: &Vec<TokenInfo>, index: &mut usize) -> Result<ProcBody, Bo
 
 fn parse_statement_list(tokens: &Vec<TokenInfo>, index: &mut usize) -> Result<Vec<Statement>, Box<dyn Error>> {
     let mut statements = vec![];
-    while get_next(tokens, *index)?.0 != Token::Keyword(Keyword::END)
-        && get_next(tokens, *index)?.0 != Token::Keyword(Keyword::FI)
-        && get_next(tokens, *index)?.0 != Token::Keyword(Keyword::ELSE)
-        && get_next(tokens, *index)?.0 != Token::Keyword(Keyword::OD)
+    while peek_next(tokens, *index)?.0 != Token::Keyword(Keyword::END)
+        && peek_next(tokens, *index)?.0 != Token::Keyword(Keyword::FI)
+        && peek_next(tokens, *index)?.0 != Token::Keyword(Keyword::ELSE)
+        && peek_next(tokens, *index)?.0 != Token::Keyword(Keyword::OD)
     {
         statements.push(parse_statement(tokens, index)?)
     }
@@ -230,7 +230,7 @@ fn parse_statement_list(tokens: &Vec<TokenInfo>, index: &mut usize) -> Result<Ve
 }
 
 fn parse_statement(tokens: &Vec<TokenInfo>, index: &mut usize) -> Result<Statement, Box<dyn Error>> {
-    let next_token = get_next(tokens, *index)?;
+    let next_token = peek_next(tokens, *index)?;
 
     let statement = match next_token.0 {
         Token::Ident(_) => {
@@ -268,12 +268,12 @@ fn parse_statement(tokens: &Vec<TokenInfo>, index: &mut usize) -> Result<Stateme
             // <expr-list>
             // 0 or more parameters
             let mut params = vec![];
-            while get_next(tokens, *index)?.0 != Token::RPAREN {
+            while peek_next(tokens, *index)?.0 != Token::RPAREN {
                 // Parameter
                 params.push(parse_expression(tokens, index)?);
 
                 // Comma
-                if get_next(tokens, *index)?.0 != Token::COMMA {
+                if peek_next(tokens, *index)?.0 != Token::COMMA {
                     break;
                 } else {
                     *index += 1;
@@ -302,7 +302,7 @@ fn parse_statement(tokens: &Vec<TokenInfo>, index: &mut usize) -> Result<Stateme
             match_next(tokens, Token::Keyword(Keyword::THEN), index)?;
             let stmt_list = parse_statement_list(tokens, index)?;
 
-            let next_token = get_next(tokens, *index)?;
+            let next_token = peek_next(tokens, *index)?;
             if next_token.0 != Token::Keyword(Keyword::ELSE) {
                 match_next(tokens, Token::Keyword(Keyword::FI), index)?;
                 Statement::If(expr, stmt_list)
@@ -330,7 +330,7 @@ fn parse_expression(tokens: &Vec<TokenInfo>, index: &mut usize) -> Result<Expres
 fn parse_expression_or(tokens: &Vec<TokenInfo>, index: &mut usize) -> Result<Expression, Box<dyn Error>> {
     let mut current = parse_expression_and(tokens, index)?;
 
-    while let Token::OR = get_next(tokens, *index)?.0 {
+    while let Token::OR = peek_next(tokens, *index)?.0 {
         match_next(tokens, Token::OR, index)?;
         let right = parse_expression_and(tokens, index)?;
         current = Expression::BinopExpr(Binop::OR, Box::new(current), Box::new(right));
@@ -342,7 +342,7 @@ fn parse_expression_or(tokens: &Vec<TokenInfo>, index: &mut usize) -> Result<Exp
 fn parse_expression_and(tokens: &Vec<TokenInfo>, index: &mut usize) -> Result<Expression, Box<dyn Error>> {
     let mut current = parse_expression_not(tokens, index)?;
 
-    while let Token::AND = get_next(tokens, *index)?.0 {
+    while let Token::AND = peek_next(tokens, *index)?.0 {
         match_next(tokens, Token::AND, index)?;
         let right = parse_expression_not(tokens, index)?;
         current = Expression::BinopExpr(Binop::AND, Box::new(current), Box::new(right));
@@ -352,7 +352,7 @@ fn parse_expression_and(tokens: &Vec<TokenInfo>, index: &mut usize) -> Result<Ex
 }
 
 fn parse_expression_not(tokens: &Vec<TokenInfo>, index: &mut usize) -> Result<Expression, Box<dyn Error>> {
-    if let Token::NOT = get_next(tokens, *index)?.0 {
+    if let Token::NOT = peek_next(tokens, *index)?.0 {
         match_next(tokens, Token::NOT, index)?;
         let right = parse_expression_not(tokens, index)?;
         Ok(Expression::UnopExpr(Unop::NOT, Box::new(right)))
@@ -365,7 +365,7 @@ fn parse_expression_comparison(tokens: &Vec<TokenInfo>, index: &mut usize) -> Re
     let mut current = parse_expression_add_sub(tokens, index)?;
 
     loop {
-        let next_token = get_next(tokens, *index)?;
+        let next_token = peek_next(tokens, *index)?;
         if let Token::GT = next_token.0 {
             match_next(tokens, Token::GT, index)?;
             let right = parse_expression_add_sub(tokens, index)?;
@@ -412,7 +412,7 @@ fn parse_expression_add_sub(tokens: &Vec<TokenInfo>, index: &mut usize) -> Resul
     let mut current = parse_expression_mul_div(tokens, index)?;
 
     loop {
-        let next_token = get_next(tokens, *index)?;
+        let next_token = peek_next(tokens, *index)?;
         if let Token::ADD = next_token.0 {
             match_next(tokens, Token::ADD, index)?;
             let right = parse_expression_mul_div(tokens, index)?;
@@ -435,7 +435,7 @@ fn parse_expression_mul_div(tokens: &Vec<TokenInfo>, index: &mut usize) -> Resul
     let mut current = parse_expression_unary_minus(tokens, index)?;
 
     loop {
-        let next_token = get_next(tokens, *index)?;
+        let next_token = peek_next(tokens, *index)?;
         if let Token::MUL = next_token.0 {
             match_next(tokens, Token::MUL, index)?;
             let right = parse_expression_unary_minus(tokens, index)?;
@@ -455,7 +455,7 @@ fn parse_expression_mul_div(tokens: &Vec<TokenInfo>, index: &mut usize) -> Resul
 }
 
 fn parse_expression_unary_minus(tokens: &Vec<TokenInfo>, index: &mut usize) -> Result<Expression, Box<dyn Error>> {
-    if let Token::SUB = get_next(tokens, *index)?.0 {
+    if let Token::SUB = peek_next(tokens, *index)?.0 {
         match_next(tokens, Token::SUB, index)?;
         let right = parse_expression_unary_minus(tokens, index)?;
         Ok(Expression::UnopExpr(Unop::Minus, Box::new(right)))
@@ -465,7 +465,7 @@ fn parse_expression_unary_minus(tokens: &Vec<TokenInfo>, index: &mut usize) -> R
 }
 
 fn parse_expression_terminal(tokens: &Vec<TokenInfo>, index: &mut usize) -> Result<Expression, Box<dyn Error>> {
-    let next_token = get_next(tokens, *index)?;
+    let next_token = peek_next(tokens, *index)?;
 
     // Brackets
     if let Token::LPAREN = next_token.0 {
@@ -515,7 +515,7 @@ fn parse_identifier_shape(tokens: &Vec<TokenInfo>, index: &mut usize) -> Result<
     let identifier = parse_identifier(tokens, index)?;
 
     // No left bracket
-    if get_next(tokens, *index)?.0 != Token::LBRACKET {
+    if peek_next(tokens, *index)?.0 != Token::LBRACKET {
         return Ok(IdentifierShape::Identifier(identifier));
     }
     // With left bracket
@@ -523,7 +523,7 @@ fn parse_identifier_shape(tokens: &Vec<TokenInfo>, index: &mut usize) -> Result<
 
     let expr_left = parse_expression(tokens, index)?;
 
-    if get_next(tokens, *index)?.0 != Token::COMMA {
+    if peek_next(tokens, *index)?.0 != Token::COMMA {
         // Right bracket
         match_next(tokens, Token::RBRACKET, index)?;
 
