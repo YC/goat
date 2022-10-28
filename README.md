@@ -4,13 +4,13 @@ A compiler for Goat, a procedual language from the assignments of [COMP90045 - P
 This is my implementation in Rust, to relearn some compiler concepts.
 
 ## Implementation
-- Lexer
+- [x] Lexer
   - [x] Regex to NFA
   - [ ] NFA to DFA (via subset construction)
-- Parser
+- [x] Parser
   - [x] Recursive Descent
-- Semantic Analysis
-- Code generation
+- [ ] Semantic Analysis
+- [ ] Code generation
 
 ## Usage
 Compile the compiler:
