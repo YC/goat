@@ -10,7 +10,7 @@ pub fn parse(tokens: &Vec<TokenInfo>) -> Result<GoatProgram, Box<dyn Error>> {
         procs.push(parse_proc(tokens, &mut index)?);
     }
 
-    Ok(GoatProgram { procedure: procs })
+    Ok(GoatProgram { procedures: procs })
 }
 
 fn match_next(tokens: &Vec<TokenInfo>, token: Token, index: &mut usize) -> Result<(), Box<dyn Error>> {

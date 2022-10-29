@@ -5,13 +5,13 @@ use std::fmt::{Display, Formatter, Result};
 /// Program consists of 1 or more procedure definitions
 #[derive(Debug)]
 pub struct GoatProgram {
-    pub procedure: Vec<Procedure>,
+    pub procedures: Vec<Procedure>,
 }
 
 impl Display for GoatProgram {
     fn fmt(&self, f: &mut Formatter) -> Result {
         let s = self
-            .procedure
+            .procedures
             .iter()
             .map(|p| format!("{}", p))
             .collect::<Vec<String>>()
@@ -75,7 +75,7 @@ impl Display for Parameter {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub enum ParameterPassIndicator {
     Val,
     Ref,
@@ -91,7 +91,7 @@ impl Display for ParameterPassIndicator {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub enum ParameterType {
     Bool,
     Float,
@@ -139,7 +139,7 @@ impl Display for VariableDeclaration {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum IdentifierShapeDeclaration {
     Identifier(Identifier),
     IdentifierArray(Identifier, u128),

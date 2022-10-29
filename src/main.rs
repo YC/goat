@@ -1,10 +1,12 @@
 use crate::lex::lex;
 use crate::parse::parse;
+use crate::semantic::semantic_analysis;
 use std::{env, error::Error, process};
 
 mod ast;
 mod lex;
 mod parse;
+mod semantic;
 mod tokens;
 
 fn main() -> Result<(), Box<dyn Error>> {
@@ -65,6 +67,14 @@ fn main() -> Result<(), Box<dyn Error>> {
     if pretty {
         eprintln!("{:?}", ast);
         println!("{}", ast);
+    }
+
+    match semantic_analysis(ast) {
+        Ok(_) => {}
+        Err(e) => {
+            eprintln!("Semantic analysis error: {}", e);
+            process::exit(4);
+        }
     }
 
     Ok(())
