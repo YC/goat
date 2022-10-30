@@ -125,12 +125,12 @@ fn parse_identifier(tokens: &Vec<TokenInfo>, index: &mut usize) -> Result<Identi
     Ok(ident)
 }
 
-fn parse_type(tokens: &Vec<TokenInfo>, index: &mut usize) -> Result<ParameterType, Box<dyn Error>> {
+fn parse_type(tokens: &Vec<TokenInfo>, index: &mut usize) -> Result<VariableType, Box<dyn Error>> {
     let type_token = peek_next(tokens, *index)?;
     let r#type = match type_token.0 {
-        Token::Keyword(Keyword::BOOL) => ParameterType::Bool,
-        Token::Keyword(Keyword::INT) => ParameterType::Int,
-        Token::Keyword(Keyword::FLOAT) => ParameterType::Float,
+        Token::Keyword(Keyword::BOOL) => VariableType::Bool,
+        Token::Keyword(Keyword::INT) => VariableType::Int,
+        Token::Keyword(Keyword::FLOAT) => VariableType::Float,
         _ => Err(format!(
             "Expected type, but found {:?} at {:?}",
             type_token.0, type_token.1

@@ -65,7 +65,7 @@ impl Display for Procedure {
 #[derive(Debug)]
 pub struct Parameter {
     pub passing_indicator: ParameterPassIndicator,
-    pub r#type: ParameterType,
+    pub r#type: VariableType,
     pub identifier: Identifier,
 }
 
@@ -91,19 +91,19 @@ impl Display for ParameterPassIndicator {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
-pub enum ParameterType {
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+pub enum VariableType {
     Bool,
     Float,
     Int,
 }
 
-impl Display for ParameterType {
+impl Display for VariableType {
     fn fmt(&self, f: &mut Formatter) -> Result {
         let s = match self {
-            ParameterType::Bool => "bool",
-            ParameterType::Float => "float",
-            ParameterType::Int => "int",
+            VariableType::Bool => "bool",
+            VariableType::Float => "float",
+            VariableType::Int => "int",
         };
         write!(f, "{}", s)
     }
@@ -129,7 +129,7 @@ impl Display for ProcBody {
 
 #[derive(Debug)]
 pub struct VariableDeclaration {
-    pub r#type: ParameterType,
+    pub r#type: VariableType,
     pub identifier_declaration: IdentifierShapeDeclaration,
 }
 
