@@ -1,0 +1,30 @@
+proc main()
+    int A;
+    int x;
+    int y;
+    int z;
+    int X;
+begin
+    # Expect -(-2 + 3)
+    A := -(-2 + 3);
+
+    # Expect call p(((5 * x) + (7 * y)) + 3)
+    call p(5*x + 7*y + 3);
+
+    # Expect -A
+    A := -A;
+
+    # Expect -x - ((y + 4) * z)
+    A := (-(x) - (y+4)*z);
+
+    # Expect (-(x * y) - y) + (4 * z)
+    A := (-(x*y) - y + 4 * z);
+
+    # Expect 1 + X
+    A := 1 + X;
+end
+
+proc p(val int a)
+begin
+    write a;
+end

@@ -1,0 +1,7 @@
+proc main()
+    int a[3];
+    int b[3, 3];
+begin
+    read a;
+    read b;
+end

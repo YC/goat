@@ -1,0 +1,15 @@
+proc main ()
+    int n;
+begin
+    call f(n);
+end
+
+proc f (val int n)
+begin
+    write n;
+end
+
+proc f (val int j)
+begin
+    write j;
+end

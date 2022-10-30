@@ -1,0 +1,5 @@
+proc bad_basetype ()
+    x ha;
+begin
+    write "";
+end

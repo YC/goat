@@ -1,0 +1,8 @@
+proc main ()
+    int n[1, 1];
+    int m[1];
+begin
+    write m[0];
+    write n[true, 1];
+    write m[true];
+end

@@ -1,0 +1,95 @@
+proc main()
+    int n;
+    int c;
+begin
+    write "Enter a number\n";
+    read n;
+    if n = 2 then
+        write "Try a number other than 2";
+    else
+        c := 2;
+        while c <= n - 1 do
+            write c;
+            c := c + 1;
+        od
+    fi
+end
+
+proc write_types (val int x, val bool b, val float a)
+begin
+    write "Bool: ";
+    write b;
+    write "\n";
+    write "Int: ";
+    write x;
+    write "\n";
+    write "Float: ";
+    write x;
+    write "\n";
+end
+
+proc lets_test_bodmas (ref int x, val int y)
+begin
+    x := 6 * y + 6 / 3 - y;
+end
+
+# This is a procedure doc line. It should tell you everything you need to know
+proc this_has_comments_everywhere (ref int x, val int y)
+    # Comments in the header? What?
+begin
+    # This is an awesome procedure. I think it's my favourite ;lskdf;a lk;f!#@$%^ 
+    x := 6 * y + 6 / 3 - y; # This is a comment after a valid line
+    # This is another comment. what if there is another #?
+end
+
+
+proc has_apostrophe_'_and_numbers_99 ()
+begin
+write "Text"; write "\n";
+end
+
+proc test_header_decls ()
+    int a;
+    int A[10];
+    int x[5,5];
+    bool op_test;
+    bool B[5,5];
+    float c;
+    float C[10,10];
+begin
+    write "";
+end
+
+proc test_all_stmts ()
+begin
+    read a;
+    read a[0];
+    read a[0,0];
+
+    a := 1;
+    A[0] := 1;
+    x[0,0] := 1;
+
+    call write_types (100, true, 5.5);
+    call has_apostrophe_'_and_numbers_99 ();
+
+    write 1;
+    write true;
+    write "This is a string. Of course. what else would it be?";
+
+    op_test := true || false;
+    op_test := true && false;
+    op_test := true = false;
+    op_test := true != false;
+    op_test := a + a;
+    op_test := a - a;
+    op_test := a / a;
+    op_test := a * a;
+    op_test := a > a;
+    op_test := a < a;
+    op_test := a >= a;
+    op_test := a <= a;
+    op_test := -a;
+    op_test := !true;
+
+end

@@ -1,0 +1,15 @@
+proc main()
+    int x;
+    int A_38;
+    bool mood;
+begin
+    x := 1.5;
+    A_38 := mood;
+    call test(mood + 1);
+end
+
+
+proc test(ref int x)
+begin
+    write x;
+end

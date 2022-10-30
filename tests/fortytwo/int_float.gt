@@ -1,0 +1,9 @@
+proc main ()
+    int x[3];
+    float y;
+begin
+    write x[2];
+    write "\n";
+    write y;
+    write "\n";
+end

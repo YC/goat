@@ -1,0 +1,14 @@
+proc p ()
+begin
+    write "hi";
+end
+
+proc p ()
+begin
+    write "hi2";
+end
+
+proc main ()
+begin
+    write "main func";
+end

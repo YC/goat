@@ -1,0 +1,5 @@
+proc main ()
+    int n[0, 1];
+begin
+    write "\n";
+end

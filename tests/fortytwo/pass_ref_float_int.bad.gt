@@ -1,0 +1,10 @@
+proc main ()
+    float ha;
+begin
+    call p(ha);
+end
+
+proc p (ref int ha)
+begin
+    write ha;
+end

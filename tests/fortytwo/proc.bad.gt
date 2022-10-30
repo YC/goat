@@ -1,0 +1,7 @@
+proc bad_proc ()
+    int ha;
+begin
+    write "";
+end
+
+ha

@@ -1,0 +1,9 @@
+proc main()
+begin
+    while 3 - 1 do
+        write "cool";
+    od
+    while 3.2 - 1 do
+        write "cool?";
+    od
+end

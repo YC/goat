@@ -1,0 +1,4 @@
+proc 9 ()
+begin
+write "sdf";
+end

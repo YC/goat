@@ -2,4 +2,5 @@ Files under this directory are from subject materials for:
 COMP90045, Semester 1 2019, the University of Melbourne
 
 With exception of:
-- stage1-visible.sh
+- test.sh
+- fortytwo/ (Test cases written by Cody, David, Harrison, and I)

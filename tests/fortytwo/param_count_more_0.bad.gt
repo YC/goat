@@ -1,0 +1,9 @@
+proc p ()
+begin
+    write "\n";
+end
+
+proc main ()
+begin
+    call p (1);
+end

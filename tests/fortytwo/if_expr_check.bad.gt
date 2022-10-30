@@ -1,0 +1,11 @@
+proc main()
+begin
+    if 3 - 1 then
+        write "cool";
+    fi
+    if 3.2 - 1 then
+        write "cool?";
+    else
+        write "ha?";
+    fi
+end

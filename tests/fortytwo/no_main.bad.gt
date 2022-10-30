@@ -1,0 +1,99 @@
+proc empty_formal_params ()
+begin
+    read random;
+end
+
+proc one_formal_param (val bool a)
+begin
+    read random;
+end
+
+proc one_variable_declaration (val bool a, ref int b, val float c)
+    int n;
+begin
+    read random;
+end
+
+proc m ()
+    bool b'_[0, 0];
+    int A[0];
+    int a;
+    float B_'[100, 200];
+begin
+    # id statement
+    id'_ := expr;
+    id'_[0] := expr;
+    id'_[0, 0] := expr;
+
+    # read statement
+    read id'_;
+    read id'_[0];
+    read id'_[100, 200];
+
+    # write statement
+    write expr;
+    write "_Cool!_A'";
+
+    # call statement
+    call proc_id_' ();
+    call proc_id_' (1, true, 1.23);
+
+    # if
+    if expr then
+        if expr then
+            read random;
+        fi
+    fi
+
+    # if/else
+    if expr then
+        if expr then
+            read random;
+        fi
+    else
+        if expr then
+            read random;
+        fi
+    fi
+
+    while expr do
+        while expr do
+            read random;
+        od
+    od
+
+    # expressions
+    # <id> []
+    A := id;
+    A := A;
+    A := B_'[0];
+    A := B_'[100, 200];
+
+    # const
+    A := true;
+    A := false;
+    A := 3.1415;
+    A := 42;
+
+    # ()
+    A := (true);
+    A := (id[1, 2]);
+
+    # unop expr
+    A := -A[0, 0];
+    A := !A[0, 0];
+
+    # expr binop expr
+    A := TO_BE || !TO_BE;
+    A := A && A;
+    A := A = A;
+    A := A != A;
+    A := A < A;
+    A := A <= A;
+    A := A > A;
+    A := A >= A;
+    A := A + A;
+    A := A - A;
+    A := A * A;
+    A := A / A;
+end

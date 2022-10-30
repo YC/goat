@@ -1,0 +1,7 @@
+proc main()
+    int x;
+begin
+    x := 1 + 2 + 3 + 4 + 5;
+    write x;
+    write "\n";
+end

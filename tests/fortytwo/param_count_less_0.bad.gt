@@ -1,0 +1,9 @@
+proc p (val int i)
+begin
+    write i;
+end
+
+proc main ()
+begin
+    call p ();
+end

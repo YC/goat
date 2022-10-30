@@ -1,0 +1,10 @@
+proc main ()
+    float n;
+begin
+    call f(n);
+end
+
+proc f (val bool n)
+begin
+    write n;
+end

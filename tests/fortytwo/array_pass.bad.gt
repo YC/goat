@@ -1,0 +1,12 @@
+proc main ()
+    int n[1, 1];
+    int m[1];
+begin
+    call p(n);
+    call p(m);
+end
+
+proc p (val int n)
+begin
+    write n;
+end

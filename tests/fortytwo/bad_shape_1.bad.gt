@@ -1,0 +1,5 @@
+proc bad ()
+    int ha[;
+begin
+    write "";
+end

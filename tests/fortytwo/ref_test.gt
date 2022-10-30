@@ -1,0 +1,27 @@
+proc main ()
+    int x;
+    int y;
+begin
+    x := 5;
+    y := 5;
+    call test(x, y);
+    write y;
+    call n();
+    write x;
+    call n();
+end
+
+proc test(ref int x, val int y)
+begin
+    x := x + 1;
+    y := y + 1;
+    write x;
+    call n();
+    write y;
+    call n();
+end
+
+proc n()
+begin
+    write "\n";
+end

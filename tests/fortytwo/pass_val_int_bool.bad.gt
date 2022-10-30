@@ -1,0 +1,10 @@
+proc main ()
+    int ha;
+begin
+    call p(ha);
+end
+
+proc p (val bool ha)
+begin
+    write ha;
+end

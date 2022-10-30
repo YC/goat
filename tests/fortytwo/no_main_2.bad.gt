@@ -1,0 +1,4 @@
+proc p ()
+begin
+    write "hi";
+end

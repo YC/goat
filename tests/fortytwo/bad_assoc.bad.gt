@@ -1,0 +1,5 @@
+proc main()
+    bool x;
+begin
+    x := (6 = 7 >= 8 < 9);
+end
