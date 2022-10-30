@@ -17,12 +17,12 @@ for f in "$(dirname "$0")"/stage1-visible/* "$(dirname "$0")"/fortytwo/*; do
     elif [ "$rv" -ne 0 ] && [[ "$f" == *"bad"* ]]; then
         echo "$f passed with exit code $rv"
     else
-        echo "*** $f failed"
-        bad=1
+        echo "*** $f failed with exit code $rv"
+        bad=$((bad + 1))
     fi
 done
 
-if [ "$bad" -eq 1 ]; then
-    echo "One or more tests failed"
+if [ "$bad" -ne 0 ]; then
+    echo "$bad tests failed"
     exit 1
 fi

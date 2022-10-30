@@ -16,6 +16,9 @@ pub fn semantic_analysis(program: GoatProgram) -> Result<(), Box<dyn Error>> {
         }
         names.insert(procedure.identifier.clone());
     }
+    if !names.contains("main") {
+        Err("Program does not have main function")?
+    }
 
     let mut symbol_table: SymbolTable = HashMap::new();
     for procedure in &program.procedures {
