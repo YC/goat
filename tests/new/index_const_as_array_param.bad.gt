@@ -1,0 +1,10 @@
+proc main()
+    int a;
+begin
+    write "\n";
+end
+
+proc a(ref int a)
+begin
+    write a[2];
+end

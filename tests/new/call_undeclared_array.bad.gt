@@ -1,0 +1,10 @@
+proc main()
+    int b[1];
+begin
+    call a(c[0]);
+end
+
+proc a(ref int a)
+begin
+    write a;
+end

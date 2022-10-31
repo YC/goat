@@ -55,18 +55,18 @@ pub fn semantic_analysis(program: GoatProgram) -> Result<(), Box<dyn Error>> {
             let identifier = match &variable_declaration.identifier_declaration {
                 IdentifierShapeDeclaration::Identifier(identifier) => identifier,
                 IdentifierShapeDeclaration::IdentifierArray(identifier, m) => {
-                    if *m <= 0 {
+                    if *m == 0 {
                         // TODO
                         Err("[m] <= 0")?
                     }
                     identifier
                 }
                 IdentifierShapeDeclaration::IdentifierArray2D(identifier, m, n) => {
-                    if *m <= 0 {
+                    if *m == 0 {
                         // TODO
                         Err("[m] <= 0")?
                     }
-                    if *n <= 0 {
+                    if *n == 0 {
                         // TODO
                         Err("[n] <= 0")?
                     }
@@ -341,7 +341,18 @@ fn eval_expression_scalar(
                             // TODO
                             Err(format!("Undeclared variable {}", identifier))?
                         }
-                        Some(var) => var.r#type,
+                        Some(var) => {
+                            if var.variable_location == VariableLocation::VariableDeclaration {
+                                match var.shape.as_ref().unwrap() {
+                                    IdentifierShapeDeclaration::Identifier(_) => {}
+                                    _ => {
+                                        // TODO
+                                        Err("Non scalar")?
+                                    }
+                                }
+                            }
+                            var.r#type
+                        }
                     }
                 }
                 IdentifierShape::IdentifierArray(identifier, expr) => {
@@ -357,7 +368,20 @@ fn eval_expression_scalar(
                             Err(format!("Undeclared variable {}", identifier))?
                         }
                         // var[<expr>] := <expr>; where var is an array
-                        Some(var) => var.r#type,
+                        Some(var) => {
+                            if var.variable_location != VariableLocation::VariableDeclaration {
+                                // TODO
+                                Err("Must be in declaration")?
+                            }
+                            match var.shape.as_ref().unwrap() {
+                                IdentifierShapeDeclaration::IdentifierArray(_, _) => {}
+                                _ => {
+                                    // TODO
+                                    Err("Must be array")?
+                                }
+                            }
+                            var.r#type
+                        }
                     }
                 }
                 IdentifierShape::IdentifierArray2D(identifier, expr1, expr2) => {
@@ -377,7 +401,20 @@ fn eval_expression_scalar(
                             Err(format!("Undeclared variable {}", identifier))?
                         }
                         // var[<expr>, <expr>] := <expr>; where var is an array
-                        Some(var) => var.r#type,
+                        Some(var) => {
+                            if var.variable_location != VariableLocation::VariableDeclaration {
+                                // TODO
+                                Err("Must be in declaration")?
+                            }
+                            match var.shape.as_ref().unwrap() {
+                                IdentifierShapeDeclaration::IdentifierArray2D(_, _, _) => {}
+                                _ => {
+                                    // TODO
+                                    Err("Must be matrix")?
+                                }
+                            }
+                            var.r#type
+                        }
                     }
                 }
             }
