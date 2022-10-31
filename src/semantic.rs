@@ -175,94 +175,7 @@ fn analyse_statement(
             // - left hand side must be of same type as right hand side
             // with exception that int can be assigned to float
             // - arrays and matrices can only be updated selectively
-            let left_type = match shape {
-                IdentifierShape::Identifier(identifier) => {
-                    let procedure_symbols = symbol_table.get(&procedure.identifier).unwrap();
-                    match procedure_symbols.iter().find(|v| v.identifier == *identifier) {
-                        None => {
-                            // TODO
-                            Err(format!("Undeclared variable {}", identifier))?
-                        }
-                        // var := <expr>; where var is a scalar formal parameter or declaration
-                        Some(var) => {
-                            if var.variable_location == VariableLocation::FormalParameter {
-                                // Scalar to scalar assignment
-                                var.r#type
-                            } else {
-                                let shape = var.shape.as_ref().expect("Variable shape declarations does not exist");
-                                if let IdentifierShapeDeclaration::Identifier(_) = shape {
-                                    var.r#type
-                                } else {
-                                    // TODO
-                                    Err("Cannot directly assign to array to matrix variable")?
-                                }
-                            }
-                        }
-                    }
-                }
-                IdentifierShape::IdentifierArray(identifier, expr) => {
-                    if eval_expression_scalar(symbol_table, procedure, expr)? != VariableType::Int {
-                        // TODO
-                        Err("[n] must be int")?
-                    }
-
-                    let procedure_symbols = symbol_table.get(&procedure.identifier).unwrap();
-                    match procedure_symbols.iter().find(|v| v.identifier == *identifier) {
-                        None => {
-                            // TODO
-                            Err(format!("Undeclared variable {}", identifier))?
-                        }
-                        // var[<expr>] := <expr>; where var is an array
-                        Some(var) => {
-                            if var.variable_location == VariableLocation::FormalParameter {
-                                // TODO
-                                Err("Array cannot refer to formal parameter")?
-                            }
-
-                            let shape = var.shape.as_ref().expect("Variable shape declarations does not exist");
-                            if let IdentifierShapeDeclaration::IdentifierArray(_, _) = shape {
-                                var.r#type
-                            } else {
-                                // TODO
-                                Err("Variable declaration mismatch, should be array")?
-                            }
-                        }
-                    }
-                }
-                IdentifierShape::IdentifierArray2D(identifier, expr1, expr2) => {
-                    if eval_expression_scalar(symbol_table, procedure, expr1)? != VariableType::Int {
-                        // TODO
-                        Err("[n] must be int")?
-                    }
-                    if eval_expression_scalar(symbol_table, procedure, expr2)? != VariableType::Int {
-                        // TODO
-                        Err("[m] must be int")?
-                    }
-
-                    let procedure_symbols = symbol_table.get(&procedure.identifier).unwrap();
-                    match procedure_symbols.iter().find(|v| v.identifier == *identifier) {
-                        None => {
-                            // TODO
-                            Err(format!("Undeclared variable {}", identifier))?
-                        }
-                        // var[<expr>, <expr>] := <expr>; where var is an array
-                        Some(var) => {
-                            if var.variable_location == VariableLocation::FormalParameter {
-                                // TODO
-                                Err("Matrix cannot refer to formal parameter")?
-                            }
-
-                            let shape = var.shape.as_ref().expect("Variable shape declarations does not exist");
-                            if let IdentifierShapeDeclaration::IdentifierArray2D(_, _, _) = shape {
-                                var.r#type
-                            } else {
-                                // TODO
-                                Err("Variable declaration mismatch, should be array")?
-                            }
-                        }
-                    }
-                }
-            };
+            let left_type = eval_shape_type(symbol_table, procedure, shape)?;
 
             let right_type = eval_expression_scalar(symbol_table, procedure, expression)?;
 
@@ -271,9 +184,9 @@ fn analyse_statement(
                 Err("left right types do not match")?
             }
         }
-        Statement::Read(_) => {
+        Statement::Read(shape) => {
             // read takes scalar
-            // should be already checked when parsing
+            eval_shape_type(symbol_table, procedure, shape)?;
         }
         Statement::Write(expr) => {
             if let Expression::StringConst(_) = expr {
@@ -320,6 +233,102 @@ fn analyse_statement(
         }
     }
     Ok(())
+}
+
+fn eval_shape_type(
+    symbol_table: &SymbolTable,
+    procedure: &Procedure,
+    shape: &IdentifierShape,
+) -> Result<VariableType, Box<dyn Error>> {
+    let r#type = match shape {
+        IdentifierShape::Identifier(identifier) => {
+            let procedure_symbols = symbol_table.get(&procedure.identifier).unwrap();
+            match procedure_symbols.iter().find(|v| v.identifier == *identifier) {
+                None => {
+                    // TODO
+                    Err(format!("Undeclared variable {}", identifier))?
+                }
+                // var := <expr>; where var is a scalar formal parameter or declaration
+                Some(var) => {
+                    if var.variable_location == VariableLocation::FormalParameter {
+                        // Scalar to scalar assignment
+                        var.r#type
+                    } else {
+                        let shape = var.shape.as_ref().expect("Variable shape declarations does not exist");
+                        if let IdentifierShapeDeclaration::Identifier(_) = shape {
+                            var.r#type
+                        } else {
+                            // TODO
+                            Err("Cannot directly assign to array to matrix variable")?
+                        }
+                    }
+                }
+            }
+        }
+        IdentifierShape::IdentifierArray(identifier, expr) => {
+            if eval_expression_scalar(symbol_table, procedure, expr)? != VariableType::Int {
+                // TODO
+                Err("[n] must be int")?
+            }
+
+            let procedure_symbols = symbol_table.get(&procedure.identifier).unwrap();
+            match procedure_symbols.iter().find(|v| v.identifier == *identifier) {
+                None => {
+                    // TODO
+                    Err(format!("Undeclared variable {}", identifier))?
+                }
+                // var[<expr>] := <expr>; where var is an array
+                Some(var) => {
+                    if var.variable_location == VariableLocation::FormalParameter {
+                        // TODO
+                        Err("Array cannot refer to formal parameter")?
+                    }
+
+                    let shape = var.shape.as_ref().expect("Variable shape declarations does not exist");
+                    if let IdentifierShapeDeclaration::IdentifierArray(_, _) = shape {
+                        var.r#type
+                    } else {
+                        // TODO
+                        Err("Variable declaration mismatch, should be array")?
+                    }
+                }
+            }
+        }
+        IdentifierShape::IdentifierArray2D(identifier, expr1, expr2) => {
+            if eval_expression_scalar(symbol_table, procedure, expr1)? != VariableType::Int {
+                // TODO
+                Err("[n] must be int")?
+            }
+            if eval_expression_scalar(symbol_table, procedure, expr2)? != VariableType::Int {
+                // TODO
+                Err("[m] must be int")?
+            }
+
+            let procedure_symbols = symbol_table.get(&procedure.identifier).unwrap();
+            match procedure_symbols.iter().find(|v| v.identifier == *identifier) {
+                None => {
+                    // TODO
+                    Err(format!("Undeclared variable {}", identifier))?
+                }
+                // var[<expr>, <expr>] := <expr>; where var is an array
+                Some(var) => {
+                    if var.variable_location == VariableLocation::FormalParameter {
+                        // TODO
+                        Err("Matrix cannot refer to formal parameter")?
+                    }
+
+                    let shape = var.shape.as_ref().expect("Variable shape declarations does not exist");
+                    if let IdentifierShapeDeclaration::IdentifierArray2D(_, _, _) = shape {
+                        var.r#type
+                    } else {
+                        // TODO
+                        Err("Variable declaration mismatch, should be matrix")?
+                    }
+                }
+            }
+        }
+    };
+    Ok(r#type)
 }
 
 fn eval_expression_scalar(
