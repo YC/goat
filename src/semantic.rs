@@ -335,7 +335,7 @@ fn eval_shape_type(
                         // Scalar to scalar assignment
                         var.r#type
                     } else {
-                        let shape = var.shape.as_ref().expect("Variable shape declarations does not exist");
+                        let shape = var.shape.as_ref().unwrap();
                         if let IdentifierShapeDeclaration::Identifier(_) = shape {
                             var.r#type
                         } else {
@@ -365,7 +365,7 @@ fn eval_shape_type(
                         Err("Array cannot refer to formal parameter")?
                     }
 
-                    let shape = var.shape.as_ref().expect("Variable shape declarations does not exist");
+                    let shape = var.shape.as_ref().unwrap();
                     if let IdentifierShapeDeclaration::IdentifierArray(_, _) = shape {
                         var.r#type
                     } else {
@@ -398,7 +398,7 @@ fn eval_shape_type(
                         Err("Matrix cannot refer to formal parameter")?
                     }
 
-                    let shape = var.shape.as_ref().expect("Variable shape declarations does not exist");
+                    let shape = var.shape.as_ref().unwrap();
                     if let IdentifierShapeDeclaration::IdentifierArray2D(_, _, _) = shape {
                         var.r#type
                     } else {
