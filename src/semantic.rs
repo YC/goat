@@ -235,6 +235,87 @@ fn analyse_statement(
     Ok(())
 }
 
+fn eval_expression_scalar(
+    symbol_table: &SymbolTable,
+    procedure: &Procedure,
+    expr: &Expression,
+) -> Result<VariableType, Box<dyn Error>> {
+    let r#type = match expr {
+        Expression::IntConst(_) => VariableType::Int,
+        Expression::FloatConst(_) => VariableType::Float,
+        Expression::BoolConst(_) => VariableType::Bool,
+        Expression::StringConst(_) => Err("String const not supported by parse_expression_scalar")?,
+        Expression::IdentifierShape(shape) => eval_shape_type(symbol_table, procedure, shape)?,
+        Expression::UnopExpr(op, expr) => {
+            match op {
+                Unop::Minus => {
+                    let expr_type = eval_expression_scalar(symbol_table, procedure, expr)?;
+                    if expr_type != VariableType::Int && expr_type != VariableType::Float {
+                        // TODO
+                        Err("Must be int or float")?
+                    }
+                    expr_type
+                }
+                Unop::NOT => {
+                    let expr_type = eval_expression_scalar(symbol_table, procedure, expr)?;
+                    if expr_type != VariableType::Bool {
+                        // TODO
+                        Err("Must be bool")?
+                    }
+                    expr_type
+                }
+            }
+        }
+        Expression::BinopExpr(op, left, right) => {
+            let left_type = eval_expression_scalar(symbol_table, procedure, left)?;
+            let right_type = eval_expression_scalar(symbol_table, procedure, right)?;
+
+            match op {
+                Binop::EQ | Binop::NEQ => {
+                    if left_type != right_type {
+                        // TODO
+                        Err("Operands of = or != must be of same type")?
+                    }
+                    VariableType::Bool
+                }
+                Binop::AND | Binop::OR => {
+                    if left_type != VariableType::Bool {
+                        // TODO
+                        Err("Operands of && or || must be bool")?
+                    }
+                    if right_type != VariableType::Bool {
+                        // TODO
+                        Err("Operands of && or || must be bool")?
+                    }
+                    VariableType::Bool
+                }
+                Binop::GT | Binop::GTE | Binop::LT | Binop::LTE => {
+                    if left_type == VariableType::Bool && right_type != VariableType::Bool
+                        || left_type != VariableType::Bool && right_type == VariableType::Bool
+                    {
+                        // TODO
+                        Err("Cannot compare bool with float/int")?
+                    }
+                    VariableType::Bool
+                }
+                Binop::Add | Binop::Minus | Binop::Multiply | Binop::Divide => {
+                    if left_type == VariableType::Bool || right_type == VariableType::Bool {
+                        // TODO
+                        Err("Cannot perform binary arithmetic with bool")?
+                    }
+
+                    if left_type == VariableType::Float || right_type == VariableType::Float {
+                        VariableType::Float
+                    } else {
+                        VariableType::Int
+                    }
+                }
+            }
+        }
+    };
+    Ok(r#type)
+}
+
 fn eval_shape_type(
     symbol_table: &SymbolTable,
     procedure: &Procedure,
@@ -323,173 +404,6 @@ fn eval_shape_type(
                     } else {
                         // TODO
                         Err("Variable declaration mismatch, should be matrix")?
-                    }
-                }
-            }
-        }
-    };
-    Ok(r#type)
-}
-
-fn eval_expression_scalar(
-    symbol_table: &SymbolTable,
-    procedure: &Procedure,
-    expr: &Expression,
-) -> Result<VariableType, Box<dyn Error>> {
-    let r#type = match expr {
-        Expression::IntConst(_) => VariableType::Int,
-        Expression::FloatConst(_) => VariableType::Float,
-        Expression::BoolConst(_) => VariableType::Bool,
-        Expression::StringConst(_) => Err("String const not supported by parse_expression_scalar")?,
-        Expression::IdentifierShape(shape) => {
-            match shape {
-                IdentifierShape::Identifier(identifier) => {
-                    let procedure_symbols = symbol_table.get(&procedure.identifier).unwrap();
-                    match procedure_symbols.iter().find(|v| v.identifier == *identifier) {
-                        None => {
-                            // TODO
-                            Err(format!("Undeclared variable {}", identifier))?
-                        }
-                        Some(var) => {
-                            if var.variable_location == VariableLocation::VariableDeclaration {
-                                match var.shape.as_ref().unwrap() {
-                                    IdentifierShapeDeclaration::Identifier(_) => {}
-                                    _ => {
-                                        // TODO
-                                        Err("Non scalar")?
-                                    }
-                                }
-                            }
-                            var.r#type
-                        }
-                    }
-                }
-                IdentifierShape::IdentifierArray(identifier, expr) => {
-                    if eval_expression_scalar(symbol_table, procedure, expr)? != VariableType::Int {
-                        // TODO
-                        Err("[n] must be int")?
-                    }
-
-                    let procedure_symbols = symbol_table.get(&procedure.identifier).unwrap();
-                    match procedure_symbols.iter().find(|v| v.identifier == *identifier) {
-                        None => {
-                            // TODO
-                            Err(format!("Undeclared variable {}", identifier))?
-                        }
-                        // var[<expr>] := <expr>; where var is an array
-                        Some(var) => {
-                            if var.variable_location != VariableLocation::VariableDeclaration {
-                                // TODO
-                                Err("Must be in declaration")?
-                            }
-                            match var.shape.as_ref().unwrap() {
-                                IdentifierShapeDeclaration::IdentifierArray(_, _) => {}
-                                _ => {
-                                    // TODO
-                                    Err("Must be array")?
-                                }
-                            }
-                            var.r#type
-                        }
-                    }
-                }
-                IdentifierShape::IdentifierArray2D(identifier, expr1, expr2) => {
-                    if eval_expression_scalar(symbol_table, procedure, expr1)? != VariableType::Int {
-                        // TODO
-                        Err("[n] must be int")?
-                    }
-                    if eval_expression_scalar(symbol_table, procedure, expr2)? != VariableType::Int {
-                        // TODO
-                        Err("[m] must be int")?
-                    }
-
-                    let procedure_symbols = symbol_table.get(&procedure.identifier).unwrap();
-                    match procedure_symbols.iter().find(|v| v.identifier == *identifier) {
-                        None => {
-                            // TODO
-                            Err(format!("Undeclared variable {}", identifier))?
-                        }
-                        // var[<expr>, <expr>] := <expr>; where var is an array
-                        Some(var) => {
-                            if var.variable_location != VariableLocation::VariableDeclaration {
-                                // TODO
-                                Err("Must be in declaration")?
-                            }
-                            match var.shape.as_ref().unwrap() {
-                                IdentifierShapeDeclaration::IdentifierArray2D(_, _, _) => {}
-                                _ => {
-                                    // TODO
-                                    Err("Must be matrix")?
-                                }
-                            }
-                            var.r#type
-                        }
-                    }
-                }
-            }
-        }
-        Expression::UnopExpr(op, expr) => {
-            match op {
-                Unop::Minus => {
-                    let expr_type = eval_expression_scalar(symbol_table, procedure, expr)?;
-                    if expr_type != VariableType::Int && expr_type != VariableType::Float {
-                        // TODO
-                        Err("Must be int or float")?
-                    }
-                    expr_type
-                }
-                Unop::NOT => {
-                    let expr_type = eval_expression_scalar(symbol_table, procedure, expr)?;
-                    if expr_type != VariableType::Bool {
-                        // TODO
-                        Err("Must be bool")?
-                    }
-                    expr_type
-                }
-            }
-        }
-        Expression::BinopExpr(op, left, right) => {
-            let left_type = eval_expression_scalar(symbol_table, procedure, left)?;
-            let right_type = eval_expression_scalar(symbol_table, procedure, right)?;
-
-            match op {
-                Binop::EQ | Binop::NEQ => {
-                    if left_type != right_type {
-                        // TODO
-                        Err("Operands of = or != must be of same type")?
-                    }
-                    VariableType::Bool
-                }
-                Binop::AND | Binop::OR => {
-                    if left_type != VariableType::Bool {
-                        // TODO
-                        Err("Operands of && or || must be bool")?
-                    }
-                    if right_type != VariableType::Bool {
-                        // TODO
-                        Err("Operands of && or || must be bool")?
-                    }
-                    VariableType::Bool
-                }
-                Binop::GT | Binop::GTE | Binop::LT | Binop::LTE => {
-                    if left_type == VariableType::Bool && right_type != VariableType::Bool
-                        || left_type != VariableType::Bool && right_type == VariableType::Bool
-                    {
-                        // TODO
-                        Err("Cannot compare bool with float/int")?
-                    }
-                    VariableType::Bool
-                }
-                Binop::Add | Binop::Minus | Binop::Multiply | Binop::Divide => {
-                    if left_type == VariableType::Bool || right_type == VariableType::Bool {
-                        // TODO
-                        Err("Cannot perform binary arithmetic with bool")?
-                    }
-
-                    if left_type == VariableType::Float || right_type == VariableType::Float {
-                        VariableType::Float
-                    } else {
-                        VariableType::Int
                     }
                 }
             }
