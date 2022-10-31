@@ -311,7 +311,7 @@ fn analyse_statement(
                 let argument_type = eval_expression_scalar(symbol_table, procedure, argument)?;
 
                 if formal_param.r#type != argument_type
-                    && (formal_param.r#type != VariableType::Float && argument_type != VariableType::Int)
+                    && (formal_param.r#type != VariableType::Float || argument_type != VariableType::Int)
                 {
                     // TODO
                     Err("Expected argument {} to be of type {}, but found {}")?
