@@ -24,6 +24,11 @@ pub fn semantic_analysis(program: GoatProgram) -> Result<(), Box<dyn Error>> {
     for procedure in &program.procedures {
         let mut vars = vec![];
 
+        if procedure.identifier == "main" && !procedure.parameters.is_empty() {
+            // TODO: line number
+            Err("main function should not have any parameters")?
+        }
+
         // Formal parameters (for calls)
         for formal_param in &procedure.parameters {
             if vars
@@ -49,8 +54,24 @@ pub fn semantic_analysis(program: GoatProgram) -> Result<(), Box<dyn Error>> {
         for variable_declaration in &procedure.variable_declarations {
             let identifier = match &variable_declaration.identifier_declaration {
                 IdentifierShapeDeclaration::Identifier(identifier) => identifier,
-                IdentifierShapeDeclaration::IdentifierArray(identifier, _) => identifier,
-                IdentifierShapeDeclaration::IdentifierArray2D(identifier, _, _) => identifier,
+                IdentifierShapeDeclaration::IdentifierArray(identifier, m) => {
+                    if *m <= 0 {
+                        // TODO
+                        Err("[m] <= 0")?
+                    }
+                    identifier
+                }
+                IdentifierShapeDeclaration::IdentifierArray2D(identifier, m, n) => {
+                    if *m <= 0 {
+                        // TODO
+                        Err("[m] <= 0")?
+                    }
+                    if *n <= 0 {
+                        // TODO
+                        Err("[n] <= 0")?
+                    }
+                    identifier
+                }
             };
 
             if vars.iter().any(|v: &VariableInfo| v.identifier == *identifier) {
@@ -73,6 +94,11 @@ pub fn semantic_analysis(program: GoatProgram) -> Result<(), Box<dyn Error>> {
     }
 
     for procedure in &program.procedures {
+        if procedure.body.statements.is_empty() {
+            // TODO
+            Err("<stmt-list> empty")?
+        }
+
         for statement in &procedure.body.statements {
             analyse_statement(&symbol_table, procedure, statement)?
         }
@@ -96,6 +122,10 @@ fn analyse_statement(
                 Err("Expression for If statement must be bool")?
             }
 
+            if statements.is_empty() {
+                // TODO
+                Err("<stmt-list> empty")?
+            }
             for statement in statements {
                 analyse_statement(symbol_table, procedure, statement)?
             }
@@ -109,6 +139,14 @@ fn analyse_statement(
                 Err("Expression for If statement must be bool")?
             }
 
+            if statements1.is_empty() {
+                // TODO
+                Err("<stmt-list> empty")?
+            }
+            if statements2.is_empty() {
+                // TODO
+                Err("<stmt-list> empty")?
+            }
             for statement in statements1 {
                 analyse_statement(symbol_table, procedure, statement)?
             }
@@ -125,6 +163,10 @@ fn analyse_statement(
                 Err("Expression for If statement must be bool")?
             }
 
+            if statements.is_empty() {
+                // TODO
+                Err("<stmt-list> empty")?
+            }
             for statement in statements {
                 analyse_statement(symbol_table, procedure, statement)?
             }
