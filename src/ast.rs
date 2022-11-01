@@ -167,14 +167,14 @@ impl Display for IdentifierShapeDeclaration {
 
 #[derive(Debug)]
 pub enum Statement {
-    Assign(IdentifierShape, Expression),
+    Assign(IdentifierShape, AstNode<Expression>),
     Read(IdentifierShape),
-    Write(Expression),
-    Call(AstNode<Identifier>, Vec<Expression>),
+    Write(AstNode<Expression>),
+    Call(AstNode<Identifier>, Vec<AstNode<Expression>>),
 
-    If(Expression, Vec<Statement>),
-    IfElse(Expression, Vec<Statement>, Vec<Statement>),
-    While(Expression, Vec<Statement>),
+    If(AstNode<Expression>, Vec<Statement>),
+    IfElse(AstNode<Expression>, Vec<Statement>, Vec<Statement>),
+    While(AstNode<Expression>, Vec<Statement>),
 }
 
 impl Display for Statement {
@@ -195,13 +195,13 @@ impl Statement {
     fn pretty_print(&self) -> String {
         match self {
             Statement::Assign(ident, expr) => {
-                format!("{} := {};", ident, expr)
+                format!("{} := {};", ident, expr.node)
             }
             Statement::Read(ident) => {
                 format!("read {};", ident)
             }
             Statement::Write(expr) => {
-                format!("write {};", expr)
+                format!("write {};", expr.node)
             }
             Statement::Call(ident, expr_list) => {
                 format!(
@@ -209,7 +209,7 @@ impl Statement {
                     ident.node,
                     expr_list
                         .iter()
-                        .map(|s| format!("{}", s))
+                        .map(|s| format!("{}", s.node))
                         .collect::<Vec<String>>()
                         .join(", ")
                 )
@@ -217,7 +217,7 @@ impl Statement {
             Statement::While(expr, stmt_list) => {
                 format!(
                     "while {} do\n{}{}od",
-                    expr,
+                    expr.node,
                     stmt_list
                         .iter()
                         .map(|s| format!("{}", s))
@@ -229,7 +229,7 @@ impl Statement {
             Statement::If(expr, stmt_list) => {
                 format!(
                     "if {} then\n{}{}fi",
-                    expr,
+                    expr.node,
                     stmt_list
                         .iter()
                         .map(|s| format!("{}", s))
@@ -241,7 +241,7 @@ impl Statement {
             Statement::IfElse(expr, stmt_if, stmt_else) => {
                 format!(
                     "if {} then\n{}{}else\n{}{}fi",
-                    expr,
+                    expr.node,
                     stmt_if
                         .iter()
                         .map(|s| format!("{}", s))
@@ -276,8 +276,8 @@ pub enum Expression {
     /// can contain \n
     StringConst(String),
 
-    BinopExpr(Binop, Box<Expression>, Box<Expression>),
-    UnopExpr(Unop, Box<Expression>),
+    BinopExpr(Binop, Box<AstNode<Expression>>, Box<AstNode<Expression>>),
+    UnopExpr(Unop, Box<AstNode<Expression>>),
 }
 
 impl Display for Expression {
@@ -292,13 +292,13 @@ impl Display for Expression {
             Self::BinopExpr(op, expr_left, expr_right) => {
                 format!(
                     "{} {} {}",
-                    wrap_bracket(expr_left.is_binop(), expr_left.to_string()),
+                    wrap_bracket(expr_left.node.is_binop(), expr_left.node.to_string()),
                     op,
-                    wrap_bracket(expr_right.is_binop(), expr_right.to_string())
+                    wrap_bracket(expr_right.node.is_binop(), expr_right.node.to_string())
                 )
             }
             Self::UnopExpr(op, expr) => {
-                format!("{}{}", op, wrap_bracket(expr.is_binop(), expr.to_string()))
+                format!("{}{}", op, wrap_bracket(expr.node.is_binop(), expr.node.to_string()))
             }
         };
         write!(f, "{}", s)
@@ -322,16 +322,16 @@ impl Expression {
 #[derive(Debug)]
 pub enum IdentifierShape {
     Identifier(AstNode<Identifier>),
-    IdentifierArray(AstNode<Identifier>, Box<Expression>),
-    IdentifierArray2D(AstNode<Identifier>, Box<Expression>, Box<Expression>),
+    IdentifierArray(AstNode<Identifier>, Box<AstNode<Expression>>),
+    IdentifierArray2D(AstNode<Identifier>, Box<AstNode<Expression>>, Box<AstNode<Expression>>),
 }
 
 impl Display for IdentifierShape {
     fn fmt(&self, f: &mut Formatter) -> Result {
         let s = match self {
             Self::Identifier(ident) => ident.node.clone(),
-            Self::IdentifierArray(ident, m) => format!("{}[{}]", ident.node, m),
-            Self::IdentifierArray2D(ident, m, n) => format!("{}[{}, {}]", ident.node, m, n),
+            Self::IdentifierArray(ident, m) => format!("{}[{}]", ident.node, m.node),
+            Self::IdentifierArray2D(ident, m, n) => format!("{}[{}, {}]", ident.node, m.node, n.node),
         };
         write!(f, "{}", s)
     }

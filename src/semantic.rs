@@ -12,7 +12,7 @@ pub fn semantic_analysis(program: GoatProgram) -> Result<(), Box<dyn Error>> {
     for procedure in &program.procedures {
         if names.contains(&procedure.identifier.node) {
             Err(format!(
-                "There is more than 1 proc with name {}, duplicate occurrence at {:?}",
+                "There is more than 1 proc with name {}, second occurrence at {:?}",
                 procedure.identifier.node, procedure.identifier.location
             ))?
         }
@@ -27,8 +27,10 @@ pub fn semantic_analysis(program: GoatProgram) -> Result<(), Box<dyn Error>> {
         let mut vars = vec![];
 
         if procedure.identifier.node == "main" && !procedure.parameters.is_empty() {
-            // TODO: line number
-            Err("main function should not have any parameters")?
+            Err(format!(
+                "main function should not have any parameters: see line {}",
+                procedure.parameters[0].identifier.location.0
+            ))?
         }
 
         // Formal parameters (for calls)
@@ -59,19 +61,25 @@ pub fn semantic_analysis(program: GoatProgram) -> Result<(), Box<dyn Error>> {
                 IdentifierShapeDeclaration::Identifier(identifier) => identifier,
                 IdentifierShapeDeclaration::IdentifierArray(identifier, m) => {
                     if *m == 0 {
-                        // TODO
-                        Err("[m] <= 0")?
+                        Err(format!(
+                            "The array {} at {:?} cannot be initialised with [0] elements: {}[{}]",
+                            identifier.node, identifier.location, identifier.node, m
+                        ))?
                     }
                     identifier
                 }
                 IdentifierShapeDeclaration::IdentifierArray2D(identifier, m, n) => {
                     if *m == 0 {
-                        // TODO
-                        Err("[m] <= 0")?
+                        Err(format!(
+                            "The array {} at {:?} cannot be initialised with [0, y] elements: {}[{}, {}]",
+                            identifier.node, identifier.location, identifier.node, m, n
+                        ))?
                     }
                     if *n == 0 {
-                        // TODO
-                        Err("[n] <= 0")?
+                        Err(format!(
+                            "The array {} at {:?} cannot be initialised with [x, 0] elements: {}[{}, {}]",
+                            identifier.node, identifier.location, identifier.node, m, n
+                        ))?
                     }
                     identifier
                 }
@@ -120,7 +128,7 @@ fn analyse_statement(
         Statement::If(expr, statements) => {
             // - conditions must be bool
             // - bodies must be sequence of statements
-            let expr_type = eval_expression_scalar(symbol_table, procedure, expr)?;
+            let expr_type = eval_expression_scalar(symbol_table, procedure, &expr.node)?;
             if expr_type != VariableType::Bool {
                 // TODO
                 Err("Expression for If statement must be bool")?
@@ -137,10 +145,10 @@ fn analyse_statement(
         Statement::IfElse(expr, statements1, statements2) => {
             // - conditions must be bool
             // - bodies must be sequence of statements
-            let expr_type = eval_expression_scalar(symbol_table, procedure, expr)?;
+            let expr_type = eval_expression_scalar(symbol_table, procedure, &expr.node)?;
             if expr_type != VariableType::Bool {
                 // TODO
-                Err("Expression for If statement must be bool")?
+                Err("Expression for IfElse statement must be bool")?
             }
 
             if statements1.is_empty() {
@@ -161,7 +169,7 @@ fn analyse_statement(
         Statement::While(expr, statements) => {
             // - conditions must be bool
             // - bodies must be sequence of statements
-            let expr_type = eval_expression_scalar(symbol_table, procedure, expr)?;
+            let expr_type = eval_expression_scalar(symbol_table, procedure, &expr.node)?;
             if expr_type != VariableType::Bool {
                 // TODO
                 Err("Expression for If statement must be bool")?
@@ -181,7 +189,7 @@ fn analyse_statement(
             // - arrays and matrices can only be updated selectively
             let left_type = eval_shape_type(symbol_table, procedure, shape)?;
 
-            let right_type = eval_expression_scalar(symbol_table, procedure, expression)?;
+            let right_type = eval_expression_scalar(symbol_table, procedure, &expression.node)?;
 
             if left_type != right_type && (left_type != VariableType::Float && right_type != VariableType::Int) {
                 // TODO
@@ -193,11 +201,11 @@ fn analyse_statement(
             eval_shape_type(symbol_table, procedure, shape)?;
         }
         Statement::Write(expr) => {
-            if let Expression::StringConst(_) = expr {
+            if let Expression::StringConst(_) = expr.node {
                 // String constant
             } else {
                 // Well-typed expression
-                eval_expression_scalar(symbol_table, procedure, expr)?;
+                eval_expression_scalar(symbol_table, procedure, &expr.node)?;
             }
         }
         Statement::Call(identifier, expressions) => {
@@ -225,7 +233,7 @@ fn analyse_statement(
             for i in 0..formal_params.len() {
                 let formal_param = formal_params[i];
                 let argument = &expressions[i];
-                let argument_type = eval_expression_scalar(symbol_table, procedure, argument)?;
+                let argument_type = eval_expression_scalar(symbol_table, procedure, &argument.node)?;
 
                 if formal_param.r#type != argument_type
                     && (formal_param.r#type != VariableType::Float
@@ -255,7 +263,7 @@ fn eval_expression_scalar(
         Expression::UnopExpr(op, expr) => {
             match op {
                 Unop::Minus => {
-                    let expr_type = eval_expression_scalar(symbol_table, procedure, expr)?;
+                    let expr_type = eval_expression_scalar(symbol_table, procedure, &expr.node)?;
                     if expr_type != VariableType::Int && expr_type != VariableType::Float {
                         // TODO
                         Err("Must be int or float")?
@@ -263,7 +271,7 @@ fn eval_expression_scalar(
                     expr_type
                 }
                 Unop::NOT => {
-                    let expr_type = eval_expression_scalar(symbol_table, procedure, expr)?;
+                    let expr_type = eval_expression_scalar(symbol_table, procedure, &expr.node)?;
                     if expr_type != VariableType::Bool {
                         // TODO
                         Err("Must be bool")?
@@ -273,8 +281,8 @@ fn eval_expression_scalar(
             }
         }
         Expression::BinopExpr(op, left, right) => {
-            let left_type = eval_expression_scalar(symbol_table, procedure, left)?;
-            let right_type = eval_expression_scalar(symbol_table, procedure, right)?;
+            let left_type = eval_expression_scalar(symbol_table, procedure, &left.node)?;
+            let right_type = eval_expression_scalar(symbol_table, procedure, &right.node)?;
 
             match op {
                 Binop::EQ | Binop::NEQ => {
@@ -353,7 +361,7 @@ fn eval_shape_type(
             }
         }
         IdentifierShape::IdentifierArray(identifier, expr) => {
-            if eval_expression_scalar(symbol_table, procedure, expr)? != VariableType::Int {
+            if eval_expression_scalar(symbol_table, procedure, &expr.node)? != VariableType::Int {
                 // TODO
                 Err("[n] must be int")?
             }
@@ -382,11 +390,11 @@ fn eval_shape_type(
             }
         }
         IdentifierShape::IdentifierArray2D(identifier, expr1, expr2) => {
-            if eval_expression_scalar(symbol_table, procedure, expr1)? != VariableType::Int {
+            if eval_expression_scalar(symbol_table, procedure, &expr1.node)? != VariableType::Int {
                 // TODO
                 Err("[n] must be int")?
             }
-            if eval_expression_scalar(symbol_table, procedure, expr2)? != VariableType::Int {
+            if eval_expression_scalar(symbol_table, procedure, &expr2.node)? != VariableType::Int {
                 // TODO
                 Err("[m] must be int")?
             }
