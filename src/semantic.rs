@@ -124,9 +124,9 @@ pub fn semantic_analysis(program: GoatProgram) -> Result<(), Box<dyn Error>> {
 fn analyse_statement(
     symbol_table: &SymbolTable,
     procedure: &Procedure,
-    statement: &Statement,
+    statement: &AstNode<Statement>,
 ) -> Result<(), Box<dyn Error>> {
-    match statement {
+    match &statement.node {
         Statement::If(expr, statements) => {
             // - conditions must be bool
             // - bodies must be sequence of statements
@@ -139,8 +139,10 @@ fn analyse_statement(
             }
 
             if statements.is_empty() {
-                // TODO
-                Err("<stmt-list> empty")?
+                Err(format!(
+                    "Expected list of statements for if branch of If statement at {:?}",
+                    statement.location
+                ))?
             }
             for statement in statements {
                 analyse_statement(symbol_table, procedure, statement)?
@@ -158,12 +160,16 @@ fn analyse_statement(
             }
 
             if statements1.is_empty() {
-                // TODO
-                Err("<stmt-list> empty")?
+                Err(format!(
+                    "Expected non-empty list of statements for if branch of IfElse statement at {:?}",
+                    statement.location
+                ))?
             }
             if statements2.is_empty() {
-                // TODO
-                Err("<stmt-list> empty")?
+                Err(format!(
+                    "Expected non-empty list of statements for else branch of IfElse statement at {:?}",
+                    statement.location
+                ))?
             }
             for statement in statements1 {
                 analyse_statement(symbol_table, procedure, statement)?
@@ -184,8 +190,10 @@ fn analyse_statement(
             }
 
             if statements.is_empty() {
-                // TODO
-                Err("<stmt-list> empty")?
+                Err(format!(
+                    "Expected non-empty list of statements for while loop at {:?}",
+                    statement.location
+                ))?
             }
             for statement in statements {
                 analyse_statement(symbol_table, procedure, statement)?

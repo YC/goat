@@ -120,7 +120,7 @@ impl Display for VariableType {
 /// Procedure body consists of 0 or more variable declarations, then statements
 #[derive(Debug)]
 pub struct ProcBody {
-    pub statements: Vec<Statement>,
+    pub statements: Vec<AstNode<Statement>>,
 }
 
 impl Display for ProcBody {
@@ -128,7 +128,7 @@ impl Display for ProcBody {
         let s = self
             .statements
             .iter()
-            .map(|s| format!("{}", s))
+            .map(|s| format!("{}", s.node))
             .collect::<Vec<String>>()
             .join("\n");
         write!(f, "{}", s)
@@ -172,9 +172,9 @@ pub enum Statement {
     Write(AstNode<Expression>),
     Call(AstNode<Identifier>, Vec<AstNode<Expression>>),
 
-    If(AstNode<Expression>, Vec<Statement>),
-    IfElse(AstNode<Expression>, Vec<Statement>, Vec<Statement>),
-    While(AstNode<Expression>, Vec<Statement>),
+    If(AstNode<Expression>, Vec<AstNode<Statement>>),
+    IfElse(AstNode<Expression>, Vec<AstNode<Statement>>, Vec<AstNode<Statement>>),
+    While(AstNode<Expression>, Vec<AstNode<Statement>>),
 }
 
 impl Display for Statement {
@@ -220,7 +220,7 @@ impl Statement {
                     expr.node,
                     stmt_list
                         .iter()
-                        .map(|s| format!("{}", s))
+                        .map(|s| format!("{}", s.node))
                         .collect::<Vec<String>>()
                         .join("\n"),
                     if !stmt_list.is_empty() { "\n" } else { "" },
@@ -232,7 +232,7 @@ impl Statement {
                     expr.node,
                     stmt_list
                         .iter()
-                        .map(|s| format!("{}", s))
+                        .map(|s| format!("{}", s.node))
                         .collect::<Vec<String>>()
                         .join("\n"),
                     if !stmt_list.is_empty() { "\n" } else { "" },
@@ -244,13 +244,13 @@ impl Statement {
                     expr.node,
                     stmt_if
                         .iter()
-                        .map(|s| format!("{}", s))
+                        .map(|s| format!("{}", s.node))
                         .collect::<Vec<String>>()
                         .join("\n"),
                     if !stmt_if.is_empty() { "\n" } else { "" },
                     stmt_else
                         .iter()
-                        .map(|s| format!("{}", s))
+                        .map(|s| format!("{}", s.node))
                         .collect::<Vec<String>>()
                         .join("\n"),
                     if !stmt_else.is_empty() { "\n" } else { "" },

@@ -222,7 +222,7 @@ fn parse_body(tokens: &Vec<TokenInfo>, index: &mut usize) -> Result<ProcBody, Bo
     Ok(ProcBody { statements })
 }
 
-fn parse_statement_list(tokens: &Vec<TokenInfo>, index: &mut usize) -> Result<Vec<Statement>, Box<dyn Error>> {
+fn parse_statement_list(tokens: &Vec<TokenInfo>, index: &mut usize) -> Result<Vec<AstNode<Statement>>, Box<dyn Error>> {
     let mut statements = vec![];
     while peek_next(tokens, *index)?.0 != Token::Keyword(Keyword::END)
         && peek_next(tokens, *index)?.0 != Token::Keyword(Keyword::FI)
@@ -234,35 +234,44 @@ fn parse_statement_list(tokens: &Vec<TokenInfo>, index: &mut usize) -> Result<Ve
     Ok(statements)
 }
 
-fn parse_statement(tokens: &Vec<TokenInfo>, index: &mut usize) -> Result<Statement, Box<dyn Error>> {
+fn parse_statement(tokens: &Vec<TokenInfo>, index: &mut usize) -> Result<AstNode<Statement>, Box<dyn Error>> {
     let next_token = peek_next(tokens, *index)?;
 
     let statement = match next_token.0 {
         Token::Ident(_) => {
             // <id> [ <expr>, <expr> ] := <expr>;
             let identifier_shape = parse_identifier_shape(tokens, index)?;
-            match_next(tokens, Token::ASSIGN, index)?;
+            let location = match_next(tokens, Token::ASSIGN, index)?;
             let expr = parse_expression(tokens, index)?;
             match_next(tokens, Token::SEMI, index)?;
-            Statement::Assign(identifier_shape, expr)
+            AstNode {
+                node: Statement::Assign(identifier_shape, expr),
+                location,
+            }
         }
         Token::Keyword(Keyword::READ) => {
             // read <id> [ <expr>, <expr> ];
-            match_next(tokens, Token::Keyword(Keyword::READ), index)?;
+            let location = match_next(tokens, Token::Keyword(Keyword::READ), index)?;
             let identifier_shape = parse_identifier_shape(tokens, index)?;
             match_next(tokens, Token::SEMI, index)?;
-            Statement::Read(identifier_shape)
+            AstNode {
+                node: Statement::Read(identifier_shape),
+                location,
+            }
         }
         Token::Keyword(Keyword::WRITE) => {
             // write <expr>;
-            match_next(tokens, Token::Keyword(Keyword::WRITE), index)?;
+            let location = match_next(tokens, Token::Keyword(Keyword::WRITE), index)?;
             let expr = parse_expression(tokens, index)?;
             match_next(tokens, Token::SEMI, index)?;
-            Statement::Write(expr)
+            AstNode {
+                node: Statement::Write(expr),
+                location,
+            }
         }
         Token::Keyword(Keyword::CALL) => {
             // call
-            match_next(tokens, Token::Keyword(Keyword::CALL), index)?;
+            let location = match_next(tokens, Token::Keyword(Keyword::CALL), index)?;
             // <id>
             let identifier = parse_identifier(tokens, index)?;
             // (
@@ -287,34 +296,50 @@ fn parse_statement(tokens: &Vec<TokenInfo>, index: &mut usize) -> Result<Stateme
             match_next(tokens, Token::RPAREN, index)?;
             match_next(tokens, Token::SEMI, index)?;
 
-            Statement::Call(identifier, params)
+            AstNode {
+                node: Statement::Call(identifier, params),
+                location,
+            }
         }
         Token::Keyword(Keyword::WHILE) => {
             // while <expr> do <stmt-list> od
-            match_next(tokens, Token::Keyword(Keyword::WHILE), index)?;
+            let location = match_next(tokens, Token::Keyword(Keyword::WHILE), index)?;
+
             let expr = parse_expression(tokens, index)?;
             match_next(tokens, Token::Keyword(Keyword::DO), index)?;
             let statement_list = parse_statement_list(tokens, index)?;
             match_next(tokens, Token::Keyword(Keyword::OD), index)?;
-            Statement::While(expr, statement_list)
+
+            AstNode {
+                node: Statement::While(expr, statement_list),
+                location,
+            }
         }
         Token::Keyword(Keyword::IF) => {
             // if <expr> then <stmt-list> fi
-            match_next(tokens, Token::Keyword(Keyword::IF), index)?;
+            let location = match_next(tokens, Token::Keyword(Keyword::IF), index)?;
+
             let expr = parse_expression(tokens, index)?;
             match_next(tokens, Token::Keyword(Keyword::THEN), index)?;
             let stmt_list = parse_statement_list(tokens, index)?;
 
             let next_token = peek_next(tokens, *index)?;
             if next_token.0 != Token::Keyword(Keyword::ELSE) {
+                // No else statement
                 match_next(tokens, Token::Keyword(Keyword::FI), index)?;
-                Statement::If(expr, stmt_list)
+                AstNode {
+                    node: Statement::If(expr, stmt_list),
+                    location,
+                }
             } else {
                 // if <expr> then <stmt-list> else <stmt-list> fi
                 match_next(tokens, Token::Keyword(Keyword::ELSE), index)?;
                 let else_stmt_list = parse_statement_list(tokens, index)?;
                 match_next(tokens, Token::Keyword(Keyword::FI), index)?;
-                Statement::IfElse(expr, stmt_list, else_stmt_list)
+                AstNode {
+                    node: Statement::IfElse(expr, stmt_list, else_stmt_list),
+                    location,
+                }
             }
         }
         _ => Err(format!(
