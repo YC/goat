@@ -43,7 +43,6 @@ impl std::fmt::Debug for Nfa {
 }
 
 #[derive(Debug, Eq, PartialEq)]
-#[allow(dead_code)]
 enum NfaTransition {
     Charset(Charset),
     Empty,

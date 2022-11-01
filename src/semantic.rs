@@ -4,19 +4,33 @@ use crate::ast::{
 };
 use std::{collections::HashMap, collections::HashSet, error::Error};
 
-type SymbolTable = HashMap<String, Vec<VariableInfo>>;
+type SymbolTable<'a> = HashMap<&'a String, Vec<VariableInfo<'a>>>;
 
-pub fn semantic_analysis(program: GoatProgram) -> Result<(), Box<dyn Error>> {
+pub struct VariableInfo<'a> {
+    pub identifier: &'a Identifier,
+    pub variable_location: VariableLocation,
+    pub r#type: VariableType,
+    pub shape: Option<&'a IdentifierShapeDeclaration>,
+    pub pass_indicator: Option<&'a ParameterPassIndicator>,
+}
+
+#[derive(Debug, Eq, PartialEq)]
+pub enum VariableLocation {
+    FormalParameter,
+    VariableDeclaration,
+}
+
+pub fn semantic_analysis(program: &GoatProgram) -> Result<SymbolTable, Box<dyn Error>> {
     // Distinct names
-    let mut names: HashSet<String> = HashSet::new();
+    let mut names: HashSet<&str> = HashSet::new();
     for procedure in &program.procedures {
-        if names.contains(&procedure.identifier.node) {
+        if names.contains(procedure.identifier.node.as_str()) {
             Err(format!(
                 "There is more than 1 proc with name {}, second occurrence at {:?}",
                 procedure.identifier.node, procedure.identifier.location
             ))?
         }
-        names.insert(procedure.identifier.node.clone());
+        names.insert(&procedure.identifier.node);
     }
     if !names.contains("main") {
         Err("Program does not have main function")?
@@ -37,7 +51,7 @@ pub fn semantic_analysis(program: GoatProgram) -> Result<(), Box<dyn Error>> {
         for formal_param in &procedure.parameters {
             if vars
                 .iter()
-                .any(|v: &VariableInfo| v.identifier == formal_param.identifier.node)
+                .any(|v: &VariableInfo| v.identifier == &formal_param.identifier.node)
             {
                 Err(format!(
                     "There is more than 1 formal parameter with name {} for procedure {}",
@@ -46,10 +60,10 @@ pub fn semantic_analysis(program: GoatProgram) -> Result<(), Box<dyn Error>> {
             }
 
             let param = VariableInfo {
-                identifier: formal_param.identifier.node.clone(),
+                identifier: &formal_param.identifier.node,
                 r#type: formal_param.r#type,
                 variable_location: VariableLocation::FormalParameter,
-                pass_indicator: Some(formal_param.passing_indicator),
+                pass_indicator: Some(&formal_param.passing_indicator),
                 shape: None,
             };
             vars.push(param);
@@ -85,7 +99,7 @@ pub fn semantic_analysis(program: GoatProgram) -> Result<(), Box<dyn Error>> {
                 }
             };
 
-            if vars.iter().any(|v: &VariableInfo| v.identifier == *identifier.node) {
+            if vars.iter().any(|v: &VariableInfo| v.identifier == &identifier.node) {
                 Err(format!(
                     "There is more than 1 variable/parameter with name {} for procedure {}",
                     identifier.node, procedure.identifier.node
@@ -93,16 +107,16 @@ pub fn semantic_analysis(program: GoatProgram) -> Result<(), Box<dyn Error>> {
             }
 
             let param = VariableInfo {
-                identifier: identifier.node.clone(),
+                identifier: &identifier.node,
                 r#type: variable_declaration.r#type,
                 variable_location: VariableLocation::VariableDeclaration,
                 pass_indicator: None,
-                shape: Some(variable_declaration.identifier_declaration.clone()),
+                shape: Some(&variable_declaration.identifier_declaration),
             };
             vars.push(param);
         }
 
-        symbol_table.insert(procedure.identifier.node.clone(), vars);
+        symbol_table.insert(&procedure.identifier.node, vars);
     }
 
     for procedure in &program.procedures {
@@ -118,7 +132,7 @@ pub fn semantic_analysis(program: GoatProgram) -> Result<(), Box<dyn Error>> {
         }
     }
 
-    Ok(())
+    Ok(symbol_table)
 }
 
 fn analyse_statement(
@@ -261,14 +275,14 @@ fn analyse_statement(
                 if formal_param.r#type != argument_type
                     && (formal_param.r#type != VariableType::Float
                         || argument_type != VariableType::Int
-                        || formal_param.pass_indicator.unwrap() != ParameterPassIndicator::Val)
+                        || *formal_param.pass_indicator.unwrap() != ParameterPassIndicator::Val)
                 {
                     Err(format!(
                         "Expected argument {} \"{}\" to call at {:?} to be of type {}, but found {}",
                         i + 1,
                         argument.node,
                         argument.location,
-                        if formal_param.pass_indicator.unwrap() == ParameterPassIndicator::Val
+                        if *formal_param.pass_indicator.unwrap() == ParameterPassIndicator::Val
                             && formal_param.r#type == VariableType::Float
                         {
                             "Int or Float".to_string()
@@ -403,7 +417,7 @@ fn eval_shape_type(
     let r#type = match shape {
         IdentifierShape::Identifier(identifier) => {
             let procedure_symbols = symbol_table.get(&procedure.identifier.node).unwrap();
-            match procedure_symbols.iter().find(|v| v.identifier == *identifier.node) {
+            match procedure_symbols.iter().find(|v| v.identifier == &identifier.node) {
                 None => Err(format!(
                     "Undeclared variable \"{}\" at {:?}",
                     identifier.node, identifier.location
@@ -437,7 +451,7 @@ fn eval_shape_type(
             }
 
             let procedure_symbols = symbol_table.get(&procedure.identifier.node).unwrap();
-            match procedure_symbols.iter().find(|v| v.identifier == *identifier.node) {
+            match procedure_symbols.iter().find(|v| *v.identifier == *identifier.node) {
                 None => Err(format!(
                     "Undeclared variable \"{}\" at {:?}",
                     identifier.node, identifier.location
@@ -480,7 +494,7 @@ fn eval_shape_type(
             }
 
             let procedure_symbols = symbol_table.get(&procedure.identifier.node).unwrap();
-            match procedure_symbols.iter().find(|v| v.identifier == *identifier.node) {
+            match procedure_symbols.iter().find(|v| *v.identifier == identifier.node) {
                 None => Err(format!(
                     "Undeclared variable \"{}\" at {:?}",
                     identifier.node, identifier.location
@@ -508,18 +522,4 @@ fn eval_shape_type(
         }
     };
     Ok(r#type)
-}
-
-struct VariableInfo {
-    identifier: Identifier,
-    variable_location: VariableLocation,
-    r#type: VariableType,
-    shape: Option<IdentifierShapeDeclaration>,
-    pass_indicator: Option<ParameterPassIndicator>,
-}
-
-#[derive(Debug, Eq, PartialEq)]
-enum VariableLocation {
-    FormalParameter,
-    VariableDeclaration,
 }

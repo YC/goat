@@ -78,7 +78,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         println!("{}", ast);
     }
 
-    match semantic_analysis(ast) {
+    match semantic_analysis(&ast) {
         Ok(_) => {}
         Err(e) => {
             eprintln!("Semantic analysis error: {}", e);

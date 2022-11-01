@@ -1,5 +1,3 @@
-#![allow(dead_code)]
-
 use std::fmt::{Display, Formatter, Result};
 
 /// Program consists of 1 or more procedure definitions
@@ -20,7 +18,7 @@ impl Display for GoatProgram {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct AstNode<N> {
     pub location: TokenLocation,
     pub node: N,
@@ -147,7 +145,7 @@ impl Display for VariableDeclaration {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub enum IdentifierShapeDeclaration {
     Identifier(AstNode<Identifier>),
     IdentifierArray(AstNode<Identifier>, u128),
@@ -157,7 +155,7 @@ pub enum IdentifierShapeDeclaration {
 impl Display for IdentifierShapeDeclaration {
     fn fmt(&self, f: &mut Formatter) -> Result {
         let s = match self {
-            Self::Identifier(ident) => ident.node.clone(),
+            Self::Identifier(ident) => ident.node.to_string(),
             Self::IdentifierArray(ident, m) => format!("{}[{}]", ident.node, m),
             Self::IdentifierArray2D(ident, m, n) => format!("{}[{}, {}]", ident.node, m, n),
         };
@@ -186,7 +184,7 @@ impl Display for Statement {
 fn pad_space(s: String, level: u64) -> String {
     let repeat = " ".repeat(level as usize * 4);
     s.split('\n')
-        .map(|s| repeat.clone() + s)
+        .map(|s| repeat.to_string() + s)
         .collect::<Vec<String>>()
         .join("\n")
 }
@@ -329,7 +327,7 @@ pub enum IdentifierShape {
 impl Display for IdentifierShape {
     fn fmt(&self, f: &mut Formatter) -> Result {
         let s = match self {
-            Self::Identifier(ident) => ident.node.clone(),
+            Self::Identifier(ident) => ident.node.to_string(),
             Self::IdentifierArray(ident, m) => format!("{}[{}]", ident.node, m.node),
             Self::IdentifierArray2D(ident, m, n) => format!("{}[{}, {}]", ident.node, m.node, n.node),
         };
