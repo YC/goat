@@ -20,7 +20,13 @@ impl Display for GoatProgram {
     }
 }
 
-pub type Identifier = (String, TokenLocation);
+#[derive(Debug, Clone)]
+pub struct AstNode<N> {
+    pub location: TokenLocation,
+    pub node: N,
+}
+
+pub type Identifier = String;
 
 pub type TokenLocation = (u64, u64);
 
@@ -28,7 +34,7 @@ pub type TokenLocation = (u64, u64);
 #[derive(Debug)]
 pub struct Procedure {
     /// Procedure's name
-    pub identifier: Identifier,
+    pub identifier: AstNode<Identifier>,
     /// Header has identifier, parameters
     pub parameters: Vec<Parameter>,
     /// Variable declarations
@@ -42,7 +48,7 @@ impl Display for Procedure {
         write!(
             f,
             "proc {} ({})\n{}{}begin\n{}\nend",
-            self.identifier.0,
+            self.identifier.node,
             self.parameters
                 .iter()
                 .map(|p| format!("{}", p))
@@ -68,12 +74,12 @@ impl Display for Procedure {
 pub struct Parameter {
     pub passing_indicator: ParameterPassIndicator,
     pub r#type: VariableType,
-    pub identifier: Identifier,
+    pub identifier: AstNode<Identifier>,
 }
 
 impl Display for Parameter {
     fn fmt(&self, f: &mut Formatter) -> Result {
-        write!(f, "{} {} {}", self.passing_indicator, self.r#type, self.identifier.0)
+        write!(f, "{} {} {}", self.passing_indicator, self.r#type, self.identifier.node)
     }
 }
 
@@ -143,17 +149,17 @@ impl Display for VariableDeclaration {
 
 #[derive(Debug, Clone)]
 pub enum IdentifierShapeDeclaration {
-    Identifier(Identifier),
-    IdentifierArray(Identifier, u128),
-    IdentifierArray2D(Identifier, u128, u128),
+    Identifier(AstNode<Identifier>),
+    IdentifierArray(AstNode<Identifier>, u128),
+    IdentifierArray2D(AstNode<Identifier>, u128, u128),
 }
 
 impl Display for IdentifierShapeDeclaration {
     fn fmt(&self, f: &mut Formatter) -> Result {
         let s = match self {
-            Self::Identifier(ident) => ident.0.clone(),
-            Self::IdentifierArray(ident, m) => format!("{}[{}]", ident.0, m),
-            Self::IdentifierArray2D(ident, m, n) => format!("{}[{}, {}]", ident.0, m, n),
+            Self::Identifier(ident) => ident.node.clone(),
+            Self::IdentifierArray(ident, m) => format!("{}[{}]", ident.node, m),
+            Self::IdentifierArray2D(ident, m, n) => format!("{}[{}, {}]", ident.node, m, n),
         };
         write!(f, "{}", s)
     }
@@ -164,7 +170,7 @@ pub enum Statement {
     Assign(IdentifierShape, Expression),
     Read(IdentifierShape),
     Write(Expression),
-    Call(Identifier, Vec<Expression>),
+    Call(AstNode<Identifier>, Vec<Expression>),
 
     If(Expression, Vec<Statement>),
     IfElse(Expression, Vec<Statement>, Vec<Statement>),
@@ -200,7 +206,7 @@ impl Statement {
             Statement::Call(ident, expr_list) => {
                 format!(
                     "call {}({});",
-                    ident.0,
+                    ident.node,
                     expr_list
                         .iter()
                         .map(|s| format!("{}", s))
@@ -315,17 +321,17 @@ impl Expression {
 
 #[derive(Debug)]
 pub enum IdentifierShape {
-    Identifier(Identifier),
-    IdentifierArray(Identifier, Box<Expression>),
-    IdentifierArray2D(Identifier, Box<Expression>, Box<Expression>),
+    Identifier(AstNode<Identifier>),
+    IdentifierArray(AstNode<Identifier>, Box<Expression>),
+    IdentifierArray2D(AstNode<Identifier>, Box<Expression>, Box<Expression>),
 }
 
 impl Display for IdentifierShape {
     fn fmt(&self, f: &mut Formatter) -> Result {
         let s = match self {
-            Self::Identifier(ident) => ident.0.clone(),
-            Self::IdentifierArray(ident, m) => format!("{}[{}]", ident.0, m),
-            Self::IdentifierArray2D(ident, m, n) => format!("{}[{}, {}]", ident.0, m, n),
+            Self::Identifier(ident) => ident.node.clone(),
+            Self::IdentifierArray(ident, m) => format!("{}[{}]", ident.node, m),
+            Self::IdentifierArray2D(ident, m, n) => format!("{}[{}, {}]", ident.node, m, n),
         };
         write!(f, "{}", s)
     }

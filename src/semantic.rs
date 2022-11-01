@@ -10,13 +10,13 @@ pub fn semantic_analysis(program: GoatProgram) -> Result<(), Box<dyn Error>> {
     // Distinct names
     let mut names: HashSet<String> = HashSet::new();
     for procedure in &program.procedures {
-        if names.contains(&procedure.identifier.0) {
+        if names.contains(&procedure.identifier.node) {
             Err(format!(
                 "There is more than 1 proc with name {}, duplicate occurrence at {:?}",
-                procedure.identifier.0, procedure.identifier.1
+                procedure.identifier.node, procedure.identifier.location
             ))?
         }
-        names.insert(procedure.identifier.0.clone());
+        names.insert(procedure.identifier.node.clone());
     }
     if !names.contains("main") {
         Err("Program does not have main function")?
@@ -26,7 +26,7 @@ pub fn semantic_analysis(program: GoatProgram) -> Result<(), Box<dyn Error>> {
     for procedure in &program.procedures {
         let mut vars = vec![];
 
-        if procedure.identifier.0 == "main" && !procedure.parameters.is_empty() {
+        if procedure.identifier.node == "main" && !procedure.parameters.is_empty() {
             // TODO: line number
             Err("main function should not have any parameters")?
         }
@@ -35,16 +35,16 @@ pub fn semantic_analysis(program: GoatProgram) -> Result<(), Box<dyn Error>> {
         for formal_param in &procedure.parameters {
             if vars
                 .iter()
-                .any(|v: &VariableInfo| v.identifier.0 == formal_param.identifier.0)
+                .any(|v: &VariableInfo| v.identifier == formal_param.identifier.node)
             {
                 Err(format!(
                     "There is more than 1 formal parameter with name {} for procedure {}",
-                    formal_param.identifier.0, procedure.identifier.0
+                    formal_param.identifier.node, procedure.identifier.node
                 ))?
             }
 
             let param = VariableInfo {
-                identifier: formal_param.identifier.clone(),
+                identifier: formal_param.identifier.node.clone(),
                 r#type: formal_param.r#type,
                 variable_location: VariableLocation::FormalParameter,
                 pass_indicator: Some(formal_param.passing_indicator),
@@ -77,15 +77,15 @@ pub fn semantic_analysis(program: GoatProgram) -> Result<(), Box<dyn Error>> {
                 }
             };
 
-            if vars.iter().any(|v: &VariableInfo| v.identifier.0 == *identifier.0) {
+            if vars.iter().any(|v: &VariableInfo| v.identifier == *identifier.node) {
                 Err(format!(
                     "There is more than 1 variable/parameter with name {} for procedure {}",
-                    identifier.0, procedure.identifier.0
+                    identifier.node, procedure.identifier.node
                 ))?
             }
 
             let param = VariableInfo {
-                identifier: identifier.clone(),
+                identifier: identifier.node.clone(),
                 r#type: variable_declaration.r#type,
                 variable_location: VariableLocation::VariableDeclaration,
                 pass_indicator: None,
@@ -94,7 +94,7 @@ pub fn semantic_analysis(program: GoatProgram) -> Result<(), Box<dyn Error>> {
             vars.push(param);
         }
 
-        symbol_table.insert(procedure.identifier.0.clone(), vars);
+        symbol_table.insert(procedure.identifier.node.clone(), vars);
     }
 
     for procedure in &program.procedures {
@@ -204,7 +204,7 @@ fn analyse_statement(
             // - parameter must be type of corresponding formal parameter
             // - or int (parameter) to float (formal parameter)
 
-            let vars = match symbol_table.get(&identifier.0) {
+            let vars = match symbol_table.get(&identifier.node) {
                 None => {
                     // TODO
                     Err("Cannot call proc {} because it doesn't exist")?
@@ -329,9 +329,12 @@ fn eval_shape_type(
 ) -> Result<VariableType, Box<dyn Error>> {
     let r#type = match shape {
         IdentifierShape::Identifier(identifier) => {
-            let procedure_symbols = symbol_table.get(&procedure.identifier.0).unwrap();
-            match procedure_symbols.iter().find(|v| v.identifier.0 == *identifier.0) {
-                None => Err(format!("Undeclared variable {} at {:?}", identifier.0, identifier.1))?,
+            let procedure_symbols = symbol_table.get(&procedure.identifier.node).unwrap();
+            match procedure_symbols.iter().find(|v| v.identifier == *identifier.node) {
+                None => Err(format!(
+                    "Undeclared variable {} at {:?}",
+                    identifier.node, identifier.location
+                ))?,
                 // var := <expr>; where var is a scalar formal parameter or declaration
                 Some(var) => {
                     if var.variable_location == VariableLocation::FormalParameter {
@@ -355,9 +358,12 @@ fn eval_shape_type(
                 Err("[n] must be int")?
             }
 
-            let procedure_symbols = symbol_table.get(&procedure.identifier.0).unwrap();
-            match procedure_symbols.iter().find(|v| v.identifier.0 == *identifier.0) {
-                None => Err(format!("Undeclared variable {} at {:?}", identifier.0, identifier.1))?,
+            let procedure_symbols = symbol_table.get(&procedure.identifier.node).unwrap();
+            match procedure_symbols.iter().find(|v| v.identifier == *identifier.node) {
+                None => Err(format!(
+                    "Undeclared variable {} at {:?}",
+                    identifier.node, identifier.location
+                ))?,
                 // var[<expr>] := <expr>; where var is an array
                 Some(var) => {
                     if var.variable_location == VariableLocation::FormalParameter {
@@ -385,9 +391,12 @@ fn eval_shape_type(
                 Err("[m] must be int")?
             }
 
-            let procedure_symbols = symbol_table.get(&procedure.identifier.0).unwrap();
-            match procedure_symbols.iter().find(|v| v.identifier.0 == *identifier.0) {
-                None => Err(format!("Undeclared variable {} at {:?}", identifier.0, identifier.1))?,
+            let procedure_symbols = symbol_table.get(&procedure.identifier.node).unwrap();
+            match procedure_symbols.iter().find(|v| v.identifier == *identifier.node) {
+                None => Err(format!(
+                    "Undeclared variable {} at {:?}",
+                    identifier.node, identifier.location
+                ))?,
                 // var[<expr>, <expr>] := <expr>; where var is an array
                 Some(var) => {
                     if var.variable_location == VariableLocation::FormalParameter {
