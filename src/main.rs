@@ -11,6 +11,7 @@ mod tokens;
 
 fn main() -> Result<(), Box<dyn Error>> {
     let mut pretty = false;
+    let mut verbose = false;
     let mut filename = None;
 
     let arguments: Vec<String> = env::args().collect();
@@ -27,6 +28,10 @@ fn main() -> Result<(), Box<dyn Error>> {
             pretty = true;
             continue;
         }
+        if argument == "-v" || argument == "--verbose" {
+            verbose = true;
+            continue;
+        }
 
         filename = Some(argument);
     }
@@ -39,7 +44,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         Some(value) => value,
     };
 
-    if pretty {
+    if verbose {
         eprintln!(
             "{} invoked with source file: {}, pretty: {}",
             arguments[0], filename, pretty
@@ -55,7 +60,7 @@ fn main() -> Result<(), Box<dyn Error>> {
             process::exit(2);
         }
     };
-    if pretty {
+    if verbose {
         eprintln!("{:?}", tokens);
     }
 
@@ -66,8 +71,10 @@ fn main() -> Result<(), Box<dyn Error>> {
             process::exit(3);
         }
     };
-    if pretty {
+    if verbose {
         eprintln!("{:?}", ast);
+    }
+    if pretty {
         println!("{}", ast);
     }
 

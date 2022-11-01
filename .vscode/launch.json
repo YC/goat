@@ -19,7 +19,7 @@
                     "kind": "bin"
                 }
             },
-            "args": ["-p", "./tests/fortytwo/a1.gt"],
+            "args": ["-v", "-p", "./tests/fortytwo/a1.gt"],
             "cwd": "${workspaceFolder}"
         }
     ]
