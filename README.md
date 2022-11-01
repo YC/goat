@@ -5,11 +5,11 @@ This is my implementation in Rust, to relearn some compiler concepts.
 
 ## Implementation
 - [x] Lexer
-  - [x] Regex to NFA
+  - [x] Regular Expression to NFA
   - [ ] NFA to DFA (via subset construction)
 - [x] Parser
   - [x] Recursive Descent
-- [ ] Semantic Analysis
+- [x] Semantic Analysis
 - [ ] Code generation
 
 ## Usage
@@ -23,4 +23,7 @@ Execute:
 ./goat [-p] source.gt
 ```
 If `-p` is specified, pretty printing of the source will be performed per stage 1 specification.\
+If `-v` is specified, information determined by the lexer/parser will be printed.\
 Otherwise, `goat` will compile `<source>.gt` into `<source>.o`.
+
+Note that this implementation currently does not support compilation to Oz, the target language from the specification.

@@ -208,8 +208,10 @@ fn analyse_statement(
             let right_type = eval_expression_scalar(symbol_table, procedure, expr)?;
 
             if left_type != right_type && (left_type != VariableType::Float && right_type != VariableType::Int) {
-                // TODO
-                Err("left right types do not match")?
+                Err(format!(
+                    "Cannot assign \"{}\" (of type {}) to \"{}\" (of type {}) at {:?}",
+                    expr.node, right_type, shape, left_type, statement.location
+                ))?
             }
         }
         Statement::Read(shape) => {
