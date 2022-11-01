@@ -75,7 +75,7 @@ impl Display for Parameter {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub enum ParameterPassIndicator {
     Val,
     Ref,

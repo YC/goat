@@ -1,6 +1,6 @@
 use crate::ast::{
-    Binop, Expression, GoatProgram, Identifier, IdentifierShape, IdentifierShapeDeclaration, Procedure, Statement,
-    Unop, VariableType,
+    Binop, Expression, GoatProgram, Identifier, IdentifierShape, IdentifierShapeDeclaration, ParameterPassIndicator,
+    Procedure, Statement, Unop, VariableType,
 };
 use std::{collections::HashMap, collections::HashSet, error::Error};
 
@@ -45,6 +45,7 @@ pub fn semantic_analysis(program: GoatProgram) -> Result<(), Box<dyn Error>> {
                 identifier: formal_param.identifier.clone(),
                 r#type: formal_param.r#type,
                 variable_location: VariableLocation::FormalParameter,
+                pass_indicator: Some(formal_param.passing_indicator),
                 shape: None,
             };
             vars.push(param);
@@ -85,6 +86,7 @@ pub fn semantic_analysis(program: GoatProgram) -> Result<(), Box<dyn Error>> {
                 identifier: identifier.clone(),
                 r#type: variable_declaration.r#type,
                 variable_location: VariableLocation::VariableDeclaration,
+                pass_indicator: None,
                 shape: Some(variable_declaration.identifier_declaration.clone()),
             };
             vars.push(param);
@@ -224,7 +226,9 @@ fn analyse_statement(
                 let argument_type = eval_expression_scalar(symbol_table, procedure, argument)?;
 
                 if formal_param.r#type != argument_type
-                    && (formal_param.r#type != VariableType::Float || argument_type != VariableType::Int)
+                    && (formal_param.r#type != VariableType::Float
+                        || argument_type != VariableType::Int
+                        || formal_param.pass_indicator.unwrap() != ParameterPassIndicator::Val)
                 {
                     // TODO
                     Err("Expected argument {} to be of type {}, but found {}")?
@@ -413,10 +417,11 @@ fn eval_shape_type(
 }
 
 struct VariableInfo {
-    pub identifier: Identifier,
-    pub variable_location: VariableLocation,
-    pub r#type: VariableType,
-    pub shape: Option<IdentifierShapeDeclaration>,
+    identifier: Identifier,
+    variable_location: VariableLocation,
+    r#type: VariableType,
+    shape: Option<IdentifierShapeDeclaration>,
+    pass_indicator: Option<ParameterPassIndicator>,
 }
 
 #[derive(Debug, Eq, PartialEq)]
