@@ -19,7 +19,7 @@
                     "kind": "bin"
                 }
             },
-            "args": ["-f", "../goat-orig/goat_tests/a1.gt"],
+            "args": ["-p", "./tests/fortytwo/a1.gt"],
             "cwd": "${workspaceFolder}"
         }
     ]
