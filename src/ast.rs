@@ -20,7 +20,9 @@ impl Display for GoatProgram {
     }
 }
 
-pub type Identifier = String;
+pub type Identifier = (String, TokenLocation);
+
+pub type TokenLocation = (u64, u64);
 
 /// Procedure definition consists of "proc", header, "begin", body, "end"
 #[derive(Debug)]
@@ -40,7 +42,7 @@ impl Display for Procedure {
         write!(
             f,
             "proc {} ({})\n{}{}begin\n{}\nend",
-            self.identifier,
+            self.identifier.0,
             self.parameters
                 .iter()
                 .map(|p| format!("{}", p))
@@ -71,7 +73,7 @@ pub struct Parameter {
 
 impl Display for Parameter {
     fn fmt(&self, f: &mut Formatter) -> Result {
-        write!(f, "{} {} {}", self.passing_indicator, self.r#type, self.identifier)
+        write!(f, "{} {} {}", self.passing_indicator, self.r#type, self.identifier.0)
     }
 }
 
@@ -149,9 +151,9 @@ pub enum IdentifierShapeDeclaration {
 impl Display for IdentifierShapeDeclaration {
     fn fmt(&self, f: &mut Formatter) -> Result {
         let s = match self {
-            Self::Identifier(ident) => ident.clone(),
-            Self::IdentifierArray(ident, m) => format!("{}[{}]", ident, m),
-            Self::IdentifierArray2D(ident, m, n) => format!("{}[{}, {}]", ident, m, n),
+            Self::Identifier(ident) => ident.0.clone(),
+            Self::IdentifierArray(ident, m) => format!("{}[{}]", ident.0, m),
+            Self::IdentifierArray2D(ident, m, n) => format!("{}[{}, {}]", ident.0, m, n),
         };
         write!(f, "{}", s)
     }
@@ -198,7 +200,7 @@ impl Statement {
             Statement::Call(ident, expr_list) => {
                 format!(
                     "call {}({});",
-                    ident,
+                    ident.0,
                     expr_list
                         .iter()
                         .map(|s| format!("{}", s))
@@ -321,9 +323,9 @@ pub enum IdentifierShape {
 impl Display for IdentifierShape {
     fn fmt(&self, f: &mut Formatter) -> Result {
         let s = match self {
-            Self::Identifier(ident) => ident.clone(),
-            Self::IdentifierArray(ident, m) => format!("{}[{}]", ident, m),
-            Self::IdentifierArray2D(ident, m, n) => format!("{}[{}, {}]", ident, m, n),
+            Self::Identifier(ident) => ident.0.clone(),
+            Self::IdentifierArray(ident, m) => format!("{}[{}]", ident.0, m),
+            Self::IdentifierArray2D(ident, m, n) => format!("{}[{}, {}]", ident.0, m, n),
         };
         write!(f, "{}", s)
     }

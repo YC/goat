@@ -4,17 +4,19 @@ use crate::ast::{
 };
 use std::{collections::HashMap, collections::HashSet, error::Error};
 
-type SymbolTable = HashMap<Identifier, Vec<VariableInfo>>;
+type SymbolTable = HashMap<String, Vec<VariableInfo>>;
 
 pub fn semantic_analysis(program: GoatProgram) -> Result<(), Box<dyn Error>> {
     // Distinct names
     let mut names: HashSet<String> = HashSet::new();
-
     for procedure in &program.procedures {
-        if names.contains(&procedure.identifier) {
-            Err(format!("There is more than 1 proc with name {}", procedure.identifier))?
+        if names.contains(&procedure.identifier.0) {
+            Err(format!(
+                "There is more than 1 proc with name {}, duplicate occurrence at {:?}",
+                procedure.identifier.0, procedure.identifier.1
+            ))?
         }
-        names.insert(procedure.identifier.clone());
+        names.insert(procedure.identifier.0.clone());
     }
     if !names.contains("main") {
         Err("Program does not have main function")?
@@ -24,7 +26,7 @@ pub fn semantic_analysis(program: GoatProgram) -> Result<(), Box<dyn Error>> {
     for procedure in &program.procedures {
         let mut vars = vec![];
 
-        if procedure.identifier == "main" && !procedure.parameters.is_empty() {
+        if procedure.identifier.0 == "main" && !procedure.parameters.is_empty() {
             // TODO: line number
             Err("main function should not have any parameters")?
         }
@@ -33,11 +35,11 @@ pub fn semantic_analysis(program: GoatProgram) -> Result<(), Box<dyn Error>> {
         for formal_param in &procedure.parameters {
             if vars
                 .iter()
-                .any(|v: &VariableInfo| v.identifier == formal_param.identifier)
+                .any(|v: &VariableInfo| v.identifier.0 == formal_param.identifier.0)
             {
                 Err(format!(
                     "There is more than 1 formal parameter with name {} for procedure {}",
-                    formal_param.identifier, procedure.identifier
+                    formal_param.identifier.0, procedure.identifier.0
                 ))?
             }
 
@@ -75,10 +77,10 @@ pub fn semantic_analysis(program: GoatProgram) -> Result<(), Box<dyn Error>> {
                 }
             };
 
-            if vars.iter().any(|v: &VariableInfo| v.identifier == *identifier) {
+            if vars.iter().any(|v: &VariableInfo| v.identifier.0 == *identifier.0) {
                 Err(format!(
                     "There is more than 1 variable/parameter with name {} for procedure {}",
-                    identifier, procedure.identifier
+                    identifier.0, procedure.identifier.0
                 ))?
             }
 
@@ -92,7 +94,7 @@ pub fn semantic_analysis(program: GoatProgram) -> Result<(), Box<dyn Error>> {
             vars.push(param);
         }
 
-        symbol_table.insert(procedure.identifier.clone(), vars);
+        symbol_table.insert(procedure.identifier.0.clone(), vars);
     }
 
     for procedure in &program.procedures {
@@ -202,7 +204,7 @@ fn analyse_statement(
             // - parameter must be type of corresponding formal parameter
             // - or int (parameter) to float (formal parameter)
 
-            let vars = match symbol_table.get(identifier) {
+            let vars = match symbol_table.get(&identifier.0) {
                 None => {
                     // TODO
                     Err("Cannot call proc {} because it doesn't exist")?
@@ -327,12 +329,9 @@ fn eval_shape_type(
 ) -> Result<VariableType, Box<dyn Error>> {
     let r#type = match shape {
         IdentifierShape::Identifier(identifier) => {
-            let procedure_symbols = symbol_table.get(&procedure.identifier).unwrap();
-            match procedure_symbols.iter().find(|v| v.identifier == *identifier) {
-                None => {
-                    // TODO
-                    Err(format!("Undeclared variable {}", identifier))?
-                }
+            let procedure_symbols = symbol_table.get(&procedure.identifier.0).unwrap();
+            match procedure_symbols.iter().find(|v| v.identifier.0 == *identifier.0) {
+                None => Err(format!("Undeclared variable {} at {:?}", identifier.0, identifier.1))?,
                 // var := <expr>; where var is a scalar formal parameter or declaration
                 Some(var) => {
                     if var.variable_location == VariableLocation::FormalParameter {
@@ -356,12 +355,9 @@ fn eval_shape_type(
                 Err("[n] must be int")?
             }
 
-            let procedure_symbols = symbol_table.get(&procedure.identifier).unwrap();
-            match procedure_symbols.iter().find(|v| v.identifier == *identifier) {
-                None => {
-                    // TODO
-                    Err(format!("Undeclared variable {}", identifier))?
-                }
+            let procedure_symbols = symbol_table.get(&procedure.identifier.0).unwrap();
+            match procedure_symbols.iter().find(|v| v.identifier.0 == *identifier.0) {
+                None => Err(format!("Undeclared variable {} at {:?}", identifier.0, identifier.1))?,
                 // var[<expr>] := <expr>; where var is an array
                 Some(var) => {
                     if var.variable_location == VariableLocation::FormalParameter {
@@ -389,12 +385,9 @@ fn eval_shape_type(
                 Err("[m] must be int")?
             }
 
-            let procedure_symbols = symbol_table.get(&procedure.identifier).unwrap();
-            match procedure_symbols.iter().find(|v| v.identifier == *identifier) {
-                None => {
-                    // TODO
-                    Err(format!("Undeclared variable {}", identifier))?
-                }
+            let procedure_symbols = symbol_table.get(&procedure.identifier.0).unwrap();
+            match procedure_symbols.iter().find(|v| v.identifier.0 == *identifier.0) {
+                None => Err(format!("Undeclared variable {} at {:?}", identifier.0, identifier.1))?,
                 // var[<expr>, <expr>] := <expr>; where var is an array
                 Some(var) => {
                     if var.variable_location == VariableLocation::FormalParameter {

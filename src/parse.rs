@@ -62,7 +62,7 @@ fn parse_proc(tokens: &Vec<TokenInfo>, index: &mut usize) -> Result<Procedure, B
     })
 }
 
-fn parse_header(tokens: &Vec<TokenInfo>, index: &mut usize) -> Result<(String, Vec<Parameter>), Box<dyn Error>> {
+fn parse_header(tokens: &Vec<TokenInfo>, index: &mut usize) -> Result<(Identifier, Vec<Parameter>), Box<dyn Error>> {
     // Identifier after proc
     let identifier = parse_identifier(tokens, index)?;
 
@@ -114,8 +114,8 @@ fn parse_parameter(tokens: &Vec<TokenInfo>, index: &mut usize) -> Result<Paramet
 
 fn parse_identifier(tokens: &Vec<TokenInfo>, index: &mut usize) -> Result<Identifier, Box<dyn Error>> {
     let ident_token = peek_next(tokens, *index)?;
-    let ident: String = match &ident_token.0 {
-        Token::Ident(t) => t.clone(),
+    let ident = match &ident_token.0 {
+        Token::Ident(t) => (t.clone(), ident_token.1),
         _ => Err(format!(
             "Expected identifier, but found {:?} at {:?}",
             ident_token.0, ident_token.1
