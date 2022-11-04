@@ -1,5 +1,5 @@
 use crate::ast::{
-    Node, Binop, Expression, GoatProgram, Identifier, IdentifierShape, IdentifierShapeDeclaration,
+    Binop, Expression, GoatProgram, Identifier, IdentifierShape, IdentifierShapeDeclaration, Node,
     ParameterPassIndicator, Procedure, Statement, Unop, VariableType,
 };
 use std::{collections::HashMap, collections::HashSet, error::Error};
@@ -136,6 +136,7 @@ pub fn analyse(program: &GoatProgram) -> Result<SymbolTable, Box<dyn Error>> {
     Ok(symbol_table)
 }
 
+#[allow(clippy::too_many_lines)]
 fn analyse_statement(
     symbol_table: &SymbolTable,
     procedure: &Procedure,
@@ -270,17 +271,20 @@ fn analyse_statement(
             for (i, (formal_param, argument)) in formal_params.iter().zip(expressions.iter()).enumerate() {
                 let argument_type = eval_expression_scalar(symbol_table, procedure, argument)?;
 
+                let passing_indicator = *formal_param
+                    .pass_indicator
+                    .expect("formal parameter to have passing indicator");
                 if formal_param.r#type != argument_type
                     && (formal_param.r#type != VariableType::Float
                         || argument_type != VariableType::Int
-                        || *formal_param.pass_indicator.unwrap() != ParameterPassIndicator::Val)
+                        || passing_indicator != ParameterPassIndicator::Val)
                 {
                     return Err(format!(
                         "Expected argument {} \"{}\" to call at {:?} to be of type {}, but found {}",
                         i + 1,
                         argument.node,
                         argument.location,
-                        if *formal_param.pass_indicator.unwrap() == ParameterPassIndicator::Val
+                        if passing_indicator == ParameterPassIndicator::Val
                             && formal_param.r#type == VariableType::Float
                         {
                             "Int or Float".to_owned()
@@ -296,6 +300,7 @@ fn analyse_statement(
     Ok(())
 }
 
+#[allow(clippy::too_many_lines)]
 fn eval_expression_scalar(
     symbol_table: &SymbolTable,
     procedure: &Procedure,

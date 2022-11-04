@@ -69,6 +69,11 @@ pub fn lex(input: &str) -> Result<Vec<TokenInfo>, Box<dyn Error>> {
     let mut nfas: Vec<Nfa> = vec![];
     for regex in regexes {
         let nfa = regex_to_nfa(&regex.0, Some(regex.1));
+        for accept in &nfa.accept {
+            if accept.1.is_none() {
+                return Err("NFA missing accept function")?;
+            }
+        }
         nfas.push(nfa);
     }
 
@@ -106,10 +111,10 @@ fn execute_nfa(input: &str, nfa: &Nfa) -> Result<Vec<TokenInfo>, Box<dyn Error>>
             // For those which are now in the accept state
             for state in &current_states {
                 let mut dest_accept = nfa.accept.iter().filter(|x| x.0 == *state);
-                if let Some((_, nfa_accept)) = dest_accept.next() {
+                if let Some((_, Some(nfa_accept))) = dest_accept.next() {
                     let chars_str: String = chars.iter().collect();
-                    let token = (nfa_accept.as_ref().unwrap().1)(&chars_str);
-                    accepted.push((offset, nfa_accept.as_ref().unwrap().0, token));
+                    let token = (nfa_accept.1)(&chars_str);
+                    accepted.push((offset, nfa_accept.0, token));
                 }
             }
 
@@ -149,13 +154,13 @@ fn execute_nfa(input: &str, nfa: &Nfa) -> Result<Vec<TokenInfo>, Box<dyn Error>>
         // Sort tokens by characters consumed (higher is better), then token priority (lower is better)
         accepted.sort_by(|a, b| {
             if a.0 == b.0 {
-                return b.1.partial_cmp(&a.1).unwrap();
+                return b.1.cmp(&a.1);
             }
-            a.1.partial_cmp(&b.1).unwrap()
+            a.1.cmp(&b.1)
         });
 
         // Push the token
-        let token = accepted.pop().unwrap();
+        let token = accepted.pop().ok_or("no token in accepted list")?;
 
         let pos = (lineno, linecol);
         if token.2 == Token::NewLine {
@@ -385,6 +390,7 @@ fn nfa_combine(nfas: Vec<Nfa>, merge_accepts: bool, f: Option<NfaAcceptFunction>
     }
 }
 
+#[allow(clippy::too_many_lines)]
 fn construct_regex() -> Vec<(RegEx, (u64, Box<TokenFunction>))> {
     let mut regex: Vec<(RegEx, (u64, Box<TokenFunction>))> = vec![];
 
@@ -497,7 +503,10 @@ fn construct_regex() -> Vec<(RegEx, (u64, Box<TokenFunction>))> {
             RegEx::Charset(Charset::CharRange('0', '9')),
             RegEx::Star(Box::new(RegEx::Charset(Charset::CharRange('0', '9')))),
         ]),
-        (4, Box::new(|s| Token::IntConst(s.parse::<u128>().unwrap()))),
+        (
+            4,
+            Box::new(|s| Token::IntConst(s.parse::<u128>().expect("cannot parse int constant to u128"))),
+        ),
     ));
 
     // FloatConst
@@ -519,10 +528,7 @@ fn construct_regex() -> Vec<(RegEx, (u64, Box<TokenFunction>))> {
             RegEx::Star(Box::new(RegEx::Charset(Charset::CharExclude(vec!['"', '\n', '\t'])))),
             RegEx::Charset(Charset::Char('"')),
         ]),
-        (
-            2,
-            Box::new(|s| Token::StringConst(s.strip_prefix('\"').unwrap().strip_suffix('\"').unwrap().to_owned())),
-        ),
+        (2, Box::new(|s| Token::StringConst(s.trim_matches('"').to_owned()))),
     ));
 
     // BoolConst

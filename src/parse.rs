@@ -1,5 +1,5 @@
 use crate::ast::{
-    Node, Binop, Expression, GoatProgram, Identifier, IdentifierShape, IdentifierShapeDeclaration, Parameter,
+    Binop, Expression, GoatProgram, Identifier, IdentifierShape, IdentifierShapeDeclaration, Node, Parameter,
     ParameterPassIndicator, ProcBody, Procedure, Statement, TokenLocation, Unop, VariableDeclaration, VariableType,
 };
 use crate::tokens::{Keyword, Token, TokenInfo};
@@ -401,10 +401,7 @@ fn parse_expression_not(tokens: &Vec<TokenInfo>, index: &mut usize) -> Result<No
     }
 }
 
-fn parse_expression_comparison(
-    tokens: &Vec<TokenInfo>,
-    index: &mut usize,
-) -> Result<Node<Expression>, Box<dyn Error>> {
+fn parse_expression_comparison(tokens: &Vec<TokenInfo>, index: &mut usize) -> Result<Node<Expression>, Box<dyn Error>> {
     let mut current = parse_expression_add_sub(tokens, index)?;
 
     loop {
@@ -543,10 +540,7 @@ fn parse_expression_unary_minus(
     }
 }
 
-fn parse_expression_terminal(
-    tokens: &Vec<TokenInfo>,
-    index: &mut usize,
-) -> Result<Node<Expression>, Box<dyn Error>> {
+fn parse_expression_terminal(tokens: &Vec<TokenInfo>, index: &mut usize) -> Result<Node<Expression>, Box<dyn Error>> {
     let next_token = peek_next(tokens, *index)?;
 
     // Brackets
