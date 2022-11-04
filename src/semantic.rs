@@ -1,5 +1,5 @@
 use crate::ast::{
-    AstNode, Binop, Expression, GoatProgram, Identifier, IdentifierShape, IdentifierShapeDeclaration,
+    Node, Binop, Expression, GoatProgram, Identifier, IdentifierShape, IdentifierShapeDeclaration,
     ParameterPassIndicator, Procedure, Statement, Unop, VariableType,
 };
 use std::{collections::HashMap, collections::HashSet, error::Error};
@@ -20,7 +20,7 @@ pub enum VariableLocation {
     VariableDeclaration,
 }
 
-pub fn semantic_analysis(program: &GoatProgram) -> Result<SymbolTable, Box<dyn Error>> {
+pub fn analyse(program: &GoatProgram) -> Result<SymbolTable, Box<dyn Error>> {
     // Distinct names
     let mut names: HashSet<&str> = HashSet::new();
     for procedure in &program.procedures {
@@ -139,7 +139,7 @@ pub fn semantic_analysis(program: &GoatProgram) -> Result<SymbolTable, Box<dyn E
 fn analyse_statement(
     symbol_table: &SymbolTable,
     procedure: &Procedure,
-    statement: &AstNode<Statement>,
+    statement: &Node<Statement>,
 ) -> Result<(), Box<dyn Error>> {
     match &statement.node {
         Statement::If(expr, statements) => {
@@ -299,7 +299,7 @@ fn analyse_statement(
 fn eval_expression_scalar(
     symbol_table: &SymbolTable,
     procedure: &Procedure,
-    expr: &AstNode<Expression>,
+    expr: &Node<Expression>,
 ) -> Result<VariableType, Box<dyn Error>> {
     let r#type = match &expr.node {
         Expression::IntConst(_) => VariableType::Int,

@@ -19,7 +19,7 @@ impl Display for GoatProgram {
 }
 
 #[derive(Debug)]
-pub struct AstNode<N> {
+pub struct Node<N> {
     pub location: TokenLocation,
     pub node: N,
 }
@@ -32,7 +32,7 @@ pub type TokenLocation = (u64, u64);
 #[derive(Debug)]
 pub struct Procedure {
     /// Procedure's name
-    pub identifier: AstNode<Identifier>,
+    pub identifier: Node<Identifier>,
     /// Header has identifier, parameters
     pub parameters: Vec<Parameter>,
     /// Variable declarations
@@ -72,7 +72,7 @@ impl Display for Procedure {
 pub struct Parameter {
     pub passing_indicator: ParameterPassIndicator,
     pub r#type: VariableType,
-    pub identifier: AstNode<Identifier>,
+    pub identifier: Node<Identifier>,
 }
 
 impl Display for Parameter {
@@ -118,7 +118,7 @@ impl Display for VariableType {
 /// Procedure body consists of 0 or more variable declarations, then statements
 #[derive(Debug)]
 pub struct ProcBody {
-    pub statements: Vec<AstNode<Statement>>,
+    pub statements: Vec<Node<Statement>>,
 }
 
 impl Display for ProcBody {
@@ -147,9 +147,9 @@ impl Display for VariableDeclaration {
 
 #[derive(Debug)]
 pub enum IdentifierShapeDeclaration {
-    Identifier(AstNode<Identifier>),
-    IdentifierArray(AstNode<Identifier>, u128),
-    IdentifierArray2D(AstNode<Identifier>, u128, u128),
+    Identifier(Node<Identifier>),
+    IdentifierArray(Node<Identifier>, u128),
+    IdentifierArray2D(Node<Identifier>, u128, u128),
 }
 
 impl Display for IdentifierShapeDeclaration {
@@ -165,14 +165,14 @@ impl Display for IdentifierShapeDeclaration {
 
 #[derive(Debug)]
 pub enum Statement {
-    Assign(IdentifierShape, AstNode<Expression>),
+    Assign(IdentifierShape, Node<Expression>),
     Read(IdentifierShape),
-    Write(AstNode<Expression>),
-    Call(AstNode<Identifier>, Vec<AstNode<Expression>>),
+    Write(Node<Expression>),
+    Call(Node<Identifier>, Vec<Node<Expression>>),
 
-    If(AstNode<Expression>, Vec<AstNode<Statement>>),
-    IfElse(AstNode<Expression>, Vec<AstNode<Statement>>, Vec<AstNode<Statement>>),
-    While(AstNode<Expression>, Vec<AstNode<Statement>>),
+    If(Node<Expression>, Vec<Node<Statement>>),
+    IfElse(Node<Expression>, Vec<Node<Statement>>, Vec<Node<Statement>>),
+    While(Node<Expression>, Vec<Node<Statement>>),
 }
 
 impl Display for Statement {
@@ -275,8 +275,8 @@ pub enum Expression {
     /// can contain \n
     StringConst(String),
 
-    BinopExpr(Binop, Box<AstNode<Expression>>, Box<AstNode<Expression>>),
-    UnopExpr(Unop, Box<AstNode<Expression>>),
+    BinopExpr(Binop, Box<Node<Expression>>, Box<Node<Expression>>),
+    UnopExpr(Unop, Box<Node<Expression>>),
 }
 
 impl Display for Expression {
@@ -320,9 +320,9 @@ impl Expression {
 
 #[derive(Debug)]
 pub enum IdentifierShape {
-    Identifier(AstNode<Identifier>),
-    IdentifierArray(AstNode<Identifier>, Box<AstNode<Expression>>),
-    IdentifierArray2D(AstNode<Identifier>, Box<AstNode<Expression>>, Box<AstNode<Expression>>),
+    Identifier(Node<Identifier>),
+    IdentifierArray(Node<Identifier>, Box<Node<Expression>>),
+    IdentifierArray2D(Node<Identifier>, Box<Node<Expression>>, Box<Node<Expression>>),
 }
 
 impl Display for IdentifierShape {

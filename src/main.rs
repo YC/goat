@@ -1,6 +1,3 @@
-use crate::lex::lex;
-use crate::parse::parse;
-use crate::semantic::semantic_analysis;
 use std::{env, fs, process};
 
 mod ast;
@@ -49,7 +46,7 @@ fn main() {
 
     let contents = fs::read_to_string(filename).expect("cannot read from file");
 
-    let tokens = match lex(&contents) {
+    let tokens = match lex::lex(&contents) {
         Ok(tokens) => tokens,
         Err(e) => {
             eprintln!("Lexer error: {}", e);
@@ -60,7 +57,7 @@ fn main() {
         eprintln!("{:?}", tokens);
     }
 
-    let ast = match parse(&tokens) {
+    let ast = match parse::parse(&tokens) {
         Ok(ast) => ast,
         Err(e) => {
             eprintln!("Parser error: {}", e);
@@ -74,7 +71,7 @@ fn main() {
         println!("{}", ast);
     }
 
-    match semantic_analysis(&ast) {
+    match semantic::analyse(&ast) {
         Ok(_) => {}
         Err(e) => {
             eprintln!("Semantic analysis error: {}", e);

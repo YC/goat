@@ -1,5 +1,5 @@
 use crate::ast::{
-    AstNode, Binop, Expression, GoatProgram, Identifier, IdentifierShape, IdentifierShapeDeclaration, Parameter,
+    Node, Binop, Expression, GoatProgram, Identifier, IdentifierShape, IdentifierShapeDeclaration, Parameter,
     ParameterPassIndicator, ProcBody, Procedure, Statement, TokenLocation, Unop, VariableDeclaration, VariableType,
 };
 use crate::tokens::{Keyword, Token, TokenInfo};
@@ -71,7 +71,7 @@ fn parse_proc(tokens: &Vec<TokenInfo>, index: &mut usize) -> Result<Procedure, B
 fn parse_header(
     tokens: &Vec<TokenInfo>,
     index: &mut usize,
-) -> Result<(AstNode<Identifier>, Vec<Parameter>), Box<dyn Error>> {
+) -> Result<(Node<Identifier>, Vec<Parameter>), Box<dyn Error>> {
     // Identifier after proc
     let identifier = parse_identifier(tokens, index)?;
 
@@ -120,7 +120,7 @@ fn parse_parameter(tokens: &Vec<TokenInfo>, index: &mut usize) -> Result<Paramet
     })
 }
 
-fn parse_identifier(tokens: &Vec<TokenInfo>, index: &mut usize) -> Result<AstNode<Identifier>, Box<dyn Error>> {
+fn parse_identifier(tokens: &Vec<TokenInfo>, index: &mut usize) -> Result<Node<Identifier>, Box<dyn Error>> {
     let ident_token = peek_next(tokens, *index)?;
     let ident = match &ident_token.0 {
         Token::Ident(t) => (t.clone(), ident_token.1),
@@ -130,7 +130,7 @@ fn parse_identifier(tokens: &Vec<TokenInfo>, index: &mut usize) -> Result<AstNod
         ))?,
     };
     *index += 1;
-    Ok(AstNode {
+    Ok(Node {
         location: ident.1,
         node: ident.0,
     })
@@ -226,7 +226,7 @@ fn parse_body(tokens: &Vec<TokenInfo>, index: &mut usize) -> Result<ProcBody, Bo
     Ok(ProcBody { statements })
 }
 
-fn parse_statement_list(tokens: &Vec<TokenInfo>, index: &mut usize) -> Result<Vec<AstNode<Statement>>, Box<dyn Error>> {
+fn parse_statement_list(tokens: &Vec<TokenInfo>, index: &mut usize) -> Result<Vec<Node<Statement>>, Box<dyn Error>> {
     let mut statements = vec![];
     while peek_next(tokens, *index)?.0 != Token::Keyword(Keyword::END)
         && peek_next(tokens, *index)?.0 != Token::Keyword(Keyword::FI)
@@ -238,7 +238,7 @@ fn parse_statement_list(tokens: &Vec<TokenInfo>, index: &mut usize) -> Result<Ve
     Ok(statements)
 }
 
-fn parse_statement(tokens: &Vec<TokenInfo>, index: &mut usize) -> Result<AstNode<Statement>, Box<dyn Error>> {
+fn parse_statement(tokens: &Vec<TokenInfo>, index: &mut usize) -> Result<Node<Statement>, Box<dyn Error>> {
     let next_token = peek_next(tokens, *index)?;
 
     let statement = match next_token.0 {
@@ -248,7 +248,7 @@ fn parse_statement(tokens: &Vec<TokenInfo>, index: &mut usize) -> Result<AstNode
             let location = match_next(tokens, Token::ASSIGN, index)?;
             let expr = parse_expression(tokens, index)?;
             match_next(tokens, Token::SEMI, index)?;
-            AstNode {
+            Node {
                 node: Statement::Assign(identifier_shape, expr),
                 location,
             }
@@ -258,7 +258,7 @@ fn parse_statement(tokens: &Vec<TokenInfo>, index: &mut usize) -> Result<AstNode
             let location = match_next(tokens, Token::Keyword(Keyword::READ), index)?;
             let identifier_shape = parse_identifier_shape(tokens, index)?;
             match_next(tokens, Token::SEMI, index)?;
-            AstNode {
+            Node {
                 node: Statement::Read(identifier_shape),
                 location,
             }
@@ -268,7 +268,7 @@ fn parse_statement(tokens: &Vec<TokenInfo>, index: &mut usize) -> Result<AstNode
             let location = match_next(tokens, Token::Keyword(Keyword::WRITE), index)?;
             let expr = parse_expression(tokens, index)?;
             match_next(tokens, Token::SEMI, index)?;
-            AstNode {
+            Node {
                 node: Statement::Write(expr),
                 location,
             }
@@ -299,7 +299,7 @@ fn parse_statement(tokens: &Vec<TokenInfo>, index: &mut usize) -> Result<AstNode
             match_next(tokens, Token::RPAREN, index)?;
             match_next(tokens, Token::SEMI, index)?;
 
-            AstNode {
+            Node {
                 node: Statement::Call(identifier, params),
                 location,
             }
@@ -313,7 +313,7 @@ fn parse_statement(tokens: &Vec<TokenInfo>, index: &mut usize) -> Result<AstNode
             let statement_list = parse_statement_list(tokens, index)?;
             match_next(tokens, Token::Keyword(Keyword::OD), index)?;
 
-            AstNode {
+            Node {
                 node: Statement::While(expr, statement_list),
                 location,
             }
@@ -332,14 +332,14 @@ fn parse_statement(tokens: &Vec<TokenInfo>, index: &mut usize) -> Result<AstNode
                 match_next(tokens, Token::Keyword(Keyword::ELSE), index)?;
                 let else_stmt_list = parse_statement_list(tokens, index)?;
                 match_next(tokens, Token::Keyword(Keyword::FI), index)?;
-                AstNode {
+                Node {
                     node: Statement::IfElse(expr, stmt_list, else_stmt_list),
                     location,
                 }
             } else {
                 // No else statement
                 match_next(tokens, Token::Keyword(Keyword::FI), index)?;
-                AstNode {
+                Node {
                     node: Statement::If(expr, stmt_list),
                     location,
                 }
@@ -354,17 +354,17 @@ fn parse_statement(tokens: &Vec<TokenInfo>, index: &mut usize) -> Result<AstNode
     Ok(statement)
 }
 
-fn parse_expression(tokens: &Vec<TokenInfo>, index: &mut usize) -> Result<AstNode<Expression>, Box<dyn Error>> {
+fn parse_expression(tokens: &Vec<TokenInfo>, index: &mut usize) -> Result<Node<Expression>, Box<dyn Error>> {
     parse_expression_or(tokens, index)
 }
 
-fn parse_expression_or(tokens: &Vec<TokenInfo>, index: &mut usize) -> Result<AstNode<Expression>, Box<dyn Error>> {
+fn parse_expression_or(tokens: &Vec<TokenInfo>, index: &mut usize) -> Result<Node<Expression>, Box<dyn Error>> {
     let mut current = parse_expression_and(tokens, index)?;
 
     while peek_next(tokens, *index)?.0 == Token::OR {
         let token_location = match_next(tokens, Token::OR, index)?;
         let right = parse_expression_and(tokens, index)?;
-        current = AstNode {
+        current = Node {
             node: Expression::BinopExpr(Binop::OR, Box::new(current), Box::new(right)),
             location: token_location,
         };
@@ -373,13 +373,13 @@ fn parse_expression_or(tokens: &Vec<TokenInfo>, index: &mut usize) -> Result<Ast
     Ok(current)
 }
 
-fn parse_expression_and(tokens: &Vec<TokenInfo>, index: &mut usize) -> Result<AstNode<Expression>, Box<dyn Error>> {
+fn parse_expression_and(tokens: &Vec<TokenInfo>, index: &mut usize) -> Result<Node<Expression>, Box<dyn Error>> {
     let mut current = parse_expression_not(tokens, index)?;
 
     while peek_next(tokens, *index)?.0 == Token::ADD {
         let token_location = match_next(tokens, Token::AND, index)?;
         let right = parse_expression_not(tokens, index)?;
-        current = AstNode {
+        current = Node {
             node: Expression::BinopExpr(Binop::AND, Box::new(current), Box::new(right)),
             location: token_location,
         };
@@ -388,11 +388,11 @@ fn parse_expression_and(tokens: &Vec<TokenInfo>, index: &mut usize) -> Result<As
     Ok(current)
 }
 
-fn parse_expression_not(tokens: &Vec<TokenInfo>, index: &mut usize) -> Result<AstNode<Expression>, Box<dyn Error>> {
+fn parse_expression_not(tokens: &Vec<TokenInfo>, index: &mut usize) -> Result<Node<Expression>, Box<dyn Error>> {
     if peek_next(tokens, *index)?.0 == Token::NOT {
         let token_location = match_next(tokens, Token::NOT, index)?;
         let right = parse_expression_not(tokens, index)?;
-        Ok(AstNode {
+        Ok(Node {
             node: Expression::UnopExpr(Unop::NOT, Box::new(right)),
             location: token_location,
         })
@@ -404,7 +404,7 @@ fn parse_expression_not(tokens: &Vec<TokenInfo>, index: &mut usize) -> Result<As
 fn parse_expression_comparison(
     tokens: &Vec<TokenInfo>,
     index: &mut usize,
-) -> Result<AstNode<Expression>, Box<dyn Error>> {
+) -> Result<Node<Expression>, Box<dyn Error>> {
     let mut current = parse_expression_add_sub(tokens, index)?;
 
     loop {
@@ -412,7 +412,7 @@ fn parse_expression_comparison(
         if next_token.0 == Token::GT {
             let token_location = match_next(tokens, Token::GT, index)?;
             let right = parse_expression_add_sub(tokens, index)?;
-            current = AstNode {
+            current = Node {
                 node: Expression::BinopExpr(Binop::GT, Box::new(current), Box::new(right)),
                 location: token_location,
             };
@@ -421,7 +421,7 @@ fn parse_expression_comparison(
         if next_token.0 == Token::GTE {
             let token_location = match_next(tokens, Token::GTE, index)?;
             let right = parse_expression_add_sub(tokens, index)?;
-            current = AstNode {
+            current = Node {
                 node: Expression::BinopExpr(Binop::GTE, Box::new(current), Box::new(right)),
                 location: token_location,
             };
@@ -430,7 +430,7 @@ fn parse_expression_comparison(
         if next_token.0 == Token::LT {
             let token_location = match_next(tokens, Token::LT, index)?;
             let right = parse_expression_add_sub(tokens, index)?;
-            current = AstNode {
+            current = Node {
                 node: Expression::BinopExpr(Binop::LT, Box::new(current), Box::new(right)),
                 location: token_location,
             };
@@ -439,7 +439,7 @@ fn parse_expression_comparison(
         if next_token.0 == Token::LTE {
             let token_location = match_next(tokens, Token::LTE, index)?;
             let right = parse_expression_add_sub(tokens, index)?;
-            current = AstNode {
+            current = Node {
                 node: Expression::BinopExpr(Binop::LTE, Box::new(current), Box::new(right)),
                 location: token_location,
             };
@@ -448,7 +448,7 @@ fn parse_expression_comparison(
         if next_token.0 == Token::EQ {
             let token_location = match_next(tokens, Token::EQ, index)?;
             let right = parse_expression_add_sub(tokens, index)?;
-            current = AstNode {
+            current = Node {
                 node: Expression::BinopExpr(Binop::EQ, Box::new(current), Box::new(right)),
                 location: token_location,
             };
@@ -457,7 +457,7 @@ fn parse_expression_comparison(
         if next_token.0 == Token::NE {
             let token_location = match_next(tokens, Token::NE, index)?;
             let right = parse_expression_add_sub(tokens, index)?;
-            current = AstNode {
+            current = Node {
                 node: Expression::BinopExpr(Binop::NEQ, Box::new(current), Box::new(right)),
                 location: token_location,
             };
@@ -469,7 +469,7 @@ fn parse_expression_comparison(
     Ok(current)
 }
 
-fn parse_expression_add_sub(tokens: &Vec<TokenInfo>, index: &mut usize) -> Result<AstNode<Expression>, Box<dyn Error>> {
+fn parse_expression_add_sub(tokens: &Vec<TokenInfo>, index: &mut usize) -> Result<Node<Expression>, Box<dyn Error>> {
     let mut current = parse_expression_mul_div(tokens, index)?;
 
     loop {
@@ -477,7 +477,7 @@ fn parse_expression_add_sub(tokens: &Vec<TokenInfo>, index: &mut usize) -> Resul
         if next_token.0 == Token::ADD {
             let token_location = match_next(tokens, Token::ADD, index)?;
             let right = parse_expression_mul_div(tokens, index)?;
-            current = AstNode {
+            current = Node {
                 node: Expression::BinopExpr(Binop::Add, Box::new(current), Box::new(right)),
                 location: token_location,
             };
@@ -486,7 +486,7 @@ fn parse_expression_add_sub(tokens: &Vec<TokenInfo>, index: &mut usize) -> Resul
         if next_token.0 == Token::SUB {
             let token_location = match_next(tokens, Token::SUB, index)?;
             let right = parse_expression_mul_div(tokens, index)?;
-            current = AstNode {
+            current = Node {
                 node: Expression::BinopExpr(Binop::Minus, Box::new(current), Box::new(right)),
                 location: token_location,
             };
@@ -498,7 +498,7 @@ fn parse_expression_add_sub(tokens: &Vec<TokenInfo>, index: &mut usize) -> Resul
     Ok(current)
 }
 
-fn parse_expression_mul_div(tokens: &Vec<TokenInfo>, index: &mut usize) -> Result<AstNode<Expression>, Box<dyn Error>> {
+fn parse_expression_mul_div(tokens: &Vec<TokenInfo>, index: &mut usize) -> Result<Node<Expression>, Box<dyn Error>> {
     let mut current = parse_expression_unary_minus(tokens, index)?;
 
     loop {
@@ -506,7 +506,7 @@ fn parse_expression_mul_div(tokens: &Vec<TokenInfo>, index: &mut usize) -> Resul
         if next_token.0 == Token::MUL {
             let token_location = match_next(tokens, Token::MUL, index)?;
             let right = parse_expression_unary_minus(tokens, index)?;
-            current = AstNode {
+            current = Node {
                 node: Expression::BinopExpr(Binop::Multiply, Box::new(current), Box::new(right)),
                 location: token_location,
             };
@@ -515,7 +515,7 @@ fn parse_expression_mul_div(tokens: &Vec<TokenInfo>, index: &mut usize) -> Resul
         if next_token.0 == Token::DIV {
             let token_location = match_next(tokens, Token::DIV, index)?;
             let right = parse_expression_unary_minus(tokens, index)?;
-            current = AstNode {
+            current = Node {
                 node: Expression::BinopExpr(Binop::Divide, Box::new(current), Box::new(right)),
                 location: token_location,
             };
@@ -530,11 +530,11 @@ fn parse_expression_mul_div(tokens: &Vec<TokenInfo>, index: &mut usize) -> Resul
 fn parse_expression_unary_minus(
     tokens: &Vec<TokenInfo>,
     index: &mut usize,
-) -> Result<AstNode<Expression>, Box<dyn Error>> {
+) -> Result<Node<Expression>, Box<dyn Error>> {
     if peek_next(tokens, *index)?.0 == Token::SUB {
         let token_location = match_next(tokens, Token::SUB, index)?;
         let right = parse_expression_unary_minus(tokens, index)?;
-        Ok(AstNode {
+        Ok(Node {
             node: Expression::UnopExpr(Unop::Minus, Box::new(right)),
             location: token_location,
         })
@@ -546,7 +546,7 @@ fn parse_expression_unary_minus(
 fn parse_expression_terminal(
     tokens: &Vec<TokenInfo>,
     index: &mut usize,
-) -> Result<AstNode<Expression>, Box<dyn Error>> {
+) -> Result<Node<Expression>, Box<dyn Error>> {
     let next_token = peek_next(tokens, *index)?;
 
     // Brackets
@@ -589,7 +589,7 @@ fn parse_expression_terminal(
         ))?,
     };
 
-    Ok(AstNode {
+    Ok(Node {
         location: next_token.1,
         node: expr,
     })
