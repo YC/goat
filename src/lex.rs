@@ -30,8 +30,8 @@ struct Nfa {
     transitions: Vec<(usize, usize, NfaTransition)>,
 }
 
-impl std::fmt::Debug for Nfa {
-    fn fmt(&self, fmt: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
+impl core::fmt::Debug for Nfa {
+    fn fmt(&self, fmt: &mut core::fmt::Formatter<'_>) -> Result<(), core::fmt::Error> {
         write!(
             fmt,
             "NFA {{ start: {}, accept: {:?}, transition: {:?} }}",
@@ -217,7 +217,7 @@ fn regex_to_nfa(regex: &RegEx, f: Option<NfaAcceptFunction>) -> Nfa {
             let mut transitions = vec![];
 
             // The maximum state number
-            let max_state = std::cmp::max(
+            let max_state = core::cmp::max(
                 nfa.start,
                 nfa.transitions.iter().map(|x| x.1).max().unwrap_or(nfa.start),
             );
@@ -277,7 +277,7 @@ fn nfa_concat(nfas: Vec<Nfa>, f: Option<NfaAcceptFunction>) -> Nfa {
     // accept state of previous nfa becomes start state of next nfa
     for nfa in nfas {
         // The maximum state number
-        let max_state = std::cmp::max(
+        let max_state = core::cmp::max(
             nfa.start,
             nfa.transitions.iter().map(|x| x.1).max().unwrap_or(nfa.start),
         );
@@ -288,10 +288,10 @@ fn nfa_concat(nfas: Vec<Nfa>, f: Option<NfaAcceptFunction>) -> Nfa {
             panic!("cannot currently support concat nfa with multiple accept");
         }
         let current_accept = nfa.accept[0].0;
-        let next_usable = if max_state != current_accept {
-            max_state + 1
-        } else {
+        let next_usable = if max_state == current_accept {
             max_state
+        } else {
+            max_state + 1
         };
 
         // Then, all states are shifted by last_next_usable to prevent numbering clashes
@@ -329,7 +329,7 @@ fn nfa_combine(nfas: Vec<Nfa>, merge_accepts: bool, f: Option<NfaAcceptFunction>
 
     for nfa in nfas {
         // The maximum state number
-        let max_state = std::cmp::max(
+        let max_state = core::cmp::max(
             nfa.start,
             nfa.transitions.iter().map(|x| x.1).max().unwrap_or(nfa.start),
         );

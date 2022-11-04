@@ -181,8 +181,8 @@ impl Display for Statement {
     }
 }
 
-fn pad_space(s: String, level: u64) -> String {
-    let repeat = " ".repeat(level as usize * 4);
+fn pad_space(s: String, level: usize) -> String {
+    let repeat = " ".repeat(level * 4);
     s.split('\n')
         .map(|s| repeat.to_string() + s)
         .collect::<Vec<String>>()

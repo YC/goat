@@ -266,9 +266,7 @@ fn analyse_statement(
                 ))?;
             }
 
-            for i in 0..formal_params.len() {
-                let formal_param = formal_params[i];
-                let argument = &expressions[i];
+            for (i, (formal_param, argument)) in formal_params.iter().zip(expressions.iter()).enumerate() {
                 let argument_type = eval_expression_scalar(symbol_table, procedure, argument)?;
 
                 if formal_param.r#type != argument_type
