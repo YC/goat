@@ -89,7 +89,7 @@ pub enum ParameterPassIndicator {
 
 impl Display for ParameterPassIndicator {
     fn fmt(&self, f: &mut Formatter) -> Result {
-        let s = match self {
+        let s = match *self {
             Self::Ref => "ref",
             Self::Val => "val",
         };
@@ -106,7 +106,7 @@ pub enum VariableType {
 
 impl Display for VariableType {
     fn fmt(&self, f: &mut Formatter) -> Result {
-        let s = match self {
+        let s = match *self {
             Self::Bool => "bool",
             Self::Float => "float",
             Self::Int => "int",
@@ -314,7 +314,7 @@ fn wrap_bracket(wrap: bool, input: String) -> String {
 
 impl Expression {
     const fn is_binop(&self) -> bool {
-        matches!(self, Self::BinopExpr(_, _, _))
+        matches!(*self, Self::BinopExpr(_, _, _))
     }
 }
 
@@ -358,7 +358,7 @@ pub enum Binop {
 
 impl Display for Binop {
     fn fmt(&self, f: &mut Formatter) -> Result {
-        let s = match self {
+        let s = match *self {
             Self::Add => "+",
             Self::Minus => "-",
             Self::Multiply => "*",
@@ -387,7 +387,7 @@ pub enum Unop {
 
 impl Display for Unop {
     fn fmt(&self, f: &mut Formatter) -> Result {
-        let s = match self {
+        let s = match *self {
             Self::NOT => "!",
             Self::Minus => "-",
         };

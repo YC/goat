@@ -16,6 +16,7 @@ pub fn parse(tokens: &Vec<TokenInfo>) -> Result<GoatProgram, Box<dyn Error>> {
     Ok(GoatProgram { procedures: procs })
 }
 
+#[allow(clippy::needless_pass_by_value)]
 fn match_next(tokens: &Vec<TokenInfo>, token: Token, index: &mut usize) -> Result<TokenLocation, Box<dyn Error>> {
     if *index >= tokens.len() {
         return Err("No more input available")?;

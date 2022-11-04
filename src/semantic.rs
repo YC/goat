@@ -437,7 +437,7 @@ fn eval_shape_type(
                 var.r#type
             } else {
                 let shape = var.shape.expect("variable declaration should have shape");
-                if let IdentifierShapeDeclaration::Identifier(_) = shape {
+                if let IdentifierShapeDeclaration::Identifier(_) = *shape {
                     var.r#type
                 } else {
                     return Err(format!(
@@ -472,7 +472,7 @@ fn eval_shape_type(
             }
 
             let shape = var.shape.expect("variable declaration should have shape");
-            if let IdentifierShapeDeclaration::IdentifierArray(_, _) = shape {
+            if let IdentifierShapeDeclaration::IdentifierArray(_, _) = *shape {
                 var.r#type
             } else {
                 return Err(format!(
@@ -513,7 +513,7 @@ fn eval_shape_type(
             }
 
             let shape = var.shape.expect("variable declaration should have shape");
-            if let IdentifierShapeDeclaration::IdentifierArray2D(_, _, _) = shape {
+            if let IdentifierShapeDeclaration::IdentifierArray2D(_, _, _) = *shape {
                 var.r#type
             } else {
                 return Err(format!(

@@ -1,3 +1,18 @@
+#![warn(clippy::pedantic, clippy::nursery, clippy::cargo)]
+#![allow(
+    clippy::integer_arithmetic,
+    clippy::arithmetic_side_effects,
+    clippy::shadow_reuse,
+    clippy::shadow_unrelated,
+    clippy::implicit_return,
+    clippy::try_err,
+    clippy::expect_used,
+    clippy::missing_docs_in_private_items,
+    clippy::wildcard_enum_match_arm,
+    clippy::std_instead_of_core,
+    clippy::pattern_type_mismatch
+)]
+
 use std::{env, fs, process};
 
 mod ast;
