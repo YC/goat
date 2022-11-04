@@ -1,4 +1,7 @@
-use crate::ast::*;
+use crate::ast::{
+    AstNode, Binop, Expression, GoatProgram, Identifier, IdentifierShape, IdentifierShapeDeclaration, Parameter,
+    ParameterPassIndicator, ProcBody, Procedure, Statement, TokenLocation, Unop, VariableDeclaration, VariableType,
+};
 use crate::tokens::{Keyword, Token, TokenInfo};
 use std::error::Error;
 

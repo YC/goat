@@ -90,11 +90,14 @@ fn execute_nfa(input: &str, nfa: &Nfa) -> Result<Vec<TokenInfo>, Box<dyn Error>>
 
     // While input is not all consumed
     while !input.is_empty() {
+        // NFA states at current step
         let mut current_states: Vec<usize> = vec![0];
+        // chars consumed
         let mut chars: Vec<char> = vec![];
-        let mut offset: u64 = 0;
+        // Offset from start of current input
+        let mut offset: usize = 0;
         // Number of characters, priority of accept, token
-        let mut accepted: Vec<(u64, u64, Token)> = vec![];
+        let mut accepted: Vec<(usize, u64, Token)> = vec![];
 
         while !current_states.is_empty() {
             // Perform all epsilon transitions
@@ -111,12 +114,13 @@ fn execute_nfa(input: &str, nfa: &Nfa) -> Result<Vec<TokenInfo>, Box<dyn Error>>
             }
 
             // End of input
-            if input.len() as u64 <= offset {
+            if input.len() <= offset {
                 break;
             }
 
             // Consume next character
-            let c = input[offset as usize];
+            #[allow(clippy::indexing_slicing)]
+            let c = input[offset];
             chars.push(c);
             offset += 1;
 
@@ -158,7 +162,7 @@ fn execute_nfa(input: &str, nfa: &Nfa) -> Result<Vec<TokenInfo>, Box<dyn Error>>
             lineno += 1;
             linecol = 1;
         } else {
-            linecol += token.0;
+            linecol += u64::try_from(token.0).expect("cannot convert column number to u64");
         }
 
         tokens.push((token.2, pos));
