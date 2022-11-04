@@ -1,10 +1,11 @@
-use std::fmt::{Display, Formatter, Result};
+use core::fmt::{Display, Formatter, Result};
 
 /// Token with line number, column number
 pub type TokenInfo = (Token, (u64, u64));
 
 #[derive(Debug, Clone, Eq, PartialEq)]
-#[allow(clippy::upper_case_acronyms)]
+#[allow(clippy::upper_case_acronyms, clippy::missing_docs_in_private_items)]
+/// Token of the Goat language
 pub enum Token {
     /// Reserved tokens
     Keyword(Keyword),
@@ -59,14 +60,12 @@ impl Display for Token {
     fn fmt(&self, f: &mut Formatter) -> Result {
         let s = match self {
             Self::NewLine => "\n".to_owned(),
-            Self::Comment(i) => i.to_string(),
-            Self::Whitespace(i) => i.to_string(),
-            Self::Ident(i) => i.to_string(),
-            Self::StringConst(i) => i.to_string(),
+            Self::Comment(i) | Self::Whitespace(i) | Self::Ident(i) | Self::StringConst(i) | Self::FloatConst(i) => {
+                i.to_string()
+            }
             Self::Keyword(k) => k.to_string(),
             Self::IntConst(i) => i.to_string(),
             Self::BoolConst(i) => i.to_string(),
-            Self::FloatConst(i) => i.to_string(),
             Self::ASSIGN => ":=".to_owned(),
             Self::LPAREN => "(".to_owned(),
             Self::RPAREN => ")".to_owned(),
@@ -95,6 +94,7 @@ impl Display for Token {
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 #[allow(clippy::upper_case_acronyms, clippy::missing_docs_in_private_items)]
+/// Reserved keyword of the Goat language
 pub enum Keyword {
     BEGIN,
     BOOL,

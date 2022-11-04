@@ -1,4 +1,4 @@
-use std::fmt::{Display, Formatter, Result};
+use core::fmt::{Display, Formatter, Result};
 
 /// Program consists of 1 or more procedure definitions
 #[derive(Debug)]
@@ -233,7 +233,7 @@ impl Statement {
                         .map(|s| format!("{}", s.node))
                         .collect::<Vec<String>>()
                         .join("\n"),
-                    if !stmt_list.is_empty() { "\n" } else { "" },
+                    if stmt_list.is_empty() { "" } else { "\n" },
                 )
             }
             Statement::IfElse(expr, stmt_if, stmt_else) => {
@@ -245,13 +245,13 @@ impl Statement {
                         .map(|s| format!("{}", s.node))
                         .collect::<Vec<String>>()
                         .join("\n"),
-                    if !stmt_if.is_empty() { "\n" } else { "" },
+                    if stmt_if.is_empty() { "" } else { "\n" },
                     stmt_else
                         .iter()
                         .map(|s| format!("{}", s.node))
                         .collect::<Vec<String>>()
                         .join("\n"),
-                    if !stmt_else.is_empty() { "\n" } else { "" },
+                    if stmt_else.is_empty() { "" } else { "\n" },
                 )
             }
         }

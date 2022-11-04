@@ -82,9 +82,8 @@ fn parse_header(
         // Comma
         if peek_next(tokens, *index)?.0 != Token::COMMA {
             break;
-        } else {
-            *index += 1;
         }
+        *index += 1;
     }
 
     // )
@@ -229,7 +228,7 @@ fn parse_statement_list(tokens: &Vec<TokenInfo>, index: &mut usize) -> Result<Ve
         && peek_next(tokens, *index)?.0 != Token::Keyword(Keyword::ELSE)
         && peek_next(tokens, *index)?.0 != Token::Keyword(Keyword::OD)
     {
-        statements.push(parse_statement(tokens, index)?)
+        statements.push(parse_statement(tokens, index)?);
     }
     Ok(statements)
 }
@@ -287,9 +286,8 @@ fn parse_statement(tokens: &Vec<TokenInfo>, index: &mut usize) -> Result<AstNode
                 // Comma
                 if peek_next(tokens, *index)?.0 != Token::COMMA {
                     break;
-                } else {
-                    *index += 1;
                 }
+                *index += 1;
             }
 
             // );
@@ -547,7 +545,7 @@ fn parse_expression_terminal(
     let next_token = peek_next(tokens, *index)?;
 
     // Brackets
-    if let Token::LPAREN = next_token.0 {
+    if next_token.0 == Token::LPAREN {
         match_next(tokens, Token::LPAREN, index)?;
         let expr = parse_expression(tokens, index)?;
         match_next(tokens, Token::RPAREN, index)?;

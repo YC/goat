@@ -1,7 +1,7 @@
 use crate::lex::lex;
 use crate::parse::parse;
 use crate::semantic::semantic_analysis;
-use std::{env, error::Error, process};
+use std::{env, process};
 
 mod ast;
 mod lex;
@@ -9,7 +9,7 @@ mod parse;
 mod semantic;
 mod tokens;
 
-fn main() -> Result<(), Box<dyn Error>> {
+fn main() {
     let mut pretty = false;
     let mut verbose = false;
     let mut filename = None;
@@ -82,6 +82,4 @@ fn main() -> Result<(), Box<dyn Error>> {
             process::exit(4);
         }
     }
-
-    Ok(())
 }

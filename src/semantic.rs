@@ -128,7 +128,7 @@ pub fn semantic_analysis(program: &GoatProgram) -> Result<SymbolTable, Box<dyn E
         }
 
         for statement in &procedure.body.statements {
-            analyse_statement(&symbol_table, procedure, statement)?
+            analyse_statement(&symbol_table, procedure, statement)?;
         }
     }
 
@@ -159,7 +159,7 @@ fn analyse_statement(
                 ))?;
             }
             for statement in statements {
-                analyse_statement(symbol_table, procedure, statement)?
+                analyse_statement(symbol_table, procedure, statement)?;
             }
         }
         Statement::IfElse(expr, statements1, statements2) => {
@@ -186,10 +186,10 @@ fn analyse_statement(
                 ))?;
             }
             for statement in statements1 {
-                analyse_statement(symbol_table, procedure, statement)?
+                analyse_statement(symbol_table, procedure, statement)?;
             }
             for statement in statements2 {
-                analyse_statement(symbol_table, procedure, statement)?
+                analyse_statement(symbol_table, procedure, statement)?;
             }
         }
         Statement::While(expr, statements) => {
@@ -210,7 +210,7 @@ fn analyse_statement(
                 ))?;
             }
             for statement in statements {
-                analyse_statement(symbol_table, procedure, statement)?
+                analyse_statement(symbol_table, procedure, statement)?;
             }
         }
         Statement::Assign(shape, expr) => {

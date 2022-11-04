@@ -73,7 +73,7 @@ pub fn lex(input: &str) -> Result<Vec<TokenInfo>, Box<dyn Error>> {
     }
 
     let nfa = nfa_combine(nfas, false, None);
-    let tokens = execute_nfa(input, nfa)?;
+    let tokens = execute_nfa(input, &nfa)?;
     let filtered = tokens
         .into_iter()
         .filter(|t| !matches!(t.0, Token::Whitespace(_) | Token::NewLine | Token::Comment(_)))
@@ -82,7 +82,7 @@ pub fn lex(input: &str) -> Result<Vec<TokenInfo>, Box<dyn Error>> {
 }
 
 /// Executes nfa based on input, and get list of tokens.
-fn execute_nfa(input: &str, nfa: Nfa) -> Result<Vec<TokenInfo>, Box<dyn Error>> {
+fn execute_nfa(input: &str, nfa: &Nfa) -> Result<Vec<TokenInfo>, Box<dyn Error>> {
     let mut input: Vec<char> = input.chars().into_iter().collect();
     let mut tokens = vec![];
     let mut lineno: u64 = 1;
@@ -98,7 +98,7 @@ fn execute_nfa(input: &str, nfa: Nfa) -> Result<Vec<TokenInfo>, Box<dyn Error>> 
 
         while !current_states.is_empty() {
             // Perform all epsilon transitions
-            current_states = follow_epsilon(&nfa, current_states);
+            current_states = follow_epsilon(nfa, current_states);
 
             // For those which are now in the accept state
             for state in &current_states {
@@ -231,7 +231,7 @@ fn regex_to_nfa(regex: &RegEx, f: Option<NfaAcceptFunction>) -> Nfa {
 
             // Copy over transitions with offset of 1 for new start state
             for transition in nfa.transitions {
-                transitions.push((transition.0 + 1, transition.1 + 1, transition.2))
+                transitions.push((transition.0 + 1, transition.1 + 1, transition.2));
             }
 
             // From accept to start
@@ -338,7 +338,7 @@ fn nfa_combine(nfas: Vec<Nfa>, merge_accepts: bool, f: Option<NfaAcceptFunction>
         transitions.push((0, nfa.start + state_offset, NfaTransition::Empty));
         // Shift transitions
         for transition in nfa.transitions {
-            transitions.push((transition.0 + state_offset, transition.1 + state_offset, transition.2))
+            transitions.push((transition.0 + state_offset, transition.1 + state_offset, transition.2));
         }
 
         for current_accept in nfa.accept {
@@ -347,7 +347,7 @@ fn nfa_combine(nfas: Vec<Nfa>, merge_accepts: bool, f: Option<NfaAcceptFunction>
                 nfas_accept.push(current_accept.0 + state_offset);
             } else {
                 // Add accept state
-                accept.push((current_accept.0 + state_offset, current_accept.1))
+                accept.push((current_accept.0 + state_offset, current_accept.1));
             }
         }
 
@@ -358,7 +358,7 @@ fn nfa_combine(nfas: Vec<Nfa>, merge_accepts: bool, f: Option<NfaAcceptFunction>
         // Need to link accept states of individual nfas to new overall accept state
         let accept_state = state_offset;
         for prev_accept in nfas_accept {
-            transitions.push((prev_accept, accept_state, NfaTransition::Empty))
+            transitions.push((prev_accept, accept_state, NfaTransition::Empty));
         }
 
         Nfa {
