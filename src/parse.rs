@@ -356,7 +356,7 @@ fn parse_expression(tokens: &Vec<TokenInfo>, index: &mut usize) -> Result<AstNod
 fn parse_expression_or(tokens: &Vec<TokenInfo>, index: &mut usize) -> Result<AstNode<Expression>, Box<dyn Error>> {
     let mut current = parse_expression_and(tokens, index)?;
 
-    while let Token::OR = peek_next(tokens, *index)?.0 {
+    while peek_next(tokens, *index)?.0 == Token::OR {
         let token_location = match_next(tokens, Token::OR, index)?;
         let right = parse_expression_and(tokens, index)?;
         current = AstNode {
@@ -371,7 +371,7 @@ fn parse_expression_or(tokens: &Vec<TokenInfo>, index: &mut usize) -> Result<Ast
 fn parse_expression_and(tokens: &Vec<TokenInfo>, index: &mut usize) -> Result<AstNode<Expression>, Box<dyn Error>> {
     let mut current = parse_expression_not(tokens, index)?;
 
-    while let Token::AND = peek_next(tokens, *index)?.0 {
+    while peek_next(tokens, *index)?.0 == Token::ADD {
         let token_location = match_next(tokens, Token::AND, index)?;
         let right = parse_expression_not(tokens, index)?;
         current = AstNode {
@@ -384,7 +384,7 @@ fn parse_expression_and(tokens: &Vec<TokenInfo>, index: &mut usize) -> Result<As
 }
 
 fn parse_expression_not(tokens: &Vec<TokenInfo>, index: &mut usize) -> Result<AstNode<Expression>, Box<dyn Error>> {
-    if let Token::NOT = peek_next(tokens, *index)?.0 {
+    if peek_next(tokens, *index)?.0 == Token::NOT {
         let token_location = match_next(tokens, Token::NOT, index)?;
         let right = parse_expression_not(tokens, index)?;
         Ok(AstNode {
@@ -404,7 +404,7 @@ fn parse_expression_comparison(
 
     loop {
         let next_token = peek_next(tokens, *index)?;
-        if let Token::GT = next_token.0 {
+        if next_token.0 == Token::GT {
             let token_location = match_next(tokens, Token::GT, index)?;
             let right = parse_expression_add_sub(tokens, index)?;
             current = AstNode {
@@ -413,7 +413,7 @@ fn parse_expression_comparison(
             };
             continue;
         }
-        if let Token::GTE = next_token.0 {
+        if next_token.0 == Token::GTE {
             let token_location = match_next(tokens, Token::GTE, index)?;
             let right = parse_expression_add_sub(tokens, index)?;
             current = AstNode {
@@ -422,7 +422,7 @@ fn parse_expression_comparison(
             };
             continue;
         }
-        if let Token::LT = next_token.0 {
+        if next_token.0 == Token::LT {
             let token_location = match_next(tokens, Token::LT, index)?;
             let right = parse_expression_add_sub(tokens, index)?;
             current = AstNode {
@@ -431,7 +431,7 @@ fn parse_expression_comparison(
             };
             continue;
         }
-        if let Token::LTE = next_token.0 {
+        if next_token.0 == Token::LTE {
             let token_location = match_next(tokens, Token::LTE, index)?;
             let right = parse_expression_add_sub(tokens, index)?;
             current = AstNode {
@@ -440,7 +440,7 @@ fn parse_expression_comparison(
             };
             continue;
         }
-        if let Token::EQ = next_token.0 {
+        if next_token.0 == Token::EQ {
             let token_location = match_next(tokens, Token::EQ, index)?;
             let right = parse_expression_add_sub(tokens, index)?;
             current = AstNode {
@@ -449,7 +449,7 @@ fn parse_expression_comparison(
             };
             continue;
         }
-        if let Token::NE = next_token.0 {
+        if next_token.0 == Token::NE {
             let token_location = match_next(tokens, Token::NE, index)?;
             let right = parse_expression_add_sub(tokens, index)?;
             current = AstNode {
@@ -469,7 +469,7 @@ fn parse_expression_add_sub(tokens: &Vec<TokenInfo>, index: &mut usize) -> Resul
 
     loop {
         let next_token = peek_next(tokens, *index)?;
-        if let Token::ADD = next_token.0 {
+        if next_token.0 == Token::ADD {
             let token_location = match_next(tokens, Token::ADD, index)?;
             let right = parse_expression_mul_div(tokens, index)?;
             current = AstNode {
@@ -478,7 +478,7 @@ fn parse_expression_add_sub(tokens: &Vec<TokenInfo>, index: &mut usize) -> Resul
             };
             continue;
         }
-        if let Token::SUB = next_token.0 {
+        if next_token.0 == Token::SUB {
             let token_location = match_next(tokens, Token::SUB, index)?;
             let right = parse_expression_mul_div(tokens, index)?;
             current = AstNode {
@@ -498,7 +498,7 @@ fn parse_expression_mul_div(tokens: &Vec<TokenInfo>, index: &mut usize) -> Resul
 
     loop {
         let next_token = peek_next(tokens, *index)?;
-        if let Token::MUL = next_token.0 {
+        if next_token.0 == Token::MUL {
             let token_location = match_next(tokens, Token::MUL, index)?;
             let right = parse_expression_unary_minus(tokens, index)?;
             current = AstNode {
@@ -507,7 +507,7 @@ fn parse_expression_mul_div(tokens: &Vec<TokenInfo>, index: &mut usize) -> Resul
             };
             continue;
         }
-        if let Token::DIV = next_token.0 {
+        if next_token.0 == Token::DIV {
             let token_location = match_next(tokens, Token::DIV, index)?;
             let right = parse_expression_unary_minus(tokens, index)?;
             current = AstNode {
@@ -526,7 +526,7 @@ fn parse_expression_unary_minus(
     tokens: &Vec<TokenInfo>,
     index: &mut usize,
 ) -> Result<AstNode<Expression>, Box<dyn Error>> {
-    if let Token::SUB = peek_next(tokens, *index)?.0 {
+    if peek_next(tokens, *index)?.0 == Token::SUB {
         let token_location = match_next(tokens, Token::SUB, index)?;
         let right = parse_expression_unary_minus(tokens, index)?;
         Ok(AstNode {

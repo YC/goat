@@ -51,8 +51,8 @@ enum NfaTransition {
 impl NfaTransition {
     fn takes_character(&self, c: char) -> bool {
         match self {
-            NfaTransition::Empty => false,
-            NfaTransition::Charset(charset) => match charset {
+            Self::Empty => false,
+            Self::Charset(charset) => match charset {
                 Charset::Char(char) => c == *char,
                 Charset::CharRange(left, right) => c >= *left && c <= *right,
                 Charset::CharExclude(e) => !e.contains(&c),

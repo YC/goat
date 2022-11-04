@@ -90,8 +90,8 @@ pub enum ParameterPassIndicator {
 impl Display for ParameterPassIndicator {
     fn fmt(&self, f: &mut Formatter) -> Result {
         let s = match self {
-            ParameterPassIndicator::Ref => "ref",
-            ParameterPassIndicator::Val => "val",
+            Self::Ref => "ref",
+            Self::Val => "val",
         };
         write!(f, "{}", s)
     }
@@ -107,9 +107,9 @@ pub enum VariableType {
 impl Display for VariableType {
     fn fmt(&self, f: &mut Formatter) -> Result {
         let s = match self {
-            VariableType::Bool => "bool",
-            VariableType::Float => "float",
-            VariableType::Int => "int",
+            Self::Bool => "bool",
+            Self::Float => "float",
+            Self::Int => "int",
         };
         write!(f, "{}", s)
     }
@@ -192,16 +192,16 @@ fn pad_space(s: String, level: u64) -> String {
 impl Statement {
     fn pretty_print(&self) -> String {
         match self {
-            Statement::Assign(ident, expr) => {
+            Self::Assign(ident, expr) => {
                 format!("{} := {};", ident, expr.node)
             }
-            Statement::Read(ident) => {
+            Self::Read(ident) => {
                 format!("read {};", ident)
             }
-            Statement::Write(expr) => {
+            Self::Write(expr) => {
                 format!("write {};", expr.node)
             }
-            Statement::Call(ident, expr_list) => {
+            Self::Call(ident, expr_list) => {
                 format!(
                     "call {}({});",
                     ident.node,
@@ -212,7 +212,7 @@ impl Statement {
                         .join(", ")
                 )
             }
-            Statement::While(expr, stmt_list) => {
+            Self::While(expr, stmt_list) => {
                 format!(
                     "while {} do\n{}{}od",
                     expr.node,
@@ -224,7 +224,7 @@ impl Statement {
                     if !stmt_list.is_empty() { "\n" } else { "" },
                 )
             }
-            Statement::If(expr, stmt_list) => {
+            Self::If(expr, stmt_list) => {
                 format!(
                     "if {} then\n{}{}fi",
                     expr.node,
@@ -236,7 +236,7 @@ impl Statement {
                     if stmt_list.is_empty() { "" } else { "\n" },
                 )
             }
-            Statement::IfElse(expr, stmt_if, stmt_else) => {
+            Self::IfElse(expr, stmt_if, stmt_else) => {
                 format!(
                     "if {} then\n{}{}else\n{}{}fi",
                     expr.node,
@@ -312,8 +312,8 @@ fn wrap_bracket(wrap: bool, input: String) -> String {
 }
 
 impl Expression {
-    fn is_binop(&self) -> bool {
-        matches!(self, Expression::BinopExpr(_, _, _))
+    const fn is_binop(&self) -> bool {
+        matches!(self, Self::BinopExpr(_, _, _))
     }
 }
 
@@ -358,20 +358,20 @@ pub enum Binop {
 impl Display for Binop {
     fn fmt(&self, f: &mut Formatter) -> Result {
         let s = match self {
-            Binop::Add => "+",
-            Binop::Minus => "-",
-            Binop::Multiply => "*",
-            Binop::Divide => "/",
+            Self::Add => "+",
+            Self::Minus => "-",
+            Self::Multiply => "*",
+            Self::Divide => "/",
 
-            Binop::OR => "||",
-            Binop::AND => "&&",
-            Binop::EQ => "=",
-            Binop::NEQ => "!=",
+            Self::OR => "||",
+            Self::AND => "&&",
+            Self::EQ => "=",
+            Self::NEQ => "!=",
 
-            Binop::LT => "<",
-            Binop::LTE => "<=",
-            Binop::GT => ">",
-            Binop::GTE => ">=",
+            Self::LT => "<",
+            Self::LTE => "<=",
+            Self::GT => ">",
+            Self::GTE => ">=",
         };
         write!(f, "{}", s)
     }
@@ -387,8 +387,8 @@ pub enum Unop {
 impl Display for Unop {
     fn fmt(&self, f: &mut Formatter) -> Result {
         let s = match self {
-            Unop::NOT => "!",
-            Unop::Minus => "-",
+            Self::NOT => "!",
+            Self::Minus => "-",
         };
         write!(f, "{}", s)
     }
