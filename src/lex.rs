@@ -449,7 +449,7 @@ fn construct_regex() -> Vec<(RegEx, (u64, Box<TokenFunction>))> {
                 RegEx::Charset(Charset::Char('\r')),
             ]))),
         ]),
-        (10, Box::new(|s| Token::Whitespace(s.to_string()))),
+        (10, Box::new(|s| Token::Whitespace(s.to_owned()))),
     ));
 
     // Newline
@@ -460,7 +460,7 @@ fn construct_regex() -> Vec<(RegEx, (u64, Box<TokenFunction>))> {
             RegEx::Charset(Charset::Char('#')),
             RegEx::Star(Box::new(RegEx::Charset(Charset::CharExclude(vec!['\n'])))),
         ]),
-        (10, Box::new(|s| Token::Comment(s.to_string()))),
+        (10, Box::new(|s| Token::Comment(s.to_owned()))),
     ));
 
     // Identifier
@@ -478,7 +478,7 @@ fn construct_regex() -> Vec<(RegEx, (u64, Box<TokenFunction>))> {
                 RegEx::Charset(Charset::Char('\'')),
             ]))),
         ]),
-        (5, Box::new(|s| Token::Ident(s.to_string()))),
+        (5, Box::new(|s| Token::Ident(s.to_owned()))),
     ));
 
     // IntConst
@@ -499,7 +499,7 @@ fn construct_regex() -> Vec<(RegEx, (u64, Box<TokenFunction>))> {
             RegEx::Charset(Charset::CharRange('0', '9')),
             RegEx::Star(Box::new(RegEx::Charset(Charset::CharRange('0', '9')))),
         ]),
-        (3, Box::new(|s| Token::FloatConst(s.to_string()))),
+        (3, Box::new(|s| Token::FloatConst(s.to_owned()))),
     ));
 
     // StrConst
@@ -511,15 +511,15 @@ fn construct_regex() -> Vec<(RegEx, (u64, Box<TokenFunction>))> {
         ]),
         (
             2,
-            Box::new(|s| Token::StringConst(s.strip_prefix('\"').unwrap().strip_suffix('\"').unwrap().to_string())),
+            Box::new(|s| Token::StringConst(s.strip_prefix('\"').unwrap().strip_suffix('\"').unwrap().to_owned())),
         ),
     ));
 
     // BoolConst
     regex.push((
         RegEx::Or(vec![
-            RegEx::Literal("true".to_string()),
-            RegEx::Literal("false".to_string()),
+            RegEx::Literal("true".to_owned()),
+            RegEx::Literal("false".to_owned()),
         ]),
         (
             2,
@@ -533,29 +533,29 @@ fn construct_regex() -> Vec<(RegEx, (u64, Box<TokenFunction>))> {
         ),
     ));
 
-    regex.push((RegEx::Literal(":=".to_string()), (1, Box::new(|_| Token::ASSIGN))));
-    regex.push((RegEx::Literal("(".to_string()), (1, Box::new(|_| Token::LPAREN))));
-    regex.push((RegEx::Literal(")".to_string()), (1, Box::new(|_| Token::RPAREN))));
-    regex.push((RegEx::Literal(";".to_string()), (1, Box::new(|_| Token::SEMI))));
-    regex.push((RegEx::Literal("||".to_string()), (1, Box::new(|_| Token::OR))));
-    regex.push((RegEx::Literal("&&".to_string()), (1, Box::new(|_| Token::AND))));
-    regex.push((RegEx::Literal("!".to_string()), (1, Box::new(|_| Token::NOT))));
-    regex.push((RegEx::Literal("=".to_string()), (1, Box::new(|_| Token::EQ))));
-    regex.push((RegEx::Literal("!=".to_string()), (1, Box::new(|_| Token::NE))));
+    regex.push((RegEx::Literal(":=".to_owned()), (1, Box::new(|_| Token::ASSIGN))));
+    regex.push((RegEx::Literal("(".to_owned()), (1, Box::new(|_| Token::LPAREN))));
+    regex.push((RegEx::Literal(")".to_owned()), (1, Box::new(|_| Token::RPAREN))));
+    regex.push((RegEx::Literal(";".to_owned()), (1, Box::new(|_| Token::SEMI))));
+    regex.push((RegEx::Literal("||".to_owned()), (1, Box::new(|_| Token::OR))));
+    regex.push((RegEx::Literal("&&".to_owned()), (1, Box::new(|_| Token::AND))));
+    regex.push((RegEx::Literal("!".to_owned()), (1, Box::new(|_| Token::NOT))));
+    regex.push((RegEx::Literal("=".to_owned()), (1, Box::new(|_| Token::EQ))));
+    regex.push((RegEx::Literal("!=".to_owned()), (1, Box::new(|_| Token::NE))));
 
-    regex.push((RegEx::Literal("<".to_string()), (1, Box::new(|_| Token::LT))));
-    regex.push((RegEx::Literal("<=".to_string()), (1, Box::new(|_| Token::LTE))));
-    regex.push((RegEx::Literal(">".to_string()), (1, Box::new(|_| Token::GT))));
-    regex.push((RegEx::Literal(">=".to_string()), (1, Box::new(|_| Token::GTE))));
+    regex.push((RegEx::Literal("<".to_owned()), (1, Box::new(|_| Token::LT))));
+    regex.push((RegEx::Literal("<=".to_owned()), (1, Box::new(|_| Token::LTE))));
+    regex.push((RegEx::Literal(">".to_owned()), (1, Box::new(|_| Token::GT))));
+    regex.push((RegEx::Literal(">=".to_owned()), (1, Box::new(|_| Token::GTE))));
 
-    regex.push((RegEx::Literal("+".to_string()), (1, Box::new(|_| Token::ADD))));
-    regex.push((RegEx::Literal("-".to_string()), (1, Box::new(|_| Token::SUB))));
-    regex.push((RegEx::Literal("*".to_string()), (1, Box::new(|_| Token::MUL))));
-    regex.push((RegEx::Literal("/".to_string()), (1, Box::new(|_| Token::DIV))));
+    regex.push((RegEx::Literal("+".to_owned()), (1, Box::new(|_| Token::ADD))));
+    regex.push((RegEx::Literal("-".to_owned()), (1, Box::new(|_| Token::SUB))));
+    regex.push((RegEx::Literal("*".to_owned()), (1, Box::new(|_| Token::MUL))));
+    regex.push((RegEx::Literal("/".to_owned()), (1, Box::new(|_| Token::DIV))));
 
-    regex.push((RegEx::Literal("[".to_string()), (1, Box::new(|_| Token::LBRACKET))));
-    regex.push((RegEx::Literal("]".to_string()), (1, Box::new(|_| Token::RBRACKET))));
-    regex.push((RegEx::Literal(",".to_string()), (1, Box::new(|_| Token::COMMA))));
+    regex.push((RegEx::Literal("[".to_owned()), (1, Box::new(|_| Token::LBRACKET))));
+    regex.push((RegEx::Literal("]".to_owned()), (1, Box::new(|_| Token::RBRACKET))));
+    regex.push((RegEx::Literal(",".to_owned()), (1, Box::new(|_| Token::COMMA))));
 
     // println!("{:?}", regex.iter().map(|x| &x.0).collect::<Vec<&RegEx>>());
     regex

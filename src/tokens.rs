@@ -120,7 +120,7 @@ pub enum Keyword {
 
 impl Display for Keyword {
     fn fmt(&self, f: &mut Formatter) -> Result {
-        let s = match self {
+        let s = match *self {
             Self::READ => "read",
             Self::WRITE => "write",
             Self::END => "end",

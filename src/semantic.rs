@@ -309,7 +309,7 @@ fn eval_expression_scalar(
         Expression::StringConst(_) => Err("String const not supported by parse_expression_scalar")?,
         Expression::IdentifierShape(shape) => eval_shape_type(symbol_table, procedure, shape)?,
         Expression::UnopExpr(op, expr) => {
-            match op {
+            match *op {
                 Unop::Minus => {
                     let expr_type = eval_expression_scalar(symbol_table, procedure, expr)?;
                     if expr_type != VariableType::Int && expr_type != VariableType::Float {
@@ -336,7 +336,7 @@ fn eval_expression_scalar(
             let left_type = eval_expression_scalar(symbol_table, procedure, left)?;
             let right_type = eval_expression_scalar(symbol_table, procedure, right)?;
 
-            match op {
+            match *op {
                 Binop::EQ | Binop::NEQ => {
                     if left_type != right_type {
                         return Err(format!(
