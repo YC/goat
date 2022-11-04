@@ -4,7 +4,8 @@ use crate::ast::{
 };
 use std::{collections::HashMap, collections::HashSet, error::Error};
 
-type SymbolTable<'src> = HashMap<&'src String, Vec<VariableInfo<'src>>>;
+type SymbolTable<'src> = HashMap<&'src String, ProcedureSymbols<'src>>;
+type ProcedureSymbols<'src> = Vec<VariableInfo<'src>>;
 
 pub struct VariableInfo<'src> {
     pub identifier: &'src Identifier,
@@ -142,11 +143,15 @@ fn analyse_statement(
     procedure: &Procedure,
     statement: &Node<Statement>,
 ) -> Result<(), Box<dyn Error>> {
+    let procedure_symbols = symbol_table
+        .get(&procedure.identifier.node)
+        .expect("no symbols for procedure");
+
     match &statement.node {
         Statement::If(expr, statements) => {
             // - conditions must be bool
             // - bodies must be sequence of statements
-            let expr_type = eval_expression_scalar(symbol_table, procedure, expr)?;
+            let expr_type = eval_expression_scalar(symbol_table, procedure_symbols, expr)?;
             if expr_type != VariableType::Bool {
                 return Err(format!(
                     "Expression for If statement \"{}\" at {:?} must be bool, but is {}",
@@ -167,7 +172,7 @@ fn analyse_statement(
         Statement::IfElse(expr, statements1, statements2) => {
             // - conditions must be bool
             // - bodies must be sequence of statements
-            let expr_type = eval_expression_scalar(symbol_table, procedure, expr)?;
+            let expr_type = eval_expression_scalar(symbol_table, procedure_symbols, expr)?;
             if expr_type != VariableType::Bool {
                 return Err(format!(
                     "Expression for IfElse statement \"{}\" at {:?} must be bool, but is {}",
@@ -197,7 +202,7 @@ fn analyse_statement(
         Statement::While(expr, statements) => {
             // - conditions must be bool
             // - bodies must be sequence of statements
-            let expr_type = eval_expression_scalar(symbol_table, procedure, expr)?;
+            let expr_type = eval_expression_scalar(symbol_table, procedure_symbols, expr)?;
             if expr_type != VariableType::Bool {
                 return Err(format!(
                     "Expression for While statement \"{}\" at {:?} must be bool, but is {}",
@@ -219,9 +224,9 @@ fn analyse_statement(
             // - left hand side must be of same type as right hand side
             // with exception that int can be assigned to float
             // - arrays and matrices can only be updated selectively
-            let left_type = eval_shape_type(symbol_table, procedure, shape)?;
+            let left_type = eval_shape_type(symbol_table, procedure_symbols, shape)?;
 
-            let right_type = eval_expression_scalar(symbol_table, procedure, expr)?;
+            let right_type = eval_expression_scalar(symbol_table, procedure_symbols, expr)?;
 
             if left_type != right_type && (left_type != VariableType::Float && right_type != VariableType::Int) {
                 return Err(format!(
@@ -232,14 +237,14 @@ fn analyse_statement(
         }
         Statement::Read(shape) => {
             // read takes scalar
-            eval_shape_type(symbol_table, procedure, shape)?;
+            eval_shape_type(symbol_table, procedure_symbols, shape)?;
         }
         Statement::Write(expr) => {
             if let Expression::StringConst(_) = expr.node {
                 // String constant
             } else {
                 // Well-typed expression
-                eval_expression_scalar(symbol_table, procedure, expr)?;
+                eval_expression_scalar(symbol_table, procedure_symbols, expr)?;
             }
         }
         Statement::Call(identifier, expressions) => {
@@ -269,7 +274,7 @@ fn analyse_statement(
             }
 
             for (i, (formal_param, argument)) in formal_params.iter().zip(expressions.iter()).enumerate() {
-                let argument_type = eval_expression_scalar(symbol_table, procedure, argument)?;
+                let argument_type = eval_expression_scalar(symbol_table, procedure_symbols, argument)?;
 
                 let passing_indicator = *formal_param
                     .pass_indicator
@@ -303,7 +308,7 @@ fn analyse_statement(
 #[allow(clippy::too_many_lines)]
 fn eval_expression_scalar(
     symbol_table: &SymbolTable,
-    procedure: &Procedure,
+    procedure_symbols: &ProcedureSymbols,
     expr: &Node<Expression>,
 ) -> Result<VariableType, Box<dyn Error>> {
     let r#type = match &expr.node {
@@ -311,11 +316,11 @@ fn eval_expression_scalar(
         Expression::FloatConst(_) => VariableType::Float,
         Expression::BoolConst(_) => VariableType::Bool,
         Expression::StringConst(_) => Err("String const not supported by parse_expression_scalar")?,
-        Expression::IdentifierShape(shape) => eval_shape_type(symbol_table, procedure, shape)?,
+        Expression::IdentifierShape(shape) => eval_shape_type(symbol_table, procedure_symbols, shape)?,
         Expression::UnopExpr(op, expr) => {
             match *op {
                 Unop::Minus => {
-                    let expr_type = eval_expression_scalar(symbol_table, procedure, expr)?;
+                    let expr_type = eval_expression_scalar(symbol_table, procedure_symbols, expr)?;
                     if expr_type != VariableType::Int && expr_type != VariableType::Float {
                         return Err(format!(
                             "Expression after unary MINUS '{}' operator (at {:?}) must be int or float, but found \"{}\" ({})",
@@ -325,7 +330,7 @@ fn eval_expression_scalar(
                     expr_type
                 }
                 Unop::NOT => {
-                    let expr_type = eval_expression_scalar(symbol_table, procedure, expr)?;
+                    let expr_type = eval_expression_scalar(symbol_table, procedure_symbols, expr)?;
                     if expr_type != VariableType::Bool {
                         return Err(format!(
                             "Expression after unary NOT operator '{}' (at {:?}) must be of type {}, but found \"{}\" ({})",
@@ -337,8 +342,8 @@ fn eval_expression_scalar(
             }
         }
         Expression::BinopExpr(op, left, right) => {
-            let left_type = eval_expression_scalar(symbol_table, procedure, left)?;
-            let right_type = eval_expression_scalar(symbol_table, procedure, right)?;
+            let left_type = eval_expression_scalar(symbol_table, procedure_symbols, left)?;
+            let right_type = eval_expression_scalar(symbol_table, procedure_symbols, right)?;
 
             match *op {
                 Binop::EQ | Binop::NEQ => {
@@ -414,13 +419,11 @@ fn eval_expression_scalar(
 
 fn eval_shape_type(
     symbol_table: &SymbolTable,
-    procedure: &Procedure,
+    procedure_symbols: &ProcedureSymbols,
     shape: &IdentifierShape,
 ) -> Result<VariableType, Box<dyn Error>> {
     let r#type = match shape {
         IdentifierShape::Identifier(identifier) => {
-            let procedure_symbols = symbol_table.get(&procedure.identifier.node).unwrap();
-
             let Some(var) = procedure_symbols.iter().find(|v| v.identifier == &identifier.node) else {
                 return Err(format!(
                     "Undeclared variable \"{}\" at {:?}",
@@ -433,7 +436,7 @@ fn eval_shape_type(
                 // Scalar to scalar assignment
                 var.r#type
             } else {
-                let shape = var.shape.as_ref().unwrap();
+                let shape = var.shape.expect("variable declaration should have shape");
                 if let IdentifierShapeDeclaration::Identifier(_) = shape {
                     var.r#type
                 } else {
@@ -445,7 +448,7 @@ fn eval_shape_type(
             }
         }
         IdentifierShape::IdentifierArray(identifier, expr) => {
-            let index_type = eval_expression_scalar(symbol_table, procedure, expr)?;
+            let index_type = eval_expression_scalar(symbol_table, procedure_symbols, expr)?;
             if index_type != VariableType::Int {
                 return Err(format!(
                     "Array index \"{}\" at {:?} is expected to be int, but is of type {}",
@@ -453,7 +456,6 @@ fn eval_shape_type(
                 ))?;
             }
 
-            let procedure_symbols = symbol_table.get(&procedure.identifier.node).unwrap();
             let Some(var) = procedure_symbols.iter().find(|v| *v.identifier == *identifier.node) else {
                 return Err(format!(
                     "Undeclared variable \"{}\" at {:?}",
@@ -469,7 +471,7 @@ fn eval_shape_type(
                 ))?;
             }
 
-            let shape = var.shape.as_ref().unwrap();
+            let shape = var.shape.expect("variable declaration should have shape");
             if let IdentifierShapeDeclaration::IdentifierArray(_, _) = shape {
                 var.r#type
             } else {
@@ -480,22 +482,21 @@ fn eval_shape_type(
             }
         }
         IdentifierShape::IdentifierArray2D(identifier, expr1, expr2) => {
-            let index_type_m = eval_expression_scalar(symbol_table, procedure, expr1)?;
+            let index_type_m = eval_expression_scalar(symbol_table, procedure_symbols, expr1)?;
             if index_type_m != VariableType::Int {
                 return Err(format!(
                     "Matrix index \"{}[{}, _]\" at {:?} is expected to be int, but found {}",
                     identifier.node, expr1.node, expr1.location, index_type_m
                 ))?;
             }
-            let index_type_n = eval_expression_scalar(symbol_table, procedure, expr1)?;
-            if eval_expression_scalar(symbol_table, procedure, expr2)? != VariableType::Int {
+            let index_type_n = eval_expression_scalar(symbol_table, procedure_symbols, expr1)?;
+            if eval_expression_scalar(symbol_table, procedure_symbols, expr2)? != VariableType::Int {
                 return Err(format!(
                     "Matrix index \"{}[_, {}]\" at {:?} is expected to be int, but found {}",
                     identifier.node, expr2.node, expr2.location, index_type_n
                 ))?;
             }
 
-            let procedure_symbols = symbol_table.get(&procedure.identifier.node).unwrap();
             let Some(var) = procedure_symbols.iter().find(|v| *v.identifier == identifier.node) else {
                 return Err(format!(
                     "Undeclared variable \"{}\" at {:?}",
@@ -511,7 +512,7 @@ fn eval_shape_type(
                 ))?;
             }
 
-            let shape = var.shape.as_ref().unwrap();
+            let shape = var.shape.expect("variable declaration should have shape");
             if let IdentifierShapeDeclaration::IdentifierArray2D(_, _, _) = shape {
                 var.r#type
             } else {
