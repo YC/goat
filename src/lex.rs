@@ -134,12 +134,12 @@ fn execute_nfa(input: &str, nfa: Nfa) -> Result<Vec<TokenInfo>, Box<dyn Error>> 
         }
 
         if accepted.is_empty() {
-            Err(format!(
+            return Err(format!(
                 "cannot consume input '{}', at line {} col {}",
                 chars.iter().collect::<String>(),
                 lineno,
                 linecol
-            ))?
+            ))?;
         }
 
         // Sort tokens by characters consumed (higher is better), then token priority (lower is better)
@@ -170,7 +170,7 @@ fn execute_nfa(input: &str, nfa: Nfa) -> Result<Vec<TokenInfo>, Box<dyn Error>> 
     }
 
     if !input.is_empty() {
-        Err(format!("unconsumed input, at line {} col {}", lineno, linecol))?
+        return Err(format!("unconsumed input, at line {} col {}", lineno, linecol))?;
     }
 
     Ok(tokens)

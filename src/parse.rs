@@ -15,14 +15,14 @@ pub fn parse(tokens: &Vec<TokenInfo>) -> Result<GoatProgram, Box<dyn Error>> {
 
 fn match_next(tokens: &Vec<TokenInfo>, token: Token, index: &mut usize) -> Result<TokenLocation, Box<dyn Error>> {
     if *index >= tokens.len() {
-        Err("No more input available")?
+        return Err("No more input available")?;
     }
     let next_token = &tokens[*index];
     if next_token.0 != token {
-        Err(format!(
+        return Err(format!(
             "Expected token {:?}, but found {:?} at {:?}",
             token, tokens[*index].0, tokens[*index].1
-        ))?
+        ))?;
     }
     *index += 1;
     Ok(next_token.1)
@@ -30,7 +30,7 @@ fn match_next(tokens: &Vec<TokenInfo>, token: Token, index: &mut usize) -> Resul
 
 fn peek_next(tokens: &Vec<TokenInfo>, index: usize) -> Result<&TokenInfo, Box<dyn Error>> {
     if index >= tokens.len() {
-        Err("No more input available")?
+        return Err("No more input available")?;
     }
     Ok(&tokens[index])
 }
