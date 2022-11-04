@@ -103,13 +103,10 @@ fn execute_nfa(input: &str, nfa: Nfa) -> Result<Vec<TokenInfo>, Box<dyn Error>> 
             // For those which are now in the accept state
             for state in &current_states {
                 let mut dest_accept = nfa.accept.iter().filter(|x| x.0 == *state);
-                match dest_accept.next() {
-                    None => {}
-                    Some((_, nfa_accept)) => {
-                        let chars_str: String = chars.iter().collect();
-                        let token = (nfa_accept.as_ref().unwrap().1)(&chars_str);
-                        accepted.push((offset, nfa_accept.as_ref().unwrap().0, token));
-                    }
+                if let Some((_, nfa_accept)) = dest_accept.next() {
+                    let chars_str: String = chars.iter().collect();
+                    let token = (nfa_accept.as_ref().unwrap().1)(&chars_str);
+                    accepted.push((offset, nfa_accept.as_ref().unwrap().0, token));
                 }
             }
 

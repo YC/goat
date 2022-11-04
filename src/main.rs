@@ -36,12 +36,9 @@ fn main() -> Result<(), Box<dyn Error>> {
         filename = Some(argument);
     }
 
-    let filename = match filename {
-        None => {
-            eprintln!("Filename not given");
-            process::exit(1);
-        }
-        Some(value) => value,
+    let Some(filename) = filename else {
+        eprintln!("Filename not given");
+        process::exit(1);
     };
 
     if verbose {
