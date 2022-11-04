@@ -55,50 +55,46 @@ pub enum Token {
     COMMA,
 }
 
-impl Token {
-    fn as_str(&self) -> String {
-        match self {
-            Token::NewLine => "\n".to_string(),
-            Token::Comment(i) => i.to_string(),
-            Token::Whitespace(i) => i.to_string(),
-            Token::Ident(i) => i.to_string(),
-            Token::StringConst(i) => i.to_string(),
-            Token::Keyword(k) => k.to_string(),
-            Token::IntConst(i) => i.to_string(),
-            Token::BoolConst(i) => i.to_string(),
-            Token::FloatConst(i) => i.to_string(),
-            Token::ASSIGN => ":=".to_string(),
-            Token::LPAREN => "(".to_string(),
-            Token::RPAREN => ")".to_string(),
-            Token::SEMI => ";".to_string(),
-            Token::EQ => "=".to_string(),
-            Token::NE => "!=".to_string(),
-            Token::NOT => "!".to_string(),
-            Token::OR => "||".to_string(),
-            Token::AND => "&&".to_string(),
-            Token::LT => "<".to_string(),
-            Token::LTE => "<=".to_string(),
-            Token::GT => ">".to_string(),
-            Token::GTE => ">=".to_string(),
-            Token::ADD => "+".to_string(),
-            Token::SUB => "-".to_string(),
-            Token::MUL => "*".to_string(),
-            Token::DIV => "/".to_string(),
-            Token::LBRACKET => "[".to_string(),
-            Token::RBRACKET => "]".to_string(),
-            Token::COMMA => ",".to_string(),
-        }
-    }
-}
-
 impl Display for Token {
     fn fmt(&self, f: &mut Formatter) -> Result {
-        write!(f, "{}", self.as_str())
+        let s = match self {
+            Self::NewLine => "\n".to_owned(),
+            Self::Comment(i) => i.to_string(),
+            Self::Whitespace(i) => i.to_string(),
+            Self::Ident(i) => i.to_string(),
+            Self::StringConst(i) => i.to_string(),
+            Self::Keyword(k) => k.to_string(),
+            Self::IntConst(i) => i.to_string(),
+            Self::BoolConst(i) => i.to_string(),
+            Self::FloatConst(i) => i.to_string(),
+            Self::ASSIGN => ":=".to_owned(),
+            Self::LPAREN => "(".to_owned(),
+            Self::RPAREN => ")".to_owned(),
+            Self::SEMI => ";".to_owned(),
+            Self::EQ => "=".to_owned(),
+            Self::NE => "!=".to_owned(),
+            Self::NOT => "!".to_owned(),
+            Self::OR => "||".to_owned(),
+            Self::AND => "&&".to_owned(),
+            Self::LT => "<".to_owned(),
+            Self::LTE => "<=".to_owned(),
+            Self::GT => ">".to_owned(),
+            Self::GTE => ">=".to_owned(),
+            Self::ADD => "+".to_owned(),
+            Self::SUB => "-".to_owned(),
+            Self::MUL => "*".to_owned(),
+            Self::DIV => "/".to_owned(),
+            Self::LBRACKET => "[".to_owned(),
+            Self::RBRACKET => "]".to_owned(),
+            Self::COMMA => ",".to_owned(),
+        };
+
+        write!(f, "{}", s)
     }
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
-#[allow(clippy::upper_case_acronyms)]
+#[allow(clippy::upper_case_acronyms, clippy::missing_docs_in_private_items)]
 pub enum Keyword {
     BEGIN,
     BOOL,
@@ -124,33 +120,28 @@ pub enum Keyword {
 
 impl Display for Keyword {
     fn fmt(&self, f: &mut Formatter) -> Result {
-        write!(f, "{}", self.as_str())
-    }
-}
-
-impl Keyword {
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            Keyword::READ => "read",
-            Keyword::WRITE => "write",
-            Keyword::END => "end",
-            Keyword::BEGIN => "begin",
-            Keyword::PROC => "proc",
-            Keyword::INT => "int",
-            Keyword::BOOL => "bool",
-            Keyword::FALSE => "false",
-            Keyword::TRUE => "true",
-            Keyword::DO => "do",
-            Keyword::OD => "od",
-            Keyword::IF => "if",
-            Keyword::FI => "fi",
-            Keyword::ELSE => "else",
-            Keyword::THEN => "then",
-            Keyword::VAL => "val",
-            Keyword::WHILE => "while",
-            Keyword::FLOAT => "float",
-            Keyword::CALL => "call",
-            Keyword::REF => "ref",
-        }
+        let s = match self {
+            Self::READ => "read",
+            Self::WRITE => "write",
+            Self::END => "end",
+            Self::BEGIN => "begin",
+            Self::PROC => "proc",
+            Self::INT => "int",
+            Self::BOOL => "bool",
+            Self::FALSE => "false",
+            Self::TRUE => "true",
+            Self::DO => "do",
+            Self::OD => "od",
+            Self::IF => "if",
+            Self::FI => "fi",
+            Self::ELSE => "else",
+            Self::THEN => "then",
+            Self::VAL => "val",
+            Self::WHILE => "while",
+            Self::FLOAT => "float",
+            Self::CALL => "call",
+            Self::REF => "ref",
+        };
+        write!(f, "{}", s)
     }
 }

@@ -284,7 +284,7 @@ fn analyse_statement(
                         if *formal_param.pass_indicator.unwrap() == ParameterPassIndicator::Val
                             && formal_param.r#type == VariableType::Float
                         {
-                            "Int or Float".to_string()
+                            "Int or Float".to_owned()
                         } else {
                             formal_param.r#type.to_string()
                         },

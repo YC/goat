@@ -569,7 +569,7 @@ impl Keyword {
 
 #[test]
 fn test_regex_to_nfa_literal() {
-    let regex = RegEx::Literal("hi".to_string());
+    let regex = RegEx::Literal("hi".to_owned());
     let nfa = regex_to_nfa(&regex, None);
 
     // (start) --h-> 1 --i-> (2, accept)
@@ -584,8 +584,8 @@ fn test_regex_to_nfa_literal() {
 
 #[test]
 fn test_regex_to_nfa_or_literal() {
-    let regex1 = RegEx::Literal("ab".to_string());
-    let regex2 = RegEx::Literal("c".to_string());
+    let regex1 = RegEx::Literal("ab".to_owned());
+    let regex2 = RegEx::Literal("c".to_owned());
     let regex = RegEx::Or(vec![regex1, regex2]);
     let nfa = regex_to_nfa(&regex, None);
 
@@ -608,8 +608,8 @@ fn test_regex_to_nfa_or_literal() {
 
 #[test]
 fn test_nfa_combine() {
-    let regex1 = RegEx::Literal("a".to_string());
-    let regex2 = RegEx::Literal("z".to_string());
+    let regex1 = RegEx::Literal("a".to_owned());
+    let regex2 = RegEx::Literal("z".to_owned());
     let nfa1 = regex_to_nfa(&regex1, None);
     let nfa2 = regex_to_nfa(&regex2, None);
     let nfas = vec![nfa1, nfa2];
@@ -630,9 +630,9 @@ fn test_nfa_combine() {
 
 #[test]
 fn test_regex_to_nfa_concat_literal() {
-    let regex1 = RegEx::Literal("ab".to_string());
-    let regex2 = RegEx::Literal("cd".to_string());
-    let regex3 = RegEx::Literal("e".to_string());
+    let regex1 = RegEx::Literal("ab".to_owned());
+    let regex2 = RegEx::Literal("cd".to_owned());
+    let regex3 = RegEx::Literal("e".to_owned());
     let regex = RegEx::Concat(vec![regex1, regex2, regex3]);
     let nfa = regex_to_nfa(&regex, None);
 
@@ -651,7 +651,7 @@ fn test_regex_to_nfa_concat_literal() {
 
 #[test]
 fn test_regex_to_nfa_star_literal() {
-    let regex = RegEx::Star(Box::new(RegEx::Literal("tk".to_string())));
+    let regex = RegEx::Star(Box::new(RegEx::Literal("tk".to_owned())));
     let nfa = regex_to_nfa(&regex, None);
 
     //          --------------------e------------------------>

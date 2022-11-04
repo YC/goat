@@ -284,8 +284,8 @@ impl Display for Expression {
             Self::IdentifierShape(s) => s.to_string(),
             Self::IntConst(n) => n.to_string(),
             Self::FloatConst(n) => n.to_string(),
-            Self::BoolConst(true) => "true".to_string(),
-            Self::BoolConst(false) => "false".to_string(),
+            Self::BoolConst(true) => "true".to_owned(),
+            Self::BoolConst(false) => "false".to_owned(),
             Self::StringConst(s) => format!("\"{}\"", s),
             Self::BinopExpr(op, expr_left, expr_right) => {
                 format!(
