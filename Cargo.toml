@@ -5,3 +5,5 @@ edition = "2021"
 license-file = "LICENSE"
 repository = "https://github.com/YC/goat"
 description = "Compiler for Goat (COMP90045)"
+keywords = ["comp90045", "goat", "compiler"]
+categories = ["parser-implementations"]

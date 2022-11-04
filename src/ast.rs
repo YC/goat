@@ -155,7 +155,7 @@ pub enum IdentifierShapeDeclaration {
 impl Display for IdentifierShapeDeclaration {
     fn fmt(&self, f: &mut Formatter) -> Result {
         let s = match self {
-            Self::Identifier(ident) => ident.node.to_string(),
+            Self::Identifier(ident) => ident.node.clone(),
             Self::IdentifierArray(ident, m) => format!("{}[{}]", ident.node, m),
             Self::IdentifierArray2D(ident, m, n) => format!("{}[{}, {}]", ident.node, m, n),
         };
@@ -177,14 +177,15 @@ pub enum Statement {
 
 impl Display for Statement {
     fn fmt(&self, f: &mut Formatter) -> Result {
-        write!(f, "{}", pad_space(self.pretty_print(), 1))
+        write!(f, "{}", pad_space(&self.pretty_print(), 1))
     }
 }
 
-fn pad_space(s: String, level: usize) -> String {
+fn pad_space(s: &str, level: usize) -> String {
     let repeat = " ".repeat(level * 4);
+    #[allow(clippy::string_add)]
     s.split('\n')
-        .map(|s| repeat.to_string() + s)
+        .map(|s| repeat.clone() + s)
         .collect::<Vec<String>>()
         .join("\n")
 }
@@ -221,7 +222,7 @@ impl Statement {
                         .map(|s| format!("{}", s.node))
                         .collect::<Vec<String>>()
                         .join("\n"),
-                    if !stmt_list.is_empty() { "\n" } else { "" },
+                    if stmt_list.is_empty() { "" } else { "\n" },
                 )
             }
             Self::If(expr, stmt_list) => {
@@ -327,7 +328,7 @@ pub enum IdentifierShape {
 impl Display for IdentifierShape {
     fn fmt(&self, f: &mut Formatter) -> Result {
         let s = match self {
-            Self::Identifier(ident) => ident.node.to_string(),
+            Self::Identifier(ident) => ident.node.clone(),
             Self::IdentifierArray(ident, m) => format!("{}[{}]", ident.node, m.node),
             Self::IdentifierArray2D(ident, m, n) => format!("{}[{}, {}]", ident.node, m.node, n.node),
         };

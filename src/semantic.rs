@@ -4,14 +4,14 @@ use crate::ast::{
 };
 use std::{collections::HashMap, collections::HashSet, error::Error};
 
-type SymbolTable<'a> = HashMap<&'a String, Vec<VariableInfo<'a>>>;
+type SymbolTable<'src> = HashMap<&'src String, Vec<VariableInfo<'src>>>;
 
-pub struct VariableInfo<'a> {
-    pub identifier: &'a Identifier,
+pub struct VariableInfo<'src> {
+    pub identifier: &'src Identifier,
     pub variable_location: VariableLocation,
     pub r#type: VariableType,
-    pub shape: Option<&'a IdentifierShapeDeclaration>,
-    pub pass_indicator: Option<&'a ParameterPassIndicator>,
+    pub shape: Option<&'src IdentifierShapeDeclaration>,
+    pub pass_indicator: Option<&'src ParameterPassIndicator>,
 }
 
 #[derive(Debug, Eq, PartialEq)]
@@ -41,6 +41,7 @@ pub fn semantic_analysis(program: &GoatProgram) -> Result<SymbolTable, Box<dyn E
         let mut vars = vec![];
 
         if procedure.identifier.node == "main" && !procedure.parameters.is_empty() {
+            #[allow(clippy::indexing_slicing)]
             return Err(format!(
                 "main function should not have any parameters: see line {}",
                 procedure.parameters[0].identifier.location.0

@@ -234,13 +234,17 @@ fn regex_to_nfa(regex: &RegEx, f: Option<NfaAcceptFunction>) -> Nfa {
                 transitions.push((transition.0 + 1, transition.1 + 1, transition.2));
             }
 
+            assert!(
+                nfa.accept.len() == 1,
+                "cannot currently support star nfa with multiple accept"
+            );
+
             // From accept to start
+            #[allow(clippy::indexing_slicing)]
             transitions.push((nfa.accept[0].0 + 1, nfa.start + 1, NfaTransition::Empty));
 
             // Transition from accept to new accept
-            if nfa.accept.len() != 1 {
-                panic!("cannot currently support star nfa with multiple accept");
-            }
+            #[allow(clippy::indexing_slicing)]
             transitions.push((nfa.accept[0].0 + 1, accept, NfaTransition::Empty));
 
             Nfa {
@@ -284,9 +288,11 @@ fn nfa_concat(nfas: Vec<Nfa>, f: Option<NfaAcceptFunction>) -> Nfa {
 
         // If the max state number is the accept state, it can be used by the next nfa
         // If not, need to increment by 1
-        if nfa.accept.len() != 1 {
-            panic!("cannot currently support concat nfa with multiple accept");
-        }
+        assert!(
+            nfa.accept.len() == 1,
+            "cannot currently support concat nfa with multiple accept"
+        );
+        #[allow(clippy::indexing_slicing)]
         let current_accept = nfa.accept[0].0;
         let next_usable = if max_state == current_accept {
             max_state
@@ -562,7 +568,7 @@ fn construct_regex() -> Vec<(RegEx, (u64, Box<TokenFunction>))> {
 }
 
 impl Keyword {
-    fn as_regex(&self) -> RegEx {
+    fn as_regex(self) -> RegEx {
         RegEx::Literal(self.to_string())
     }
 }

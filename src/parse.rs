@@ -17,11 +17,12 @@ fn match_next(tokens: &Vec<TokenInfo>, token: Token, index: &mut usize) -> Resul
     if *index >= tokens.len() {
         return Err("No more input available")?;
     }
+    #[allow(clippy::indexing_slicing)]
     let next_token = &tokens[*index];
     if next_token.0 != token {
         return Err(format!(
             "Expected token {:?}, but found {:?} at {:?}",
-            token, tokens[*index].0, tokens[*index].1
+            token, next_token.0, next_token.1
         ))?;
     }
     *index += 1;
@@ -32,6 +33,7 @@ fn peek_next(tokens: &Vec<TokenInfo>, index: usize) -> Result<&TokenInfo, Box<dy
     if index >= tokens.len() {
         return Err("No more input available")?;
     }
+    #[allow(clippy::indexing_slicing)]
     Ok(&tokens[index])
 }
 
@@ -322,20 +324,20 @@ fn parse_statement(tokens: &Vec<TokenInfo>, index: &mut usize) -> Result<AstNode
             let stmt_list = parse_statement_list(tokens, index)?;
 
             let next_token = peek_next(tokens, *index)?;
-            if next_token.0 != Token::Keyword(Keyword::ELSE) {
-                // No else statement
-                match_next(tokens, Token::Keyword(Keyword::FI), index)?;
-                AstNode {
-                    node: Statement::If(expr, stmt_list),
-                    location,
-                }
-            } else {
+            if next_token.0 == Token::Keyword(Keyword::ELSE) {
                 // if <expr> then <stmt-list> else <stmt-list> fi
                 match_next(tokens, Token::Keyword(Keyword::ELSE), index)?;
                 let else_stmt_list = parse_statement_list(tokens, index)?;
                 match_next(tokens, Token::Keyword(Keyword::FI), index)?;
                 AstNode {
                     node: Statement::IfElse(expr, stmt_list, else_stmt_list),
+                    location,
+                }
+            } else {
+                // No else statement
+                match_next(tokens, Token::Keyword(Keyword::FI), index)?;
+                AstNode {
+                    node: Statement::If(expr, stmt_list),
                     location,
                 }
             }
