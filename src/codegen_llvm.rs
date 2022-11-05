@@ -51,7 +51,7 @@ fn generate_code_proc(procedure: &Procedure, symbol_table: &SymbolTable) -> Stri
 }
 
 fn generate_code_body(symbol_table: &SymbolTable, procedure: &Procedure) -> Vec<String> {
-    let mut temp_var = 0;
+    let mut temp_var = 1;
     generate_code_statements(&mut temp_var, symbol_table, procedure, &procedure.body.statements)
 }
 
@@ -100,15 +100,12 @@ fn generate_code_statement(
 
             // Jump
             output.push(pad_space(
-                &format!(
-                    "br i1 %{}, label %{}, label %{}; if {}",
-                    temp_var_index, if_label, endif_label, expr.node
-                ),
+                &format!("br i1 %{}, label %{}, label %{}", temp_var_index, if_label, endif_label),
                 1,
             ));
 
             // If statements
-            output.push(pad_space(&format!("{}:", if_label), 0));
+            output.push(format!("{}:\t\t\t\t; if statements", if_label));
             output.append(&mut generate_code_statements(
                 temp_var,
                 symbol_table,
@@ -118,12 +115,13 @@ fn generate_code_statement(
             output.push(pad_space(&format!("br label %{}", endif_label), 1));
 
             // After endif
-            output.push(pad_space(&format!("{}:", endif_label), 0));
+            output.push(format!("{}:\t\t\t\t; end of if statement", endif_label));
         }
         Statement::IfElse(expr, statements1, statements2) => {
             // Evaluate boolean expression
-            let (temp_var_index, generated) = generate_code_expression(temp_var, procedure_symbols, &expr.node, 1);
-            output.append(&mut generated.iter().map(|g| pad_space(g, 1)).collect::<Vec<String>>());
+            let (conditional_var_index, mut generated) =
+                generate_code_expression(temp_var, procedure_symbols, &expr.node, 1);
+            output.append(&mut generated);
 
             let if_label = *temp_var;
             *temp_var += 1;
@@ -135,14 +133,14 @@ fn generate_code_statement(
             // Jump
             output.push(pad_space(
                 &format!(
-                    "br i1 %{}, label %{}, label %{}; ifelse {}",
-                    temp_var_index, if_label, else_label, expr.node
+                    "br i1 %{}, label %{}, label %{}",
+                    conditional_var_index, if_label, else_label
                 ),
                 1,
             ));
 
             // If statements
-            output.push(pad_space(&format!("{}:", if_label), 0));
+            output.push(format!("{}:\t\t\t\t; if statements", if_label));
             output.append(&mut generate_code_statements(
                 temp_var,
                 symbol_table,
@@ -152,7 +150,7 @@ fn generate_code_statement(
             output.push(pad_space(&format!("br label %{}", endif_label), 1));
 
             // Else statements
-            output.push(pad_space(&format!("{}:", else_label), 0));
+            output.push(format!("{}:\t\t\t\t; else statements", else_label));
             output.append(&mut generate_code_statements(
                 temp_var,
                 symbol_table,
@@ -162,11 +160,50 @@ fn generate_code_statement(
             output.push(pad_space(&format!("br label %{}", endif_label), 1));
 
             // After endif
-            output.push(pad_space(&format!("{}:", endif_label), 0));
+            output.push(format!("{}:\t\t\t\t; end ifelse", endif_label));
         }
-        // TODO
-        Statement::While(_, _) => {
-            output.push("    ; a while statement".to_owned());
+        Statement::While(expr, statements) => {
+            let conditional_label = *temp_var;
+            *temp_var += 1;
+            let body_label = *temp_var;
+            *temp_var += 1;
+            let endwhile_label = *temp_var;
+            *temp_var += 1;
+
+            // Immediate jump to conditional
+            output.push(pad_space(&format!("br label %{}", conditional_label), 1));
+
+            // Evaluate boolean expression
+            output.push(format!("{}:\t\t\t\t; start while conditional", conditional_label));
+            let (conditional_var_index, mut generated) =
+                generate_code_expression(temp_var, procedure_symbols, &expr.node, 1);
+            output.append(&mut generated);
+
+            // Jump on conditional
+            output.push(pad_space(
+                &format!(
+                    "br i1 %{}, label %{}, label %{}",
+                    conditional_var_index, body_label, endwhile_label
+                ),
+                1,
+            ));
+
+            // Body
+            output.push(format!("{}:\t\t\t\t; body of while", body_label));
+            output.append(&mut generate_code_statements(
+                temp_var,
+                symbol_table,
+                procedure,
+                statements,
+            ));
+            // Back to conditional
+            output.push(pad_space(
+                &format!("br label %{}, !llvm.loop !{}", conditional_label, body_label),
+                1,
+            ));
+
+            // After end of while
+            output.push(format!("{}:\t\t\t\t; end while", endwhile_label));
         }
         // TODO
         Statement::Assign(_, _) => {
