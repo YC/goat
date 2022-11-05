@@ -5,7 +5,7 @@ use crate::ast::{
 use std::{collections::HashMap, collections::HashSet, error::Error};
 
 pub type SymbolTable<'src> = HashMap<&'src String, ProcedureSymbols<'src>>;
-type ProcedureSymbols<'src> = Vec<VariableInfo<'src>>;
+pub type ProcedureSymbols<'src> = Vec<VariableInfo<'src>>;
 
 pub struct VariableInfo<'src> {
     pub identifier: &'src Identifier,

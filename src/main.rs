@@ -15,7 +15,8 @@
 
 use std::{
     env, fs,
-    process::{self, ExitCode, Command},
+    io::{self, Write},
+    process::{self, Command, ExitCode, Stdio},
 };
 
 mod ast;
@@ -115,19 +116,25 @@ fn main() -> process::ExitCode {
     println!("{}", output);
 
     if let Some(outfile) = outfile {
-        let ll_path = filename.to_owned() + ".ll";
+        let ll_path = filename.clone() + ".ll";
         if let Err(e) = fs::write(&ll_path, output) {
             eprintln!("Cannot save {}: {}", ll_path, e);
             return ExitCode::from(1);
         }
 
-        Command::new("clang")
+        let command_output = Command::new("clang")
             .arg("-O3")
             .arg("-o")
             .arg(outfile)
             .arg(&ll_path)
+            .stderr(Stdio::piped())
             .output()
             .expect("failed to execute llvm");
+        if !command_output.status.success() {
+            io::stdout().write_all(&command_output.stdout).unwrap();
+            io::stderr().write_all(&command_output.stderr).unwrap();
+            return ExitCode::from(5);
+        }
     }
 
     ExitCode::from(0)
