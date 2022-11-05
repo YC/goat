@@ -317,29 +317,32 @@ fn eval_expression_scalar(
         Expression::BoolConst(_) => VariableType::Bool,
         Expression::StringConst(_) => Err("String const not supported by parse_expression_scalar")?,
         Expression::IdentifierShape(shape) => eval_shape_type(symbol_table, procedure_symbols, shape)?,
-        Expression::UnopExpr(op, expr) => {
-            match *op {
-                Unop::Minus => {
-                    let expr_type = eval_expression_scalar(symbol_table, procedure_symbols, expr)?;
-                    if expr_type != VariableType::Int && expr_type != VariableType::Float {
-                        return Err(format!(
-                            "Expression after unary MINUS '{}' operator (at {:?}) must be int or float, but found \"{}\" ({})",
-                            op, expr.location, expr.node, expr_type
-                        ))?;
-                    }
+        Expression::UnopExpr(Unop::Minus, expr) => {
+            let expr_type = eval_expression_scalar(symbol_table, procedure_symbols, expr)?;
+            if expr_type != VariableType::Int && expr_type != VariableType::Float {
+                return Err(format!(
+                    "Expression after unary MINUS '{}' operator (at {:?}) must be int or float, but found \"{}\" ({})",
+                    Unop::Minus,
+                    expr.location,
+                    expr.node,
                     expr_type
-                }
-                Unop::NOT => {
-                    let expr_type = eval_expression_scalar(symbol_table, procedure_symbols, expr)?;
-                    if expr_type != VariableType::Bool {
-                        return Err(format!(
-                            "Expression after unary NOT operator '{}' (at {:?}) must be of type {}, but found \"{}\" ({})",
-                            op, expr.location, VariableType::Bool, expr.node, expr_type
-                        ))?;
-                    }
-                    expr_type
-                }
+                ))?;
             }
+            expr_type
+        }
+        Expression::UnopExpr(Unop::NOT, expr) => {
+            let expr_type = eval_expression_scalar(symbol_table, procedure_symbols, expr)?;
+            if expr_type != VariableType::Bool {
+                return Err(format!(
+                    "Expression after unary NOT operator '{}' (at {:?}) must be of type {}, but found \"{}\" ({})",
+                    Unop::NOT,
+                    expr.location,
+                    VariableType::Bool,
+                    expr.node,
+                    expr_type
+                ))?;
+            }
+            expr_type
         }
         Expression::BinopExpr(op, left, right) => {
             let left_type = eval_expression_scalar(symbol_table, procedure_symbols, left)?;
