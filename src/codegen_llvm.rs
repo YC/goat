@@ -1,6 +1,6 @@
 use crate::ast::{
-    pad_space, Expression, GoatProgram, IdentifierShapeDeclaration, Node, Parameter, ParameterPassIndicator, Procedure,
-    Statement, VariableDeclaration, VariableType,
+    Expression, GoatProgram, IdentifierShapeDeclaration, Node, Parameter, ParameterPassIndicator, Procedure, Statement,
+    VariableDeclaration, VariableType,
 };
 use crate::semantic::{ProcedureSymbols, SymbolTable};
 
@@ -13,6 +13,8 @@ pub fn generate_code(program: &GoatProgram, symbol_table: &SymbolTable) -> Strin
 
     output.join("\n\n")
 }
+
+const SPACE_4: &str = "    ";
 
 fn generate_code_proc(procedure: &Procedure, symbol_table: &SymbolTable) -> String {
     let mut output = vec![];
@@ -40,9 +42,9 @@ fn generate_code_proc(procedure: &Procedure, symbol_table: &SymbolTable) -> Stri
     output.append(&mut generate_code_body(symbol_table, procedure));
 
     if is_main {
-        output.push(pad_space("ret i32 0", 1));
+        output.push("    ret i32 0".to_owned());
     } else {
-        output.push(pad_space("ret void", 1));
+        output.push("    ret void".to_owned());
     }
 
     output.push("}".to_owned());
@@ -90,8 +92,13 @@ fn generate_code_statement(
     match statement {
         Statement::If(expr, statements) => {
             // Evaluate boolean expression
-            let (temp_var_index, generated) = generate_code_expression(temp_var, procedure_symbols, &expr.node, 1);
-            output.append(&mut generated.iter().map(|g| pad_space(g, 1)).collect::<Vec<String>>());
+            let (temp_var_index, generated) = generate_code_expression(temp_var, procedure_symbols, &expr.node);
+            output.append(
+                &mut generated
+                    .iter()
+                    .map(|g| SPACE_4.to_owned() + g)
+                    .collect::<Vec<String>>(),
+            );
 
             let if_label = *temp_var;
             *temp_var += 1;
@@ -99,9 +106,9 @@ fn generate_code_statement(
             *temp_var += 1;
 
             // Jump
-            output.push(pad_space(
-                &format!("br i1 %{}, label %{}, label %{}", temp_var_index, if_label, endif_label),
-                1,
+            output.push(format!(
+                "{}br i1 %{}, label %{}, label %{}",
+                SPACE_4, temp_var_index, if_label, endif_label
             ));
 
             // If statements
@@ -112,7 +119,7 @@ fn generate_code_statement(
                 procedure,
                 statements,
             ));
-            output.push(pad_space(&format!("br label %{}", endif_label), 1));
+            output.push(format!("{}br label %{}", SPACE_4, endif_label));
 
             // After endif
             output.push(format!("{}:\t\t\t\t; end of if statement", endif_label));
@@ -120,7 +127,7 @@ fn generate_code_statement(
         Statement::IfElse(expr, statements1, statements2) => {
             // Evaluate boolean expression
             let (conditional_var_index, mut generated) =
-                generate_code_expression(temp_var, procedure_symbols, &expr.node, 1);
+                generate_code_expression(temp_var, procedure_symbols, &expr.node);
             output.append(&mut generated);
 
             let if_label = *temp_var;
@@ -131,12 +138,12 @@ fn generate_code_statement(
             *temp_var += 1;
 
             // Jump
-            output.push(pad_space(
-                &format!(
-                    "br i1 %{}, label %{}, label %{}",
-                    conditional_var_index, if_label, else_label
-                ),
-                1,
+            output.push(format!(
+                "{}br i1 %{}, label %{}, label %{}",
+                " ".repeat(4),
+                conditional_var_index,
+                if_label,
+                else_label
             ));
 
             // If statements
@@ -147,7 +154,7 @@ fn generate_code_statement(
                 procedure,
                 statements1,
             ));
-            output.push(pad_space(&format!("br label %{}", endif_label), 1));
+            output.push(format!("{}br label %{}", " ".repeat(4), endif_label));
 
             // Else statements
             output.push(format!("{}:\t\t\t\t; else statements", else_label));
@@ -157,7 +164,7 @@ fn generate_code_statement(
                 procedure,
                 statements2,
             ));
-            output.push(pad_space(&format!("br label %{}", endif_label), 1));
+            output.push(format!("{}br label %{}", SPACE_4, endif_label));
 
             // After endif
             output.push(format!("{}:\t\t\t\t; end ifelse", endif_label));
@@ -171,21 +178,18 @@ fn generate_code_statement(
             *temp_var += 1;
 
             // Immediate jump to conditional
-            output.push(pad_space(&format!("br label %{}", conditional_label), 1));
+            output.push(format!("{}br label %{}", SPACE_4, conditional_label));
 
             // Evaluate boolean expression
             output.push(format!("{}:\t\t\t\t; start while conditional", conditional_label));
             let (conditional_var_index, mut generated) =
-                generate_code_expression(temp_var, procedure_symbols, &expr.node, 1);
+                generate_code_expression(temp_var, procedure_symbols, &expr.node);
             output.append(&mut generated);
 
             // Jump on conditional
-            output.push(pad_space(
-                &format!(
-                    "br i1 %{}, label %{}, label %{}",
-                    conditional_var_index, body_label, endwhile_label
-                ),
-                1,
+            output.push(format!(
+                "{}br i1 %{}, label %{}, label %{}",
+                SPACE_4, conditional_var_index, body_label, endwhile_label
             ));
 
             // Body
@@ -197,9 +201,9 @@ fn generate_code_statement(
                 statements,
             ));
             // Back to conditional
-            output.push(pad_space(
-                &format!("br label %{}, !llvm.loop !{}", conditional_label, body_label),
-                1,
+            output.push(format!(
+                "{}br label %{}, !llvm.loop !{}",
+                SPACE_4, conditional_label, body_label
             ));
 
             // After end of while
@@ -231,9 +235,19 @@ fn generate_code_expression(
     temp_var: &mut usize,
     procedure_symbols: &ProcedureSymbols,
     expression: &Expression,
-    level: usize,
 ) -> (usize, Vec<String>) {
     let mut output = vec![];
+
+    match expression {
+        Expression::IntConst(_) => {}
+        Expression::BoolConst(_) => {}
+        Expression::FloatConst(_) => {}
+        Expression::StringConst(_) => {}
+        Expression::IdentifierShape(_) => {}
+        Expression::UnopExpr(_, _) => {}
+        Expression::BinopExpr(_, _, _) => {}
+    }
+
     (0, output)
 }
 
@@ -257,7 +271,7 @@ fn generate_code_var_declarations(declarations: &Vec<VariableDeclaration>) -> Ve
                 format!("[{} x [{} x {}]]", m, n, convert_type(declaration.r#type)),
             ),
         };
-        output.push(pad_space(&format!("%{} = alloca {}", identifier, shape), 1));
+        output.push(format!("{}%{} = alloca {}", SPACE_4, identifier, shape));
     }
 
     output
