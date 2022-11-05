@@ -2,3 +2,4 @@ target/
 goat
 *.ll
 *.s
+*.o

@@ -13,7 +13,10 @@
     clippy::pattern_type_mismatch
 )]
 
-use std::{env, fs, process};
+use std::{
+    env, fs,
+    process::{self, ExitCode, Command},
+};
 
 mod ast;
 mod codegen_llvm;
@@ -23,21 +26,26 @@ mod semantic;
 mod tokens;
 
 #[allow(clippy::print_stderr, clippy::print_stdout, clippy::use_debug)]
-fn main() {
+fn main() -> process::ExitCode {
     let mut pretty = false;
     let mut verbose = false;
     let mut filename = None;
+    let mut out = false;
+    let mut outfile = None;
 
     let arguments: Vec<String> = env::args().collect();
     let command = arguments.first().expect("cannot get command name");
     for (i, argument) in arguments.iter().enumerate() {
-        if i <= 0 {
+        if i == 0 {
             continue;
         }
 
         if argument == "--help" || argument == "-h" {
-            println!("usage: {} [-p] source.gt", command);
-            process::exit(0);
+            println!("usage: {} [-p] [-o <outfile>] source.gt", command);
+            println!("  -p: Pretty prints Goat code");
+            println!("  -o <outfile>: Use llvm to create executable");
+            println!("  -v: Verbose printing of internals");
+            return ExitCode::from(0);
         }
         if argument == "-p" || argument == "--pretty-print" {
             pretty = true;
@@ -47,13 +55,21 @@ fn main() {
             verbose = true;
             continue;
         }
+        if argument == "-o" {
+            out = true;
+            continue;
+        }
+        if out {
+            outfile = Some(argument);
+            continue;
+        }
 
         filename = Some(argument);
     }
 
     let Some(filename) = filename else {
         eprintln!("Filename not given");
-        process::exit(1);
+        return ExitCode::from(1);
     };
 
     if verbose {
@@ -66,7 +82,7 @@ fn main() {
         Ok(tokens) => tokens,
         Err(e) => {
             eprintln!("Lexer error: {}", e);
-            process::exit(2);
+            return ExitCode::from(2);
         }
     };
     if verbose {
@@ -77,7 +93,7 @@ fn main() {
         Ok(ast) => ast,
         Err(e) => {
             eprintln!("Parser error: {}", e);
-            process::exit(3);
+            return ExitCode::from(3);
         }
     };
     if verbose {
@@ -91,10 +107,28 @@ fn main() {
         Ok(table) => table,
         Err(e) => {
             eprintln!("Semantic analysis error: {}", e);
-            process::exit(4);
+            return ExitCode::from(4);
         }
     };
 
     let output = codegen_llvm::generate_code(&ast, &symbol_table);
     println!("{}", output);
+
+    if let Some(outfile) = outfile {
+        let ll_path = filename.to_owned() + ".ll";
+        if let Err(e) = fs::write(&ll_path, output) {
+            eprintln!("Cannot save {}: {}", ll_path, e);
+            return ExitCode::from(1);
+        }
+
+        Command::new("clang")
+            .arg("-O3")
+            .arg("-o")
+            .arg(outfile)
+            .arg(&ll_path)
+            .output()
+            .expect("failed to execute llvm");
+    }
+
+    ExitCode::from(0)
 }
