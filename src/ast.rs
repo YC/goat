@@ -148,8 +148,8 @@ impl Display for VariableDeclaration {
 #[derive(Debug)]
 pub enum IdentifierShapeDeclaration {
     Identifier(Node<Identifier>),
-    IdentifierArray(Node<Identifier>, u128),
-    IdentifierArray2D(Node<Identifier>, u128, u128),
+    IdentifierArray(Node<Identifier>, i32),
+    IdentifierArray2D(Node<Identifier>, i32, i32),
 }
 
 impl Display for IdentifierShapeDeclaration {
@@ -181,7 +181,7 @@ impl Display for Statement {
     }
 }
 
-fn pad_space(s: &str, level: usize) -> String {
+pub fn pad_space(s: &str, level: usize) -> String {
     let repeat = " ".repeat(level * 4);
     #[allow(clippy::string_add)]
     s.split('\n')
@@ -265,7 +265,7 @@ pub enum Expression {
     IdentifierShape(IdentifierShape),
 
     /// Non-empty sequence of digits
-    IntConst(u128),
+    IntConst(i32),
     /// One or more digits, decimal point, one or more digits
     FloatConst(String),
     /// false or true

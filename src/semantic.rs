@@ -4,7 +4,7 @@ use crate::ast::{
 };
 use std::{collections::HashMap, collections::HashSet, error::Error};
 
-type SymbolTable<'src> = HashMap<&'src String, ProcedureSymbols<'src>>;
+pub type SymbolTable<'src> = HashMap<&'src String, ProcedureSymbols<'src>>;
 type ProcedureSymbols<'src> = Vec<VariableInfo<'src>>;
 
 pub struct VariableInfo<'src> {
@@ -76,7 +76,7 @@ pub fn analyse(program: &GoatProgram) -> Result<SymbolTable, Box<dyn Error>> {
             let identifier = match &variable_declaration.identifier_declaration {
                 IdentifierShapeDeclaration::Identifier(identifier) => identifier,
                 IdentifierShapeDeclaration::IdentifierArray(identifier, m) => {
-                    if *m == 0 {
+                    if *m <= 0 {
                         return Err(format!(
                             "The array {} at {:?} cannot be initialised with [0] elements: {}[{}]",
                             identifier.node, identifier.location, identifier.node, m
@@ -85,13 +85,13 @@ pub fn analyse(program: &GoatProgram) -> Result<SymbolTable, Box<dyn Error>> {
                     identifier
                 }
                 IdentifierShapeDeclaration::IdentifierArray2D(identifier, m, n) => {
-                    if *m == 0 {
+                    if *m <= 0 {
                         return Err(format!(
                             "The array {} at {:?} cannot be initialised with [0, {}] elements: {}[{}, {}]",
                             identifier.node, identifier.location, n, identifier.node, m, n
                         ))?;
                     }
-                    if *n == 0 {
+                    if *n <= 0 {
                         return Err(format!(
                             "The array {} at {:?} cannot be initialised with [{}, 0] elements: {}[{}, {}]",
                             identifier.node, identifier.location, m, identifier.node, m, n

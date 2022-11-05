@@ -16,6 +16,7 @@
 use std::{env, fs, process};
 
 mod ast;
+mod codegen_llvm;
 mod lex;
 mod parse;
 mod semantic;
@@ -30,7 +31,7 @@ fn main() {
     let arguments: Vec<String> = env::args().collect();
     let command = arguments.first().expect("cannot get command name");
     for (i, argument) in arguments.iter().enumerate() {
-        if i == 0 {
+        if i <= 0 {
             continue;
         }
 
@@ -86,11 +87,14 @@ fn main() {
         println!("{}", ast);
     }
 
-    match semantic::analyse(&ast) {
-        Ok(_) => {}
+    let symbol_table = match semantic::analyse(&ast) {
+        Ok(table) => table,
         Err(e) => {
             eprintln!("Semantic analysis error: {}", e);
             process::exit(4);
         }
-    }
+    };
+
+    let output = codegen_llvm::generate_code(&ast, &symbol_table);
+    println!("{}", output);
 }

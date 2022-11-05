@@ -505,7 +505,7 @@ fn construct_regex() -> Vec<(RegEx, (u64, Box<TokenFunction>))> {
         ]),
         (
             4,
-            Box::new(|s| Token::IntConst(s.parse::<u128>().expect("cannot parse int constant to u128"))),
+            Box::new(|s| Token::IntConst(s.parse::<i32>().expect("cannot parse int constant to i32"))),
         ),
     ));
 

@@ -21,7 +21,7 @@ pub enum Token {
     /// Must start with upper or lowercase character
     Ident(String),
     /// Non-empty sequence of digits
-    IntConst(u128),
+    IntConst(i32),
     /// One or more digits, decimal point, one or more digits
     FloatConst(String),
     /// false or true
