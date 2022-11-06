@@ -1,0 +1,7 @@
+proc main()
+    int x;
+begin
+    write 5;
+    write "\n";
+    write "hello 😃\\n";
+end

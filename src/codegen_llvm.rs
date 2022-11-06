@@ -4,26 +4,44 @@ use crate::ast::{
 };
 use crate::semantic::{eval_expression_scalar, ProcedureSymbols, SymbolTable};
 
-pub fn generate_code(program: &GoatProgram, symbol_table: &SymbolTable) -> String {
-    let mut output: Vec<String> = vec![];
-
-    for procedure in &program.procedures {
-        output.push(generate_code_proc(procedure, symbol_table));
-    }
-
-    output.join("\n\n")
-}
-
+// TODO: Remove
 const SPACE_4: &str = "    ";
 
-fn generate_code_proc(procedure: &Procedure, symbol_table: &SymbolTable) -> String {
-    // Printing
+type ConvertedStringConst = (usize, String);
+
+pub fn generate_code(program: &GoatProgram, symbol_table: &SymbolTable) -> String {
     let mut output = vec![
         "@format.int = private unnamed_addr constant [3 x i8] c\"%d\\00\"".to_owned(),
         "@format.float = private unnamed_addr constant [3 x i8] c\"%f\\00\"".to_owned(),
         "declare i32 @printf(i8* noundef, ...)".to_owned(),
         String::new(),
     ];
+
+    let mut string_constants: Vec<ConvertedStringConst> = vec![];
+
+    let mut procedure_outputs = vec![];
+    for procedure in &program.procedures {
+        procedure_outputs.push(generate_code_proc(&mut string_constants, procedure, symbol_table));
+    }
+    output.push(procedure_outputs.join("\n\n"));
+    output.push("".to_owned());
+
+    for (index, str_const) in string_constants.iter().enumerate() {
+        output.push(format!(
+            "@strconst.{} = private unnamed_addr constant [{} x i8] c\"{}\"",
+            index, str_const.0, str_const.1
+        ));
+    }
+
+    output.join("\n")
+}
+
+fn generate_code_proc(
+    strings: &mut Vec<ConvertedStringConst>,
+    procedure: &Procedure,
+    symbol_table: &SymbolTable,
+) -> String {
+    let mut output = vec![];
 
     let is_main = procedure.identifier.node == "main";
     let return_type = if is_main { "i32" } else { "void" };
@@ -45,7 +63,7 @@ fn generate_code_proc(procedure: &Procedure, symbol_table: &SymbolTable) -> Stri
     ));
 
     output.append(&mut generate_code_var_declarations(&procedure.variable_declarations));
-    output.append(&mut generate_code_body(symbol_table, procedure));
+    output.append(&mut generate_code_body(strings, symbol_table, procedure));
 
     if is_main {
         output.push("    ret i32 0".to_owned());
@@ -58,12 +76,23 @@ fn generate_code_proc(procedure: &Procedure, symbol_table: &SymbolTable) -> Stri
     output.join("\n")
 }
 
-fn generate_code_body(symbol_table: &SymbolTable, procedure: &Procedure) -> Vec<String> {
+fn generate_code_body(
+    strings: &mut Vec<ConvertedStringConst>,
+    symbol_table: &SymbolTable,
+    procedure: &Procedure,
+) -> Vec<String> {
     let mut temp_var = 1;
-    generate_code_statements(&mut temp_var, symbol_table, procedure, &procedure.body.statements)
+    generate_code_statements(
+        strings,
+        &mut temp_var,
+        symbol_table,
+        procedure,
+        &procedure.body.statements,
+    )
 }
 
 fn generate_code_statements(
+    strings: &mut Vec<ConvertedStringConst>,
     temp_var: &mut usize,
     symbol_table: &SymbolTable,
     procedure: &Procedure,
@@ -73,6 +102,7 @@ fn generate_code_statements(
 
     for statement in statements {
         output.append(&mut generate_code_statement(
+            strings,
             temp_var,
             symbol_table,
             procedure,
@@ -84,6 +114,7 @@ fn generate_code_statements(
 }
 
 fn generate_code_statement(
+    strings: &mut Vec<ConvertedStringConst>,
     temp_var: &mut usize,
     symbol_table: &SymbolTable,
     procedure: &Procedure,
@@ -120,6 +151,7 @@ fn generate_code_statement(
             // If statements
             output.push(format!("{}:\t\t\t\t; if statements", if_label));
             output.append(&mut generate_code_statements(
+                strings,
                 temp_var,
                 symbol_table,
                 procedure,
@@ -155,6 +187,7 @@ fn generate_code_statement(
             // If statements
             output.push(format!("{}:\t\t\t\t; if statements", if_label));
             output.append(&mut generate_code_statements(
+                strings,
                 temp_var,
                 symbol_table,
                 procedure,
@@ -165,6 +198,7 @@ fn generate_code_statement(
             // Else statements
             output.push(format!("{}:\t\t\t\t; else statements", else_label));
             output.append(&mut generate_code_statements(
+                strings,
                 temp_var,
                 symbol_table,
                 procedure,
@@ -201,6 +235,7 @@ fn generate_code_statement(
             // Body
             output.push(format!("{}:\t\t\t\t; body of while", body_label));
             output.append(&mut generate_code_statements(
+                strings,
                 temp_var,
                 symbol_table,
                 procedure,
@@ -222,12 +257,21 @@ fn generate_code_statement(
         // TODO
         Statement::Write(expr) => {
             let (var_num, mut expr_code) = generate_code_expression(temp_var, procedure_symbols, &expr.node);
-
             output.append(&mut expr_code);
 
-            if let Expression::StringConst(_) = expr.node {
-                // String constant
-                panic!("not supported");
+            let print_return_num = *temp_var;
+            *temp_var += 1;
+
+            if let Expression::StringConst(str_const) = &expr.node {
+                // Convert to (number of bytes, string constant representation)
+                let converted = convert_string_const(str_const);
+                let str_const_len = converted.0;
+                // Get constant index
+                let str_const_index = strings.len();
+                strings.push(converted);
+
+                output.push(format!("{}%{} = call i32 (i8*, ...) @printf(i8* noundef getelementptr inbounds ([{} x i8], [{} x i8]* @strconst.{}, i64 0, i64 0))",
+                    SPACE_4, print_return_num, str_const_len, str_const_len, str_const_index));
             } else {
                 let expr_type =
                     eval_expression_scalar(symbol_table, procedure_symbols, expr).expect("type to be well-formed");
@@ -239,8 +283,6 @@ fn generate_code_statement(
                         panic!("float not supported")
                     }
                     VariableType::Int => {
-                        let print_return_num = *temp_var;
-                        *temp_var += 1;
                         output.push(
                             format!("{}%{} = call i32 (i8*, ...) @printf(i8* noundef getelementptr inbounds ([3 x i8], [3 x i8]* @format.int, i64 0, i64 0), i32 noundef %{})",
                             SPACE_4, print_return_num, var_num)
@@ -359,4 +401,20 @@ fn convert_type(r#type: VariableType) -> String {
         VariableType::Int => "i32".to_owned(),
         VariableType::Float => "float".to_owned(),
     }
+}
+
+/// Converts a string const to the required format, alongside number of bytes
+fn convert_string_const(string_const: &str) -> ConvertedStringConst {
+    let string = string_const
+        .replace("\\n", "\n")
+        .replace("\\t", "\t")
+        .replace("\\r", "\r");
+    let bytes = string.bytes();
+    let bytes_len = bytes.len();
+    let escaped = bytes.map(|b| map_to_escape(b)).collect::<String>();
+    (bytes_len + 1, escaped + "\\00")
+}
+
+pub fn map_to_escape(c: u8) -> String {
+    format!("\\{:02x}", c)
 }
