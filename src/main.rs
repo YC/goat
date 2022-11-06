@@ -10,7 +10,8 @@
     clippy::missing_docs_in_private_items,
     clippy::wildcard_enum_match_arm,
     clippy::std_instead_of_core,
-    clippy::pattern_type_mismatch
+    clippy::pattern_type_mismatch,
+    clippy::too_many_lines
 )]
 
 use std::{
@@ -62,6 +63,7 @@ fn main() -> process::ExitCode {
         }
         if out {
             outfile = Some(argument);
+            out = false;
             continue;
         }
 

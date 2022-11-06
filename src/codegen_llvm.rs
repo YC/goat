@@ -2,7 +2,7 @@ use crate::ast::{
     Expression, GoatProgram, IdentifierShapeDeclaration, Node, Parameter, ParameterPassIndicator, Procedure, Statement,
     VariableDeclaration, VariableType,
 };
-use crate::semantic::{ProcedureSymbols, SymbolTable};
+use crate::semantic::{eval_expression_scalar, ProcedureSymbols, SymbolTable};
 
 pub fn generate_code(program: &GoatProgram, symbol_table: &SymbolTable) -> String {
     let mut output: Vec<String> = vec![];
@@ -17,7 +17,13 @@ pub fn generate_code(program: &GoatProgram, symbol_table: &SymbolTable) -> Strin
 const SPACE_4: &str = "    ";
 
 fn generate_code_proc(procedure: &Procedure, symbol_table: &SymbolTable) -> String {
-    let mut output = vec![];
+    // Printing
+    let mut output = vec![
+        "@format.int = private unnamed_addr constant [3 x i8] c\"%d\\00\"".to_owned(),
+        "@format.float = private unnamed_addr constant [3 x i8] c\"%f\\00\"".to_owned(),
+        "declare i32 @printf(i8* noundef, ...)".to_owned(),
+        String::new(),
+    ];
 
     let is_main = procedure.identifier.node == "main";
     let return_type = if is_main { "i32" } else { "void" };
@@ -126,9 +132,9 @@ fn generate_code_statement(
         }
         Statement::IfElse(expr, statements1, statements2) => {
             // Evaluate boolean expression
-            let (conditional_var_index, mut generated) =
+            let (conditional_var_index, mut expr_code) =
                 generate_code_expression(temp_var, procedure_symbols, &expr.node);
-            output.append(&mut generated);
+            output.append(&mut expr_code);
 
             let if_label = *temp_var;
             *temp_var += 1;
@@ -182,9 +188,9 @@ fn generate_code_statement(
 
             // Evaluate boolean expression
             output.push(format!("{}:\t\t\t\t; start while conditional", conditional_label));
-            let (conditional_var_index, mut generated) =
+            let (conditional_var_index, mut expr_code) =
                 generate_code_expression(temp_var, procedure_symbols, &expr.node);
-            output.append(&mut generated);
+            output.append(&mut expr_code);
 
             // Jump on conditional
             output.push(format!(
@@ -214,8 +220,34 @@ fn generate_code_statement(
             output.push("    ; an assign statement".to_owned());
         }
         // TODO
-        Statement::Write(_) => {
-            output.push("    ; a write statement".to_owned());
+        Statement::Write(expr) => {
+            let (var_num, mut expr_code) = generate_code_expression(temp_var, procedure_symbols, &expr.node);
+
+            output.append(&mut expr_code);
+
+            if let Expression::StringConst(_) = expr.node {
+                // String constant
+                panic!("not supported");
+            } else {
+                let expr_type =
+                    eval_expression_scalar(symbol_table, procedure_symbols, expr).expect("type to be well-formed");
+                match expr_type {
+                    VariableType::Bool => {
+                        panic!("bool not supported")
+                    }
+                    VariableType::Float => {
+                        panic!("float not supported")
+                    }
+                    VariableType::Int => {
+                        let print_return_num = *temp_var;
+                        *temp_var += 1;
+                        output.push(
+                            format!("{}%{} = call i32 (i8*, ...) @printf(i8* noundef getelementptr inbounds ([3 x i8], [3 x i8]* @format.int, i64 0, i64 0), i32 noundef %{})",
+                            SPACE_4, print_return_num, var_num)
+                        );
+                    }
+                }
+            }
         }
         // TODO
         Statement::Read(_) => {
@@ -238,17 +270,43 @@ fn generate_code_expression(
 ) -> (usize, Vec<String>) {
     let mut output = vec![];
 
-    match expression {
-        Expression::IntConst(_) => {}
-        Expression::BoolConst(_) => {}
-        Expression::FloatConst(_) => {}
-        Expression::StringConst(_) => {}
-        Expression::IdentifierShape(_) => {}
-        Expression::UnopExpr(_, _) => {}
-        Expression::BinopExpr(_, _, _) => {}
-    }
+    let var_num = match expression {
+        Expression::IntConst(n) => {
+            let store_var = *temp_var;
+            *temp_var += 1;
+            output.push(format!("{}%{} = alloca i32", SPACE_4, store_var));
+            output.push(format!("{}store i32 {}, i32* %{}", SPACE_4, n, store_var));
 
-    (0, output)
+            let load_var = *temp_var;
+            *temp_var += 1;
+            output.push(format!("{}%{} = load i32, i32* %{}", SPACE_4, load_var, store_var));
+            load_var
+        }
+        Expression::BoolConst(b) => {
+            let store_var = *temp_var;
+            *temp_var += 1;
+            output.push(format!("{}%{} = alloca i1", SPACE_4, store_var));
+            output.push(format!(
+                "{}store i1 {}, i1* %{}",
+                SPACE_4,
+                if *b { "1" } else { "0" },
+                store_var
+            ));
+
+            let load_var = *temp_var;
+            *temp_var += 1;
+            output.push(format!("{}%{} = load i1, i1* %{}", SPACE_4, load_var, store_var));
+            load_var
+        }
+        // TODO
+        Expression::FloatConst(n) => 1001,
+        Expression::StringConst(_) => 1002,
+        Expression::IdentifierShape(_) => 1003,
+        Expression::UnopExpr(_, _) => 1004,
+        Expression::BinopExpr(_, _, _) => 1005,
+    };
+
+    (var_num, output)
 }
 
 fn generate_code_var_declarations(declarations: &Vec<VariableDeclaration>) -> Vec<String> {

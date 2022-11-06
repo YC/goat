@@ -137,7 +137,6 @@ pub fn analyse(program: &GoatProgram) -> Result<SymbolTable, Box<dyn Error>> {
     Ok(symbol_table)
 }
 
-#[allow(clippy::too_many_lines)]
 fn analyse_statement(
     symbol_table: &SymbolTable,
     procedure: &Procedure,
@@ -305,8 +304,7 @@ fn analyse_statement(
     Ok(())
 }
 
-#[allow(clippy::too_many_lines)]
-fn eval_expression_scalar(
+pub fn eval_expression_scalar(
     symbol_table: &SymbolTable,
     procedure_symbols: &ProcedureSymbols,
     expr: &Node<Expression>,

@@ -390,7 +390,6 @@ fn nfa_combine(nfas: Vec<Nfa>, merge_accepts: bool, f: Option<NfaAcceptFunction>
     }
 }
 
-#[allow(clippy::too_many_lines)]
 fn construct_regex() -> Vec<(RegEx, (u64, Box<TokenFunction>))> {
     let mut regex: Vec<(RegEx, (u64, Box<TokenFunction>))> = vec![];
 
