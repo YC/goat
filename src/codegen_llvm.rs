@@ -13,6 +13,8 @@ pub fn generate_code(program: &GoatProgram, symbol_table: &SymbolTable) -> Strin
     let mut output = vec![
         "@format.int = private unnamed_addr constant [3 x i8] c\"%d\\00\"".to_owned(),
         "@format.float = private unnamed_addr constant [3 x i8] c\"%f\\00\"".to_owned(),
+        "@format.true = private unnamed_addr constant [5 x i8] c\"true\\00\"".to_owned(),
+        "@format.false = private unnamed_addr constant [6 x i8] c\"false\\00\"".to_owned(),
         "declare i32 @printf(i8* noundef, ...)".to_owned(),
         String::new(),
     ];
@@ -139,6 +141,10 @@ fn generate_code_statement(
 
             let if_label = *temp_var;
             *temp_var += 1;
+
+            let mut if_statements_code =
+                generate_code_statements(strings, temp_var, symbol_table, procedure, statements);
+
             let endif_label = *temp_var;
             *temp_var += 1;
 
@@ -150,13 +156,7 @@ fn generate_code_statement(
 
             // If statements
             output.push(format!("{}:\t\t\t\t; if statements", if_label));
-            output.append(&mut generate_code_statements(
-                strings,
-                temp_var,
-                symbol_table,
-                procedure,
-                statements,
-            ));
+            output.append(&mut if_statements_code);
             output.push(format!("{}br label %{}", SPACE_4, endif_label));
 
             // After endif
@@ -170,8 +170,12 @@ fn generate_code_statement(
 
             let if_label = *temp_var;
             *temp_var += 1;
+            let mut if_statements_code =
+                generate_code_statements(strings, temp_var, symbol_table, procedure, statements1);
             let else_label = *temp_var;
             *temp_var += 1;
+            let mut else_statements_code =
+                &mut generate_code_statements(strings, temp_var, symbol_table, procedure, statements2);
             let endif_label = *temp_var;
             *temp_var += 1;
 
@@ -186,24 +190,12 @@ fn generate_code_statement(
 
             // If statements
             output.push(format!("{}:\t\t\t\t; if statements", if_label));
-            output.append(&mut generate_code_statements(
-                strings,
-                temp_var,
-                symbol_table,
-                procedure,
-                statements1,
-            ));
+            output.append(&mut if_statements_code);
             output.push(format!("{}br label %{}", " ".repeat(4), endif_label));
 
             // Else statements
             output.push(format!("{}:\t\t\t\t; else statements", else_label));
-            output.append(&mut generate_code_statements(
-                strings,
-                temp_var,
-                symbol_table,
-                procedure,
-                statements2,
-            ));
+            output.append(&mut else_statements_code);
             output.push(format!("{}br label %{}", SPACE_4, endif_label));
 
             // After endif
@@ -214,6 +206,7 @@ fn generate_code_statement(
             *temp_var += 1;
             let body_label = *temp_var;
             *temp_var += 1;
+            let mut while_body_code = generate_code_statements(strings, temp_var, symbol_table, procedure, statements);
             let endwhile_label = *temp_var;
             *temp_var += 1;
 
@@ -234,13 +227,7 @@ fn generate_code_statement(
 
             // Body
             output.push(format!("{}:\t\t\t\t; body of while", body_label));
-            output.append(&mut generate_code_statements(
-                strings,
-                temp_var,
-                symbol_table,
-                procedure,
-                statements,
-            ));
+            output.append(&mut while_body_code);
             // Back to conditional
             output.push(format!(
                 "{}br label %{}, !llvm.loop !{}",
@@ -256,7 +243,7 @@ fn generate_code_statement(
         }
         // TODO
         Statement::Write(expr) => {
-            let mut write = handle_write(strings, temp_var, procedure_symbols, expr);
+            let mut write = generate_code_write(strings, temp_var, procedure_symbols, expr);
             output.append(&mut write);
         }
         // TODO
@@ -272,7 +259,7 @@ fn generate_code_statement(
     output
 }
 
-fn handle_write(
+fn generate_code_write(
     strings: &mut Vec<ConvertedStringConst>,
     temp_var: &mut usize,
     procedure_symbols: &ProcedureSymbols,
@@ -282,10 +269,10 @@ fn handle_write(
     let (var_num, mut expr_code) = generate_code_expression(temp_var, procedure_symbols, &expr.node);
     output.append(&mut expr_code);
 
-    let print_return_num = *temp_var;
-    *temp_var += 1;
-
     if let Expression::StringConst(str_const) = &expr.node {
+        let print_return_num = *temp_var;
+        *temp_var += 1;
+
         // Convert to (number of bytes, string constant representation)
         let converted = convert_string_const(str_const);
         let str_const_len = converted.0;
@@ -301,12 +288,46 @@ fn handle_write(
     let expr_type = eval_expression_scalar(procedure_symbols, expr).expect("type to be well-formed");
     match expr_type {
         VariableType::Bool => {
-            panic!("bool not supported")
+            let if_label = *temp_var;
+            *temp_var += 1;
+            let print_return_num1 = *temp_var;
+            *temp_var += 1;
+            let else_label = *temp_var;
+            *temp_var += 1;
+            let print_return_num2 = *temp_var;
+            *temp_var += 1;
+            let endif_label = *temp_var;
+            *temp_var += 1;
+
+            // Jump
+            output.push(format!(
+                "{}br i1 %{}, label %{}, label %{}",
+                " ".repeat(4),
+                var_num,
+                if_label,
+                else_label
+            ));
+
+            // If true
+            output.push(format!("{}:\t\t\t\t; if bool", if_label));
+            output.push(format!("{}%{} = call i32 (i8*, ...) @printf(i8* noundef getelementptr inbounds ([5 x i8], [5 x i8]* @format.true, i64 0, i64 0))", SPACE_4, print_return_num1));
+            output.push(format!("{}br label %{}", " ".repeat(4), endif_label));
+
+            // Else false
+            output.push(format!("{}:\t\t\t\t; else bool", else_label));
+            output.push(format!("{}%{} = call i32 (i8*, ...) @printf(i8* noundef getelementptr inbounds ([6 x i8], [6 x i8]* @format.false, i64 0, i64 0))", SPACE_4, print_return_num2));
+            output.push(format!("{}br label %{}", SPACE_4, endif_label));
+
+            // After endif
+            output.push(format!("{}:\t\t\t\t; end bool", endif_label));
         }
         VariableType::Float => {
             panic!("float not supported")
         }
         VariableType::Int => {
+            let print_return_num = *temp_var;
+            *temp_var += 1;
+
             output.push(
                 format!("{}%{} = call i32 (i8*, ...) @printf(i8* noundef getelementptr inbounds ([3 x i8], [3 x i8]* @format.int, i64 0, i64 0), i32 noundef %{})",
                 SPACE_4, print_return_num, var_num)
