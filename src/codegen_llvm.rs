@@ -4,9 +4,7 @@ use crate::ast::{
 };
 use crate::semantic::{eval_expression_scalar, ProcedureSymbols, SymbolTable};
 
-// TODO: Remove
 const SPACE_4: &str = "    ";
-
 type ConvertedStringConst = (usize, String);
 
 pub fn generate_code(program: &GoatProgram, symbol_table: &SymbolTable) -> String {
@@ -280,8 +278,10 @@ fn generate_code_write(
         let str_const_index = strings.len();
         strings.push(converted);
 
-        output.push(format!("{}%{} = call i32 (i8*, ...) @printf(i8* noundef getelementptr inbounds ([{} x i8], [{} x i8]* @strconst.{}, i64 0, i64 0))",
-                SPACE_4, print_return_num, str_const_len, str_const_len, str_const_index));
+        output.push(
+            format!("{}%{} = call i32 (i8*, ...) @printf(i8* noundef getelementptr inbounds ([{} x i8], [{} x i8]* @strconst.{}, i64 0, i64 0))",
+            SPACE_4, print_return_num, str_const_len, str_const_len, str_const_index)
+        );
         return output;
     }
 
@@ -310,19 +310,31 @@ fn generate_code_write(
 
             // If true
             output.push(format!("{}:\t\t\t\t; if bool", if_label));
-            output.push(format!("{}%{} = call i32 (i8*, ...) @printf(i8* noundef getelementptr inbounds ([5 x i8], [5 x i8]* @format.true, i64 0, i64 0))", SPACE_4, print_return_num1));
+            output.push(
+                format!("{}%{} = call i32 (i8*, ...) @printf(i8* noundef getelementptr inbounds ([5 x i8], [5 x i8]* @format.true, i64 0, i64 0))",
+                SPACE_4, print_return_num1)
+            );
             output.push(format!("{}br label %{}", " ".repeat(4), endif_label));
 
             // Else false
             output.push(format!("{}:\t\t\t\t; else bool", else_label));
-            output.push(format!("{}%{} = call i32 (i8*, ...) @printf(i8* noundef getelementptr inbounds ([6 x i8], [6 x i8]* @format.false, i64 0, i64 0))", SPACE_4, print_return_num2));
+            output.push(
+                format!("{}%{} = call i32 (i8*, ...) @printf(i8* noundef getelementptr inbounds ([6 x i8], [6 x i8]* @format.false, i64 0, i64 0))",
+                SPACE_4, print_return_num2)
+            );
             output.push(format!("{}br label %{}", SPACE_4, endif_label));
 
             // After endif
             output.push(format!("{}:\t\t\t\t; end bool", endif_label));
         }
         VariableType::Float => {
-            panic!("float not supported")
+            let print_return_num = *temp_var;
+            *temp_var += 1;
+
+            output.push(
+                format!("{}%{} = call i32 (i8*, ...) @printf(i8* noundef getelementptr inbounds ([3 x i8], [3 x i8]* @format.float, i64 0, i64 0), float noundef %{})",
+                SPACE_4, print_return_num, var_num)
+            );
         }
         VariableType::Int => {
             let print_return_num = *temp_var;
@@ -419,6 +431,7 @@ fn generate_code_formal_parameters(parameters: &Vec<Parameter>) -> String {
             ParameterPassIndicator::Ref => "*",
             ParameterPassIndicator::Val => "",
         };
+        // i32* noundef %name
         output.push(format!(
             "{}{} noundef %{}",
             r#type, passing_indicator, parameter.identifier.node
@@ -448,6 +461,6 @@ fn convert_string_const(string_const: &str) -> ConvertedStringConst {
     (bytes_len + 1, escaped + "\\00")
 }
 
-pub fn map_to_escape(c: u8) -> String {
+fn map_to_escape(c: u8) -> String {
     format!("\\{:02x}", c)
 }
