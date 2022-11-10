@@ -256,40 +256,8 @@ fn generate_code_statement(
         }
         // TODO
         Statement::Write(expr) => {
-            let (var_num, mut expr_code) = generate_code_expression(temp_var, procedure_symbols, &expr.node);
-            output.append(&mut expr_code);
-
-            let print_return_num = *temp_var;
-            *temp_var += 1;
-
-            if let Expression::StringConst(str_const) = &expr.node {
-                // Convert to (number of bytes, string constant representation)
-                let converted = convert_string_const(str_const);
-                let str_const_len = converted.0;
-                // Get constant index
-                let str_const_index = strings.len();
-                strings.push(converted);
-
-                output.push(format!("{}%{} = call i32 (i8*, ...) @printf(i8* noundef getelementptr inbounds ([{} x i8], [{} x i8]* @strconst.{}, i64 0, i64 0))",
-                    SPACE_4, print_return_num, str_const_len, str_const_len, str_const_index));
-            } else {
-                let expr_type =
-                    eval_expression_scalar(symbol_table, procedure_symbols, expr).expect("type to be well-formed");
-                match expr_type {
-                    VariableType::Bool => {
-                        panic!("bool not supported")
-                    }
-                    VariableType::Float => {
-                        panic!("float not supported")
-                    }
-                    VariableType::Int => {
-                        output.push(
-                            format!("{}%{} = call i32 (i8*, ...) @printf(i8* noundef getelementptr inbounds ([3 x i8], [3 x i8]* @format.int, i64 0, i64 0), i32 noundef %{})",
-                            SPACE_4, print_return_num, var_num)
-                        );
-                    }
-                }
-            }
+            let mut write = handle_write(strings, temp_var, procedure_symbols, expr);
+            output.append(&mut write);
         }
         // TODO
         Statement::Read(_) => {
@@ -301,6 +269,50 @@ fn generate_code_statement(
         }
     }
 
+    output
+}
+
+fn handle_write(
+    strings: &mut Vec<ConvertedStringConst>,
+    temp_var: &mut usize,
+    procedure_symbols: &ProcedureSymbols,
+    expr: &Node<Expression>,
+) -> Vec<String> {
+    let mut output = vec![];
+    let (var_num, mut expr_code) = generate_code_expression(temp_var, procedure_symbols, &expr.node);
+    output.append(&mut expr_code);
+
+    let print_return_num = *temp_var;
+    *temp_var += 1;
+
+    if let Expression::StringConst(str_const) = &expr.node {
+        // Convert to (number of bytes, string constant representation)
+        let converted = convert_string_const(str_const);
+        let str_const_len = converted.0;
+        // Get constant index
+        let str_const_index = strings.len();
+        strings.push(converted);
+
+        output.push(format!("{}%{} = call i32 (i8*, ...) @printf(i8* noundef getelementptr inbounds ([{} x i8], [{} x i8]* @strconst.{}, i64 0, i64 0))",
+                SPACE_4, print_return_num, str_const_len, str_const_len, str_const_index));
+        return output;
+    }
+
+    let expr_type = eval_expression_scalar(procedure_symbols, expr).expect("type to be well-formed");
+    match expr_type {
+        VariableType::Bool => {
+            panic!("bool not supported")
+        }
+        VariableType::Float => {
+            panic!("float not supported")
+        }
+        VariableType::Int => {
+            output.push(
+                format!("{}%{} = call i32 (i8*, ...) @printf(i8* noundef getelementptr inbounds ([3 x i8], [3 x i8]* @format.int, i64 0, i64 0), i32 noundef %{})",
+                SPACE_4, print_return_num, var_num)
+            );
+        }
+    }
     output
 }
 

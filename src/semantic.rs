@@ -150,7 +150,7 @@ fn analyse_statement(
         Statement::If(expr, statements) => {
             // - conditions must be bool
             // - bodies must be sequence of statements
-            let expr_type = eval_expression_scalar(symbol_table, procedure_symbols, expr)?;
+            let expr_type = eval_expression_scalar(procedure_symbols, expr)?;
             if expr_type != VariableType::Bool {
                 return Err(format!(
                     "Expression for If statement \"{}\" at {:?} must be bool, but is {}",
@@ -171,7 +171,7 @@ fn analyse_statement(
         Statement::IfElse(expr, statements1, statements2) => {
             // - conditions must be bool
             // - bodies must be sequence of statements
-            let expr_type = eval_expression_scalar(symbol_table, procedure_symbols, expr)?;
+            let expr_type = eval_expression_scalar(procedure_symbols, expr)?;
             if expr_type != VariableType::Bool {
                 return Err(format!(
                     "Expression for IfElse statement \"{}\" at {:?} must be bool, but is {}",
@@ -201,7 +201,7 @@ fn analyse_statement(
         Statement::While(expr, statements) => {
             // - conditions must be bool
             // - bodies must be sequence of statements
-            let expr_type = eval_expression_scalar(symbol_table, procedure_symbols, expr)?;
+            let expr_type = eval_expression_scalar(procedure_symbols, expr)?;
             if expr_type != VariableType::Bool {
                 return Err(format!(
                     "Expression for While statement \"{}\" at {:?} must be bool, but is {}",
@@ -223,9 +223,9 @@ fn analyse_statement(
             // - left hand side must be of same type as right hand side
             // with exception that int can be assigned to float
             // - arrays and matrices can only be updated selectively
-            let left_type = eval_shape_type(symbol_table, procedure_symbols, shape)?;
+            let left_type = eval_shape_type(procedure_symbols, shape)?;
 
-            let right_type = eval_expression_scalar(symbol_table, procedure_symbols, expr)?;
+            let right_type = eval_expression_scalar(procedure_symbols, expr)?;
 
             if left_type != right_type && (left_type != VariableType::Float && right_type != VariableType::Int) {
                 return Err(format!(
@@ -236,14 +236,14 @@ fn analyse_statement(
         }
         Statement::Read(shape) => {
             // read takes scalar
-            eval_shape_type(symbol_table, procedure_symbols, shape)?;
+            eval_shape_type(procedure_symbols, shape)?;
         }
         Statement::Write(expr) => {
             if let Expression::StringConst(_) = expr.node {
                 // String constant
             } else {
                 // Well-typed expression
-                eval_expression_scalar(symbol_table, procedure_symbols, expr)?;
+                eval_expression_scalar(procedure_symbols, expr)?;
             }
         }
         Statement::Call(identifier, expressions) => {
@@ -273,7 +273,7 @@ fn analyse_statement(
             }
 
             for (i, (formal_param, argument)) in formal_params.iter().zip(expressions.iter()).enumerate() {
-                let argument_type = eval_expression_scalar(symbol_table, procedure_symbols, argument)?;
+                let argument_type = eval_expression_scalar(procedure_symbols, argument)?;
 
                 let passing_indicator = *formal_param
                     .pass_indicator
@@ -305,7 +305,6 @@ fn analyse_statement(
 }
 
 pub fn eval_expression_scalar(
-    symbol_table: &SymbolTable,
     procedure_symbols: &ProcedureSymbols,
     expr: &Node<Expression>,
 ) -> Result<VariableType, Box<dyn Error>> {
@@ -314,9 +313,9 @@ pub fn eval_expression_scalar(
         Expression::FloatConst(_) => VariableType::Float,
         Expression::BoolConst(_) => VariableType::Bool,
         Expression::StringConst(_) => Err("String const not supported by parse_expression_scalar")?,
-        Expression::IdentifierShape(shape) => eval_shape_type(symbol_table, procedure_symbols, shape)?,
+        Expression::IdentifierShape(shape) => eval_shape_type(procedure_symbols, shape)?,
         Expression::UnopExpr(Unop::Minus, expr) => {
-            let expr_type = eval_expression_scalar(symbol_table, procedure_symbols, expr)?;
+            let expr_type = eval_expression_scalar(procedure_symbols, expr)?;
             if expr_type != VariableType::Int && expr_type != VariableType::Float {
                 return Err(format!(
                     "Expression after unary MINUS '{}' operator (at {:?}) must be int or float, but found \"{}\" ({})",
@@ -329,7 +328,7 @@ pub fn eval_expression_scalar(
             expr_type
         }
         Expression::UnopExpr(Unop::NOT, expr) => {
-            let expr_type = eval_expression_scalar(symbol_table, procedure_symbols, expr)?;
+            let expr_type = eval_expression_scalar(procedure_symbols, expr)?;
             if expr_type != VariableType::Bool {
                 return Err(format!(
                     "Expression after unary NOT operator '{}' (at {:?}) must be of type {}, but found \"{}\" ({})",
@@ -343,8 +342,8 @@ pub fn eval_expression_scalar(
             expr_type
         }
         Expression::BinopExpr(op, left, right) => {
-            let left_type = eval_expression_scalar(symbol_table, procedure_symbols, left)?;
-            let right_type = eval_expression_scalar(symbol_table, procedure_symbols, right)?;
+            let left_type = eval_expression_scalar(procedure_symbols, left)?;
+            let right_type = eval_expression_scalar(procedure_symbols, right)?;
 
             match *op {
                 Binop::EQ | Binop::NEQ => {
@@ -419,7 +418,6 @@ pub fn eval_expression_scalar(
 }
 
 fn eval_shape_type(
-    symbol_table: &SymbolTable,
     procedure_symbols: &ProcedureSymbols,
     shape: &IdentifierShape,
 ) -> Result<VariableType, Box<dyn Error>> {
@@ -449,7 +447,7 @@ fn eval_shape_type(
             }
         }
         IdentifierShape::IdentifierArray(identifier, expr) => {
-            let index_type = eval_expression_scalar(symbol_table, procedure_symbols, expr)?;
+            let index_type = eval_expression_scalar(procedure_symbols, expr)?;
             if index_type != VariableType::Int {
                 return Err(format!(
                     "Array index \"{}\" at {:?} is expected to be int, but is of type {}",
@@ -483,15 +481,15 @@ fn eval_shape_type(
             }
         }
         IdentifierShape::IdentifierArray2D(identifier, expr1, expr2) => {
-            let index_type_m = eval_expression_scalar(symbol_table, procedure_symbols, expr1)?;
+            let index_type_m = eval_expression_scalar(procedure_symbols, expr1)?;
             if index_type_m != VariableType::Int {
                 return Err(format!(
                     "Matrix index \"{}[{}, _]\" at {:?} is expected to be int, but found {}",
                     identifier.node, expr1.node, expr1.location, index_type_m
                 ))?;
             }
-            let index_type_n = eval_expression_scalar(symbol_table, procedure_symbols, expr1)?;
-            if eval_expression_scalar(symbol_table, procedure_symbols, expr2)? != VariableType::Int {
+            let index_type_n = eval_expression_scalar(procedure_symbols, expr1)?;
+            if eval_expression_scalar(procedure_symbols, expr2)? != VariableType::Int {
                 return Err(format!(
                     "Matrix index \"{}[_, {}]\" at {:?} is expected to be int, but found {}",
                     identifier.node, expr2.node, expr2.location, index_type_n
