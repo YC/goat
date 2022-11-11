@@ -1,6 +1,6 @@
 use crate::ast::{
-    Expression, GoatProgram, IdentifierShapeDeclaration, Node, Parameter, ParameterPassIndicator, Procedure, Statement,
-    VariableDeclaration, VariableType,
+    Expression, GoatProgram, IdentifierShape, IdentifierShapeDeclaration, Node, Parameter, ParameterPassIndicator,
+    Procedure, Statement, VariableDeclaration, VariableType,
 };
 use crate::semantic::{eval_expression_scalar, ProcedureSymbols, SymbolTable};
 
@@ -24,7 +24,7 @@ pub fn generate_code(program: &GoatProgram, symbol_table: &SymbolTable) -> Strin
         procedure_outputs.push(generate_code_proc(&mut string_constants, procedure, symbol_table));
     }
     output.push(procedure_outputs.join("\n\n"));
-    output.push("".to_owned());
+    output.push(String::new());
 
     for (index, str_const) in string_constants.iter().enumerate() {
         output.push(format!(
@@ -46,12 +46,16 @@ fn generate_code_proc(
     let is_main = procedure.identifier.node == "main";
     let return_type = if is_main { "i32" } else { "void" };
 
-    let parameters = generate_code_formal_parameters(&procedure.parameters);
+    let mut temp_var = 1;
+
+    // Parameters
+    let (parameters_declaration, mut parameters_store) =
+        generate_code_formal_parameters(&mut temp_var, &procedure.parameters);
     output.push(format!(
         "define dso_local {} @{}({}) {{ ; proc {}({})",
         return_type,
         procedure.identifier.node,
-        parameters,
+        parameters_declaration,
         // comment
         procedure.identifier.node,
         procedure
@@ -61,9 +65,10 @@ fn generate_code_proc(
             .collect::<Vec<String>>()
             .join(", ")
     ));
+    output.append(&mut parameters_store);
 
     output.append(&mut generate_code_var_declarations(&procedure.variable_declarations));
-    output.append(&mut generate_code_body(strings, symbol_table, procedure));
+    output.append(&mut generate_code_body(&mut temp_var, strings, symbol_table, procedure));
 
     if is_main {
         output.push("    ret i32 0".to_owned());
@@ -77,18 +82,12 @@ fn generate_code_proc(
 }
 
 fn generate_code_body(
+    temp_var: &mut usize,
     strings: &mut Vec<ConvertedStringConst>,
     symbol_table: &SymbolTable,
     procedure: &Procedure,
 ) -> Vec<String> {
-    let mut temp_var = 1;
-    generate_code_statements(
-        strings,
-        &mut temp_var,
-        symbol_table,
-        procedure,
-        &procedure.body.statements,
-    )
+    generate_code_statements(strings, temp_var, symbol_table, procedure, &procedure.body.statements)
 }
 
 fn generate_code_statements(
@@ -235,14 +234,16 @@ fn generate_code_statement(
             // After end of while
             output.push(format!("{}:\t\t\t\t; end while", endwhile_label));
         }
-        // TODO
-        Statement::Assign(_, _) => {
-            output.push("    ; an assign statement".to_owned());
+        Statement::Assign(identifier_shape, expr) => {
+            output.append(&mut generate_code_assign(
+                temp_var,
+                procedure_symbols,
+                identifier_shape,
+                expr,
+            ));
         }
-        // TODO
         Statement::Write(expr) => {
-            let mut write = generate_code_write(strings, temp_var, procedure_symbols, expr);
-            output.append(&mut write);
+            output.append(&mut generate_code_write(strings, temp_var, procedure_symbols, expr));
         }
         // TODO
         Statement::Read(_) => {
@@ -251,6 +252,60 @@ fn generate_code_statement(
         // TODO
         Statement::Call(_, _) => {
             output.push("    ; a call statement".to_owned());
+        }
+    }
+
+    output
+}
+
+fn generate_code_assign(
+    temp_var: &mut usize,
+    procedure_symbols: &ProcedureSymbols,
+    identifier_shape: &IdentifierShape,
+    expr: &Node<Expression>,
+) -> Vec<String> {
+    let mut output = vec![];
+
+    // First evaluate the expression
+    let (var_num, mut expr_code) = generate_code_expression(temp_var, procedure_symbols, &expr.node);
+    output.append(&mut expr_code);
+
+    // Find identifier
+    let identifier = match identifier_shape {
+        IdentifierShape::Identifier(identifier) => identifier,
+        IdentifierShape::IdentifierArray(identifier, _) => identifier,
+        IdentifierShape::IdentifierArray2D(identifier, _, _) => identifier,
+    };
+
+    // Get information about variable
+    let variable_info = procedure_symbols
+        .iter()
+        .find(|v| v.identifier == &identifier.node)
+        .expect("Failed to retrieve variable_info");
+    let variable_type = convert_type(variable_info.r#type);
+    let variable_pass_indicator = *variable_info.pass_indicator.unwrap_or(&ParameterPassIndicator::Val);
+
+    match identifier_shape {
+        // TODO: int/float
+        IdentifierShape::Identifier(identifier) => {
+            if variable_pass_indicator == ParameterPassIndicator::Val {
+                // store i32 %value_source, i32* %decl_dest
+                output.push(format!(
+                    "{}store {} %{}, {}* %{}",
+                    SPACE_4, variable_type, var_num, variable_type, identifier.node
+                ));
+            } else if variable_pass_indicator == ParameterPassIndicator::Ref {
+                // TODO
+                panic!("huh?");
+            }
+        }
+        IdentifierShape::IdentifierArray(_identifier, _) => {
+            // TODO: no ref
+            panic!("huh?");
+        }
+        IdentifierShape::IdentifierArray2D(_identifier, _, _) => {
+            // TODO: no ref
+            panic!("huh?");
         }
     }
 
@@ -387,9 +442,55 @@ fn generate_code_expression(
         }
         // TODO
         Expression::FloatConst(n) => 1001,
-        Expression::StringConst(_) => 1002,
-        Expression::IdentifierShape(_) => 1003,
+        Expression::StringConst(_) => {
+            panic!("StringConst is not supported by generate_code_expression");
+        }
+        Expression::IdentifierShape(shape) => {
+            // Find identifier
+            let identifier = match shape {
+                IdentifierShape::Identifier(identifier) => identifier,
+                IdentifierShape::IdentifierArray(identifier, _) => identifier,
+                IdentifierShape::IdentifierArray2D(identifier, _, _) => identifier,
+            };
+
+            // Get information about variable
+            let variable_info = procedure_symbols
+                .iter()
+                .find(|v| v.identifier == &identifier.node)
+                .expect("Failed to retrieve variable_info");
+            let variable_type = convert_type(variable_info.r#type);
+            let variable_pass_indicator = *variable_info.pass_indicator.unwrap_or(&ParameterPassIndicator::Val);
+
+            match shape {
+                IdentifierShape::Identifier(identifier) => {
+                    match variable_pass_indicator {
+                        ParameterPassIndicator::Val => {
+                            // %v = load i32, i32* %identifier
+                            let load_var = *temp_var;
+                            *temp_var += 1;
+
+                            output.push(format!(
+                                "{}%{} = load {}, {}* %{}",
+                                SPACE_4, load_var, variable_type, variable_type, identifier.node
+                            ));
+                            load_var
+                        }
+                        ParameterPassIndicator::Ref => {
+                            panic!("huh?");
+                        }
+                    }
+                }
+                IdentifierShape::IdentifierArray(_, _) => {
+                    panic!("huh?");
+                }
+                IdentifierShape::IdentifierArray2D(_, _, _) => {
+                    panic!("huh?");
+                }
+            }
+        }
+        // TODO
         Expression::UnopExpr(_, _) => 1004,
+        // TODO
         Expression::BinopExpr(_, _, _) => 1005,
     };
 
@@ -422,8 +523,9 @@ fn generate_code_var_declarations(declarations: &Vec<VariableDeclaration>) -> Ve
     output
 }
 
-fn generate_code_formal_parameters(parameters: &Vec<Parameter>) -> String {
-    let mut output: Vec<String> = vec![];
+fn generate_code_formal_parameters(temp_var: &mut usize, parameters: &Vec<Parameter>) -> (String, Vec<String>) {
+    let mut declarations: Vec<String> = vec![];
+    let mut stores = vec![];
 
     for parameter in parameters {
         let r#type = convert_type(parameter.r#type);
@@ -431,14 +533,30 @@ fn generate_code_formal_parameters(parameters: &Vec<Parameter>) -> String {
             ParameterPassIndicator::Ref => "*",
             ParameterPassIndicator::Val => "",
         };
-        // i32* noundef %name
-        output.push(format!(
-            "{}{} noundef %{}",
-            r#type, passing_indicator, parameter.identifier.node
+
+        let var_num = *temp_var;
+        *temp_var += 1;
+
+        // i32 noundef %1 (val)
+        // i32* noundef %2 (ref)
+        declarations.push(format!("{}{} noundef %{}", r#type, passing_indicator, var_num));
+
+        // %name1 = alloca i32 (val)
+        // %name2 = alloca i32* (ref)
+        stores.push(format!(
+            "{}%{} = alloca {}{}",
+            SPACE_4, parameter.identifier.node, r#type, passing_indicator
+        ));
+
+        // store i32 %1, i32* %name1 (val)
+        // store i32* %2, i32** %name2 (ref)
+        stores.push(format!(
+            "{}store {}{} %{}, {}*{} %{}",
+            SPACE_4, r#type, passing_indicator, temp_var, r#type, passing_indicator, parameter.identifier.node
         ));
     }
 
-    output.join(", ")
+    (declarations.join(", "), stores)
 }
 
 fn convert_type(r#type: VariableType) -> String {
