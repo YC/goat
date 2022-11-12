@@ -129,7 +129,7 @@ fn generate_code_statement(
     match statement {
         Statement::If(expr, statements) => {
             // Evaluate boolean expression
-            let (temp_var_index, generated) = generate_code_expression(temp_var, procedure_symbols, &expr.node);
+            let (conditional_var, generated) = generate_code_expression(temp_var, procedure_symbols, &expr.node);
             output.append(
                 &mut generated
                     .iter()
@@ -154,7 +154,7 @@ fn generate_code_statement(
             // Jump
             output.push(format!(
                 "  br i1 %{}, label %{}, label %{}",
-                temp_var_index, if_label, endif_label
+                conditional_var, if_label, endif_label
             ));
 
             // If statements
@@ -167,8 +167,7 @@ fn generate_code_statement(
         }
         Statement::IfElse(expr, statements1, statements2) => {
             // Evaluate boolean expression
-            let (conditional_var_index, mut expr_code) =
-                generate_code_expression(temp_var, procedure_symbols, &expr.node);
+            let (conditional_var, mut expr_code) = generate_code_expression(temp_var, procedure_symbols, &expr.node);
             output.append(&mut expr_code);
 
             // %1 = <expr-result>
@@ -192,7 +191,7 @@ fn generate_code_statement(
             // Jump
             output.push(format!(
                 "  br i1 %{}, label %{}, label %{}",
-                conditional_var_index, if_label, else_label
+                conditional_var, if_label, else_label
             ));
 
             // If statements
@@ -230,14 +229,13 @@ fn generate_code_statement(
 
             // Evaluate boolean expression
             output.push(format!("{}:\t\t\t\t; start while conditional", conditional_label));
-            let (conditional_var_index, mut expr_code) =
-                generate_code_expression(temp_var, procedure_symbols, &expr.node);
+            let (conditional_var, mut expr_code) = generate_code_expression(temp_var, procedure_symbols, &expr.node);
             output.append(&mut expr_code);
 
             // Jump on conditional
             output.push(format!(
                 "  br i1 %{}, label %{}, label %{}",
-                conditional_var_index, body_label, endwhile_label
+                conditional_var, body_label, endwhile_label
             ));
 
             // Body
@@ -282,7 +280,7 @@ fn generate_code_assign(
     let mut output = vec![];
 
     // First evaluate the expression
-    let (var_num, mut expr_code) = generate_code_expression(temp_var, procedure_symbols, &expr.node);
+    let (expr_var, mut expr_code) = generate_code_expression(temp_var, procedure_symbols, &expr.node);
     output.append(&mut expr_code);
 
     // Find identifier
@@ -309,7 +307,7 @@ fn generate_code_assign(
                     // store i32 %value_source, i32* %decl_dest
                     output.push(format!(
                         "  store {} %{}, {}* %{}",
-                        variable_type, var_num, variable_type, identifier.node
+                        variable_type, expr_var, variable_type, identifier.node
                     ));
                 }
                 ParameterPassIndicator::Ref => {
@@ -319,7 +317,7 @@ fn generate_code_assign(
             }
         }
         IdentifierShape::IdentifierArray(identifier, expr) => {
-            let (var_index, mut m_expr_code) = generate_code_expression(temp_var, procedure_symbols, &expr.node);
+            let (m_expr_var, mut m_expr_code) = generate_code_expression(temp_var, procedure_symbols, &expr.node);
             output.append(&mut m_expr_code);
 
             // Get the array dimension
@@ -334,14 +332,17 @@ fn generate_code_assign(
             // store i32 3, i32* %5, align 4                                            ; store
             let convert_var = *temp_var;
             *temp_var += 1;
-            output.push(format!("  %{} = sext i32 %{} to i64", convert_var, var_index));
+            output.push(format!("  %{} = sext i32 %{} to i64", convert_var, m_expr_var));
             let address_var = *temp_var;
             *temp_var += 1;
             output.push(format!(
                 "  %{} = getelementptr inbounds [{} x {}], [{} x {}]* %{}, i64 0, i64 %{}",
                 address_var, m, variable_type, m, variable_type, identifier.node, convert_var
             ));
-            output.push(format!("  store {} %{}, i32* %{}", variable_type, var_num, address_var));
+            output.push(format!(
+                "  store {} %{}, i32* %{}",
+                variable_type, expr_var, address_var
+            ));
         }
         IdentifierShape::IdentifierArray2D(_identifier, _, _) => {
             // TODO: no ref
@@ -359,7 +360,7 @@ fn generate_code_write(
     expr: &Node<Expression>,
 ) -> Vec<String> {
     let mut output = vec![];
-    let (var_num, mut expr_code) = generate_code_expression(temp_var, procedure_symbols, &expr.node);
+    let (expr_var, mut expr_code) = generate_code_expression(temp_var, procedure_symbols, &expr.node);
     output.append(&mut expr_code);
 
     if let Expression::StringConst(str_const) = &expr.node {
@@ -397,7 +398,7 @@ fn generate_code_write(
             // Jump
             output.push(format!(
                 "  br i1 %{}, label %{}, label %{}",
-                var_num, if_label, else_label
+                expr_var, if_label, else_label
             ));
 
             // If true
@@ -425,7 +426,7 @@ fn generate_code_write(
 
             output.push(
                 format!("  %{} = call i32 (i8*, ...) @printf(i8* noundef getelementptr inbounds ([3 x i8], [3 x i8]* @format.float, i64 0, i64 0), float noundef %{})",
-                    print_return_num, var_num)
+                    print_return_num, expr_var)
             );
         }
         VariableType::Int => {
@@ -434,7 +435,7 @@ fn generate_code_write(
 
             output.push(
                 format!("  %{} = call i32 (i8*, ...) @printf(i8* noundef getelementptr inbounds ([3 x i8], [3 x i8]* @format.int, i64 0, i64 0), i32 noundef %{})",
-                print_return_num, var_num)
+                print_return_num, expr_var)
             );
         }
     }
@@ -532,7 +533,7 @@ fn generate_code_expression(
                 }
                 IdentifierShape::IdentifierArray(identifier, expr) => {
                     // First evaluate the expression
-                    let (var_num, mut expr_code) = generate_code_expression(temp_var, procedure_symbols, &expr.node);
+                    let (expr_var, mut expr_code) = generate_code_expression(temp_var, procedure_symbols, &expr.node);
                     output.append(&mut expr_code);
 
                     // Get the array dimension
@@ -552,7 +553,7 @@ fn generate_code_expression(
                     let load_var = *temp_var;
                     *temp_var += 1;
 
-                    output.push(format!("  %{} = sext i32 %{} to i64", convert_var, var_num));
+                    output.push(format!("  %{} = sext i32 %{} to i64", convert_var, expr_var));
                     output.push(format!(
                         "  %{} = getelementptr inbounds [{} x {}], [{} x {}]* %{}, i64 0, i64 %{}",
                         address_var, m, variable_type, m, variable_type, identifier.node, convert_var
