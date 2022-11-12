@@ -13,8 +13,8 @@ pub fn generate_code(program: &GoatProgram, symbol_table: &SymbolTable) -> Strin
         "@format.float = private unnamed_addr constant [3 x i8] c\"%f\\00\"".to_owned(),
         "@format.true = private unnamed_addr constant [5 x i8] c\"true\\00\"".to_owned(),
         "@format.false = private unnamed_addr constant [6 x i8] c\"false\\00\"".to_owned(),
-        "declare i32 @printf(i8* noundef, ...) #1".to_owned(),
-        "attributes #0 = { \"frame-pointer\"=\"all\" }".to_owned(),
+        "declare i32 @printf(i8* noundef, ...)".to_owned(),
+        "declare void @llvm.memset.p0i8.i64(i8* nocapture writeonly, i8, i64, i1 immarg)".to_owned(),
         String::new(),
     ];
 
@@ -53,7 +53,7 @@ fn generate_code_proc(
     let (parameters_declaration, mut parameters_store) =
         generate_code_formal_parameters(&mut temp_var, &procedure.parameters);
     output.push(format!(
-        "define dso_local {} @{}({}) #0 {{ ; proc {}({})",
+        "define dso_local {} @{}({}) {{ ; proc {}({})",
         return_type,
         procedure.identifier.node,
         parameters_declaration,
@@ -68,7 +68,10 @@ fn generate_code_proc(
     ));
     output.append(&mut parameters_store);
 
-    output.append(&mut generate_code_var_declarations(&procedure.variable_declarations));
+    output.append(&mut generate_code_var_declarations(
+        &mut temp_var,
+        &procedure.variable_declarations,
+    ));
     output.append(&mut generate_code_body(&mut temp_var, strings, symbol_table, procedure));
 
     if is_main {
@@ -258,11 +261,11 @@ fn generate_code_statement(
         Statement::Write(expr) => {
             output.append(&mut generate_code_write(strings, temp_var, procedure_symbols, expr));
         }
-        // TODO
+        // TODO: reads
         Statement::Read(_) => {
             output.push("    ; a read statement".to_owned());
         }
-        // TODO
+        // TODO: calls
         Statement::Call(_, _) => {
             output.push("    ; a call statement".to_owned());
         }
@@ -311,7 +314,7 @@ fn generate_code_assign(
                     ));
                 }
                 ParameterPassIndicator::Ref => {
-                    // TODO
+                    // TODO: ref assign
                     panic!("huh?");
                 }
             }
@@ -360,8 +363,6 @@ fn generate_code_write(
     expr: &Node<Expression>,
 ) -> Vec<String> {
     let mut output = vec![];
-    let (expr_var, mut expr_code) = generate_code_expression(temp_var, procedure_symbols, &expr.node);
-    output.append(&mut expr_code);
 
     if let Expression::StringConst(str_const) = &expr.node {
         let print_return_num = *temp_var;
@@ -380,6 +381,9 @@ fn generate_code_write(
         );
         return output;
     }
+
+    let (expr_var, mut expr_code) = generate_code_expression(temp_var, procedure_symbols, &expr.node);
+    output.append(&mut expr_code);
 
     let expr_type = eval_expression_scalar(procedure_symbols, expr).expect("type to be well-formed");
     match expr_type {
@@ -476,11 +480,9 @@ fn generate_code_expression(
             output.push(format!("  %{} = load i1, i1* %{}", load_var, store_var));
             load_var
         }
-        // TODO
+        // TODO: float const expression
         Expression::FloatConst(n) => 1001,
-        Expression::StringConst(_) => {
-            panic!("StringConst is not supported by generate_code_expression");
-        }
+        Expression::StringConst(_) => panic!("StringConst is not supported by generate_code_expression"),
         Expression::IdentifierShape(shape) => {
             // Find identifier
             let identifier = match shape {
@@ -569,16 +571,16 @@ fn generate_code_expression(
                 }
             }
         }
-        // TODO
+        // TODO: unop
         Expression::UnopExpr(_, _) => 1004,
-        // TODO
+        // TODO: binop
         Expression::BinopExpr(_, _, _) => 1005,
     };
 
     (var_num, output)
 }
 
-fn generate_code_var_declarations(declarations: &Vec<VariableDeclaration>) -> Vec<String> {
+fn generate_code_var_declarations(temp_var: &mut usize, declarations: &Vec<VariableDeclaration>) -> Vec<String> {
     let mut output = vec![];
 
     for declaration in declarations {
@@ -601,21 +603,57 @@ fn generate_code_var_declarations(declarations: &Vec<VariableDeclaration>) -> Ve
                     identifier.node
                 ));
             }
-
             IdentifierShapeDeclaration::IdentifierArray(identifier, n) => {
-                // %1 = alloca [m x i32]
+                // %1 = alloca [n x i32]
                 output.push(format!("  %{} = alloca [{} x {}]", identifier.node, n, var_type));
 
-                // TODO
+                let type_size = match declaration.r#type {
+                    VariableType::Bool => 1,
+                    VariableType::Int => 4,
+                    VariableType::Float => 4,
+                };
+
                 // %3 = bitcast [10 x i32]* %2 to i8*
                 // call void @llvm.memset.p0i8.i64(i8* align 16 %3, i8 0, i64 40, i1 false)
+                let bitcast_var = *temp_var;
+                *temp_var += 1;
+
+                output.push(format!(
+                    "  %{} = bitcast [{} x {}]* %{} to i8*",
+                    bitcast_var, n, var_type, identifier.node
+                ));
+                output.push(format!(
+                    "  call void @llvm.memset.p0i8.i64(i8* %{}, i8 0, i64 {}, i1 false)",
+                    bitcast_var,
+                    type_size * n
+                ));
             }
-            // %1 = alloca [m x [n x i32]]
             IdentifierShapeDeclaration::IdentifierArray2D(identifier, m, n) => {
-                // TODO 0 allocate
+                // %1 = alloca [m x [n x i32]]
                 output.push(format!(
                     "  %{} = alloca [{} x [{} x {}]]",
                     identifier.node, m, n, var_type
+                ));
+
+                let type_size = match declaration.r#type {
+                    VariableType::Bool => 1,
+                    VariableType::Int => 4,
+                    VariableType::Float => 4,
+                };
+
+                // %2 = bitcast [30 x [30 x i32]]* %1 to i8*
+                // call void @llvm.memset.p0i8.i64(i8* align 16 %2, i8 0, i64 3600, i1 false)
+                let bitcast_var = *temp_var;
+                *temp_var += 1;
+
+                output.push(format!(
+                    "  %{} = bitcast [{} x [{} x {}]]* %{} to i8*",
+                    bitcast_var, m, n, var_type, identifier.node
+                ));
+                output.push(format!(
+                    "  call void @llvm.memset.p0i8.i64(i8* %{}, i8 0, i64 {}, i1 false)",
+                    bitcast_var,
+                    type_size * m * n
                 ));
             }
         }
