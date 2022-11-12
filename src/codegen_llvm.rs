@@ -283,8 +283,10 @@ fn generate_code_assign(
     let mut output = vec![];
 
     // First evaluate the expression
-    let (expr_var, mut expr_code) = generate_code_expression(temp_var, procedure_symbols, &expr.node);
-    output.append(&mut expr_code);
+    let expr_value_type =
+        eval_expression_scalar(procedure_symbols, &expr).expect("generate_code_assign failed to eval expression type");
+    let (expr_value_var, mut expr_value_code) = generate_code_expression(temp_var, procedure_symbols, &expr.node);
+    output.append(&mut expr_value_code);
 
     // Find identifier
     let identifier = match identifier_shape {
@@ -301,7 +303,21 @@ fn generate_code_assign(
     let variable_type = convert_type(variable_info.r#type);
     let variable_pass_indicator = *variable_info.pass_indicator.unwrap_or(&ParameterPassIndicator::Val);
 
-    // TODO: int to float conversion
+    // Int to float conversion
+    let expr_value_var = if expr_value_type == VariableType::Int && variable_info.r#type == VariableType::Float {
+        // %4 = sitofp i32 %3 to float
+        let new_converted_var = *temp_var;
+        *temp_var += 1;
+
+        output.push(format!(
+            "  %{} = sitofp i32 %{} to float",
+            new_converted_var, expr_value_var
+        ));
+
+        new_converted_var
+    } else {
+        expr_value_var
+    };
 
     match identifier_shape {
         IdentifierShape::Identifier(identifier) => {
@@ -310,7 +326,7 @@ fn generate_code_assign(
                     // store i32 %value_source, i32* %decl_dest
                     output.push(format!(
                         "  store {} %{}, {}* %{}",
-                        variable_type, expr_var, variable_type, identifier.node
+                        variable_type, expr_value_var, variable_type, identifier.node
                     ));
                 }
                 ParameterPassIndicator::Ref => {
@@ -332,7 +348,6 @@ fn generate_code_assign(
             // %1 = alloca [2 x i32], align 4                                           ; allocation (previous)
             // %v = sext i32 %<expr> to i64                                             ; index expression value to i64
             // %5 = getelementptr inbounds [2 x i32], [2 x i32]* %1, i64 0, i64 %v      ; addressing
-            // store i32 3, i32* %5, align 4                                            ; store
             let convert_var = *temp_var;
             *temp_var += 1;
             output.push(format!("  %{} = sext i32 %{} to i64", convert_var, m_expr_var));
@@ -342,9 +357,11 @@ fn generate_code_assign(
                 "  %{} = getelementptr inbounds [{} x {}], [{} x {}]* %{}, i64 0, i64 %{}",
                 address_var, m, variable_type, m, variable_type, identifier.node, convert_var
             ));
+
+            // store i32 %<expr-value>, i32* %5, align 4                                            ; store
             output.push(format!(
-                "  store {} %{}, i32* %{}",
-                variable_type, expr_var, address_var
+                "  store {} %{}, {}* %{}",
+                variable_type, expr_value_var, variable_type, address_var
             ));
         }
         IdentifierShape::IdentifierArray2D(identifier, expr_m, expr_n) => {
@@ -361,7 +378,6 @@ fn generate_code_assign(
                 panic!("Expected matrix");
             };
 
-            // %1 = alloca [2 x i32], align 4                                   ; allocation (previous)
             // %m = sext i32 %<expr-m> to i64                                   ; m conversion to i64
             // %n = sext i32 %<expr-n> to i64                                   ; n conversion to i64
             let convert_var_m = *temp_var;
@@ -387,10 +403,10 @@ fn generate_code_assign(
                 address_var_2, n, variable_type, n, variable_type, address_var_1, convert_var_n
             ));
 
-            // store i32 %<exp>, i32* %8, align 4                               ; store
+            // store i32 %<expr-value>, i32* %8, align 4                               ; store
             output.push(format!(
-                "  store {} %{}, i32* %{}",
-                variable_type, expr_var, address_var_2
+                "  store {} %{}, {}* %{}",
+                variable_type, expr_value_var, variable_type, address_var_2
             ));
         }
     }
@@ -467,12 +483,19 @@ fn generate_code_write(
             output.push(format!("{}:\t\t\t\t; end bool", endif_label));
         }
         VariableType::Float => {
+            // %6 = fpext float %5 to double
+            let convert_double_var = *temp_var;
+            *temp_var += 1;
+            output.push(format!(
+                "  %{} = fpext float %{} to double",
+                convert_double_var, expr_var
+            ));
+
             let print_return_num = *temp_var;
             *temp_var += 1;
-
             output.push(
-                format!("  %{} = call i32 (i8*, ...) @printf(i8* noundef getelementptr inbounds ([3 x i8], [3 x i8]* @format.float, i64 0, i64 0), float noundef %{})",
-                    print_return_num, expr_var)
+                format!("  %{} = call i32 (i8*, ...) @printf(i8* noundef getelementptr inbounds ([3 x i8], [3 x i8]* @format.float, i64 0, i64 0), double noundef %{})",
+                    print_return_num, convert_double_var)
             );
         }
         VariableType::Int => {
