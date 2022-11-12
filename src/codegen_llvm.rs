@@ -4,7 +4,7 @@ use crate::ast::{
 };
 use crate::semantic::{eval_expression_scalar, ProcedureSymbols, SymbolTable};
 
-const SPACE_4: &str = "    ";
+const SPACE_2: &str = "  ";
 type ConvertedStringConst = (usize, String);
 
 pub fn generate_code(program: &GoatProgram, symbol_table: &SymbolTable) -> String {
@@ -71,9 +71,9 @@ fn generate_code_proc(
     output.append(&mut generate_code_body(&mut temp_var, strings, symbol_table, procedure));
 
     if is_main {
-        output.push("    ret i32 0".to_owned());
+        output.push("  ret i32 0".to_owned());
     } else {
-        output.push("    ret void".to_owned());
+        output.push("  ret void".to_owned());
     }
 
     output.push("}".to_owned());
@@ -132,7 +132,7 @@ fn generate_code_statement(
             output.append(
                 &mut generated
                     .iter()
-                    .map(|g| SPACE_4.to_owned() + g)
+                    .map(|g| SPACE_2.to_owned() + g)
                     .collect::<Vec<String>>(),
             );
 
@@ -147,14 +147,14 @@ fn generate_code_statement(
 
             // Jump
             output.push(format!(
-                "{}br i1 %{}, label %{}, label %{}",
-                SPACE_4, temp_var_index, if_label, endif_label
+                "  br i1 %{}, label %{}, label %{}",
+                temp_var_index, if_label, endif_label
             ));
 
             // If statements
             output.push(format!("{}:\t\t\t\t; if statements", if_label));
             output.append(&mut if_statements_code);
-            output.push(format!("{}br label %{}", SPACE_4, endif_label));
+            output.push(format!("  br label %{}", endif_label));
 
             // After endif
             output.push(format!("{}:\t\t\t\t; end of if statement", endif_label));
@@ -178,22 +178,19 @@ fn generate_code_statement(
 
             // Jump
             output.push(format!(
-                "{}br i1 %{}, label %{}, label %{}",
-                " ".repeat(4),
-                conditional_var_index,
-                if_label,
-                else_label
+                "  br i1 %{}, label %{}, label %{}",
+                conditional_var_index, if_label, else_label
             ));
 
             // If statements
             output.push(format!("{}:\t\t\t\t; if statements", if_label));
             output.append(&mut if_statements_code);
-            output.push(format!("{}br label %{}", " ".repeat(4), endif_label));
+            output.push(format!("  br label %{}", endif_label));
 
             // Else statements
             output.push(format!("{}:\t\t\t\t; else statements", else_label));
             output.append(&mut else_statements_code);
-            output.push(format!("{}br label %{}", SPACE_4, endif_label));
+            output.push(format!("  br label %{}", endif_label));
 
             // After endif
             output.push(format!("{}:\t\t\t\t; end ifelse", endif_label));
@@ -208,7 +205,7 @@ fn generate_code_statement(
             *temp_var += 1;
 
             // Immediate jump to conditional
-            output.push(format!("{}br label %{}", SPACE_4, conditional_label));
+            output.push(format!("  br label %{}", conditional_label));
 
             // Evaluate boolean expression
             output.push(format!("{}:\t\t\t\t; start while conditional", conditional_label));
@@ -218,18 +215,15 @@ fn generate_code_statement(
 
             // Jump on conditional
             output.push(format!(
-                "{}br i1 %{}, label %{}, label %{}",
-                SPACE_4, conditional_var_index, body_label, endwhile_label
+                "  br i1 %{}, label %{}, label %{}",
+                conditional_var_index, body_label, endwhile_label
             ));
 
             // Body
             output.push(format!("{}:\t\t\t\t; body of while", body_label));
             output.append(&mut while_body_code);
             // Back to conditional
-            output.push(format!(
-                "{}br label %{}, !llvm.loop !{}",
-                SPACE_4, conditional_label, body_label
-            ));
+            output.push(format!("  br label %{}, !llvm.loop !{}", conditional_label, body_label));
 
             // After end of while
             output.push(format!("{}:\t\t\t\t; end while", endwhile_label));
@@ -288,15 +282,18 @@ fn generate_code_assign(
     match identifier_shape {
         // TODO: int/float
         IdentifierShape::Identifier(identifier) => {
-            if variable_pass_indicator == ParameterPassIndicator::Val {
-                // store i32 %value_source, i32* %decl_dest
-                output.push(format!(
-                    "{}store {} %{}, {}* %{}",
-                    SPACE_4, variable_type, var_num, variable_type, identifier.node
-                ));
-            } else if variable_pass_indicator == ParameterPassIndicator::Ref {
-                // TODO
-                panic!("huh?");
+            match variable_pass_indicator {
+                ParameterPassIndicator::Val => {
+                    // store i32 %value_source, i32* %decl_dest
+                    output.push(format!(
+                        "  store {} %{}, {}* %{}",
+                        variable_type, var_num, variable_type, identifier.node
+                    ));
+                }
+                ParameterPassIndicator::Ref => {
+                    // TODO
+                    panic!("huh?");
+                }
             }
         }
         IdentifierShape::IdentifierArray(_identifier, _) => {
@@ -334,8 +331,8 @@ fn generate_code_write(
         strings.push(converted);
 
         output.push(
-            format!("{}%{} = call i32 (i8*, ...) @printf(i8* noundef getelementptr inbounds ([{} x i8], [{} x i8]* @strconst.{}, i64 0, i64 0))",
-            SPACE_4, print_return_num, str_const_len, str_const_len, str_const_index)
+            format!("  %{} = call i32 (i8*, ...) @printf(i8* noundef getelementptr inbounds ([{} x i8], [{} x i8]* @strconst.{}, i64 0, i64 0))",
+                print_return_num, str_const_len, str_const_len, str_const_index)
         );
         return output;
     }
@@ -356,28 +353,25 @@ fn generate_code_write(
 
             // Jump
             output.push(format!(
-                "{}br i1 %{}, label %{}, label %{}",
-                " ".repeat(4),
-                var_num,
-                if_label,
-                else_label
+                "  br i1 %{}, label %{}, label %{}",
+                var_num, if_label, else_label
             ));
 
             // If true
             output.push(format!("{}:\t\t\t\t; if bool", if_label));
             output.push(
-                format!("{}%{} = call i32 (i8*, ...) @printf(i8* noundef getelementptr inbounds ([5 x i8], [5 x i8]* @format.true, i64 0, i64 0))",
-                SPACE_4, print_return_num1)
+                format!("  %{} = call i32 (i8*, ...) @printf(i8* noundef getelementptr inbounds ([5 x i8], [5 x i8]* @format.true, i64 0, i64 0))",
+               print_return_num1)
             );
-            output.push(format!("{}br label %{}", " ".repeat(4), endif_label));
+            output.push(format!("  br label %{}", endif_label));
 
             // Else false
             output.push(format!("{}:\t\t\t\t; else bool", else_label));
             output.push(
-                format!("{}%{} = call i32 (i8*, ...) @printf(i8* noundef getelementptr inbounds ([6 x i8], [6 x i8]* @format.false, i64 0, i64 0))",
-                SPACE_4, print_return_num2)
+                format!("  %{} = call i32 (i8*, ...) @printf(i8* noundef getelementptr inbounds ([6 x i8], [6 x i8]* @format.false, i64 0, i64 0))",
+                    print_return_num2)
             );
-            output.push(format!("{}br label %{}", SPACE_4, endif_label));
+            output.push(format!("  br label %{}", endif_label));
 
             // After endif
             output.push(format!("{}:\t\t\t\t; end bool", endif_label));
@@ -387,8 +381,8 @@ fn generate_code_write(
             *temp_var += 1;
 
             output.push(
-                format!("{}%{} = call i32 (i8*, ...) @printf(i8* noundef getelementptr inbounds ([3 x i8], [3 x i8]* @format.float, i64 0, i64 0), float noundef %{})",
-                SPACE_4, print_return_num, var_num)
+                format!("  %{} = call i32 (i8*, ...) @printf(i8* noundef getelementptr inbounds ([3 x i8], [3 x i8]* @format.float, i64 0, i64 0), float noundef %{})",
+                    print_return_num, var_num)
             );
         }
         VariableType::Int => {
@@ -396,8 +390,8 @@ fn generate_code_write(
             *temp_var += 1;
 
             output.push(
-                format!("{}%{} = call i32 (i8*, ...) @printf(i8* noundef getelementptr inbounds ([3 x i8], [3 x i8]* @format.int, i64 0, i64 0), i32 noundef %{})",
-                SPACE_4, print_return_num, var_num)
+                format!("  %{} = call i32 (i8*, ...) @printf(i8* noundef getelementptr inbounds ([3 x i8], [3 x i8]* @format.int, i64 0, i64 0), i32 noundef %{})",
+                print_return_num, var_num)
             );
         }
     }
@@ -416,28 +410,23 @@ fn generate_code_expression(
         Expression::IntConst(n) => {
             let store_var = *temp_var;
             *temp_var += 1;
-            output.push(format!("{}%{} = alloca i32", SPACE_4, store_var));
-            output.push(format!("{}store i32 {}, i32* %{}", SPACE_4, n, store_var));
+            output.push(format!("  %{} = alloca i32", store_var));
+            output.push(format!("  store i32 {}, i32* %{}", n, store_var));
 
             let load_var = *temp_var;
             *temp_var += 1;
-            output.push(format!("{}%{} = load i32, i32* %{}", SPACE_4, load_var, store_var));
+            output.push(format!("  %{} = load i32, i32* %{}", load_var, store_var));
             load_var
         }
         Expression::BoolConst(b) => {
             let store_var = *temp_var;
             *temp_var += 1;
-            output.push(format!("{}%{} = alloca i1", SPACE_4, store_var));
-            output.push(format!(
-                "{}store i1 {}, i1* %{}",
-                SPACE_4,
-                if *b { "1" } else { "0" },
-                store_var
-            ));
+            output.push(format!("  %{} = alloca i1", store_var));
+            output.push(format!("  store i1 {}, i1* %{}", if *b { "1" } else { "0" }, store_var));
 
             let load_var = *temp_var;
             *temp_var += 1;
-            output.push(format!("{}%{} = load i1, i1* %{}", SPACE_4, load_var, store_var));
+            output.push(format!("  %{} = load i1, i1* %{}", load_var, store_var));
             load_var
         }
         // TODO
@@ -470,8 +459,8 @@ fn generate_code_expression(
                             *temp_var += 1;
 
                             output.push(format!(
-                                "{}%{} = load {}, {}* %{}",
-                                SPACE_4, load_var, variable_type, variable_type, identifier.node
+                                "  %{} = load {}, {}* %{}",
+                                load_var, variable_type, variable_type, identifier.node
                             ));
                             load_var
                         }
@@ -517,7 +506,7 @@ fn generate_code_var_declarations(declarations: &Vec<VariableDeclaration>) -> Ve
                 format!("[{} x [{} x {}]]", m, n, convert_type(declaration.r#type)),
             ),
         };
-        output.push(format!("{}%{} = alloca {}", SPACE_4, identifier, shape));
+        output.push(format!("  %{} = alloca {}", identifier, shape));
     }
 
     output
@@ -544,15 +533,15 @@ fn generate_code_formal_parameters(temp_var: &mut usize, parameters: &Vec<Parame
         // %name1 = alloca i32 (val)
         // %name2 = alloca i32* (ref)
         stores.push(format!(
-            "{}%{} = alloca {}{}",
-            SPACE_4, parameter.identifier.node, r#type, passing_indicator
+            "  %{} = alloca {}{}",
+            parameter.identifier.node, r#type, passing_indicator
         ));
 
         // store i32 %1, i32* %name1 (val)
         // store i32* %2, i32** %name2 (ref)
         stores.push(format!(
-            "{}store {}{} %{}, {}*{} %{}",
-            SPACE_4, r#type, passing_indicator, temp_var, r#type, passing_indicator, parameter.identifier.node
+            "  store {}{} %{}, {}*{} %{}",
+            r#type, passing_indicator, temp_var, r#type, passing_indicator, parameter.identifier.node
         ));
     }
 
