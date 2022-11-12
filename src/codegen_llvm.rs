@@ -545,8 +545,17 @@ fn generate_code_expression(
             output.push(format!("  %{} = load i1, i1* %{}", load_var, store_var));
             load_var
         }
-        // TODO: float const expression
-        Expression::FloatConst(n) => 1001,
+        Expression::FloatConst(n) => {
+            let store_var = *temp_var;
+            *temp_var += 1;
+            output.push(format!("  %{} = alloca float", store_var));
+            output.push(format!("  store float {}, float* %{}", n, store_var));
+
+            let load_var = *temp_var;
+            *temp_var += 1;
+            output.push(format!("  %{} = load float, float* %{}", load_var, store_var));
+            load_var
+        }
         Expression::StringConst(_) => panic!("StringConst is not supported by generate_code_expression"),
         Expression::IdentifierShape(shape) => {
             // Find identifier
@@ -631,7 +640,7 @@ fn generate_code_expression(
                     ));
                     load_var
                 }
-                // TODO: Reduce duplicationw ith store
+                // TODO(later): Reduce duplication with store
                 IdentifierShape::IdentifierArray2D(identifier, expr_m, expr_n) => {
                     // Evaluate index expressions
                     let (m_expr_var, mut m_expr_code) =

@@ -503,7 +503,8 @@ fn construct_regex() -> Vec<(RegEx, (u64, Box<TokenFunction>))> {
             RegEx::Star(Box::new(RegEx::Charset(Charset::CharRange('0', '9')))),
         ]),
         (
-            4,
+            3,
+            // TODO(later): Better reporting of error
             Box::new(|s| Token::IntConst(s.parse::<i32>().expect("cannot parse int constant to i32"))),
         ),
     ));
@@ -517,7 +518,14 @@ fn construct_regex() -> Vec<(RegEx, (u64, Box<TokenFunction>))> {
             RegEx::Charset(Charset::CharRange('0', '9')),
             RegEx::Star(Box::new(RegEx::Charset(Charset::CharRange('0', '9')))),
         ]),
-        (3, Box::new(|s| Token::FloatConst(s.to_owned()))),
+        (
+            4,
+            // TODO(later): Better reporting of error
+            Box::new(|s| {
+                s.parse::<f32>().expect("cannot parse float constant");
+                Token::FloatConst(s.to_owned())
+            }),
+        ),
     ));
 
     // StrConst
