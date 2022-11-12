@@ -13,7 +13,8 @@ pub fn generate_code(program: &GoatProgram, symbol_table: &SymbolTable) -> Strin
         "@format.float = private unnamed_addr constant [3 x i8] c\"%f\\00\"".to_owned(),
         "@format.true = private unnamed_addr constant [5 x i8] c\"true\\00\"".to_owned(),
         "@format.false = private unnamed_addr constant [6 x i8] c\"false\\00\"".to_owned(),
-        "declare i32 @printf(i8* noundef, ...)".to_owned(),
+        "declare i32 @printf(i8* noundef, ...) #1".to_owned(),
+        "attributes #0 = { \"frame-pointer\"=\"all\" }".to_owned(),
         String::new(),
     ];
 
@@ -52,7 +53,7 @@ fn generate_code_proc(
     let (parameters_declaration, mut parameters_store) =
         generate_code_formal_parameters(&mut temp_var, &procedure.parameters);
     output.push(format!(
-        "define dso_local {} @{}({}) {{ ; proc {}({})",
+        "define dso_local {} @{}({}) #0 {{ ; proc {}({})",
         return_type,
         procedure.identifier.node,
         parameters_declaration,
@@ -136,6 +137,11 @@ fn generate_code_statement(
                     .collect::<Vec<String>>(),
             );
 
+            // %1 = <expr-result>
+            // br i1 %1, label %if, label %endif
+            // if: ...
+            // br label %endif
+            // endif:
             let if_label = *temp_var;
             *temp_var += 1;
 
@@ -165,6 +171,13 @@ fn generate_code_statement(
                 generate_code_expression(temp_var, procedure_symbols, &expr.node);
             output.append(&mut expr_code);
 
+            // %1 = <expr-result>
+            // br i1 %1, label %if, label %else
+            // if: ...
+            // br label %endif
+            // else: ...
+            // br label %endif
+            // endif:
             let if_label = *temp_var;
             *temp_var += 1;
             let mut if_statements_code =
@@ -196,6 +209,14 @@ fn generate_code_statement(
             output.push(format!("{}:\t\t\t\t; end ifelse", endif_label));
         }
         Statement::While(expr, statements) => {
+            // conditional:
+            // ...
+            // %1 = <conditional-result>
+            // br i1 %1 %while_body %while_end
+            // while_body:
+            // ...
+            // br label %conditional, !llvm.loop !while_body
+            // while_end:
             let conditional_label = *temp_var;
             *temp_var += 1;
             let body_label = *temp_var;
@@ -279,8 +300,9 @@ fn generate_code_assign(
     let variable_type = convert_type(variable_info.r#type);
     let variable_pass_indicator = *variable_info.pass_indicator.unwrap_or(&ParameterPassIndicator::Val);
 
+    // TODO: int to float conversion
+
     match identifier_shape {
-        // TODO: int/float
         IdentifierShape::Identifier(identifier) => {
             match variable_pass_indicator {
                 ParameterPassIndicator::Val => {
@@ -296,9 +318,30 @@ fn generate_code_assign(
                 }
             }
         }
-        IdentifierShape::IdentifierArray(_identifier, _) => {
-            // TODO: no ref
-            panic!("huh?");
+        IdentifierShape::IdentifierArray(identifier, expr) => {
+            let (var_index, mut m_expr_code) = generate_code_expression(temp_var, procedure_symbols, &expr.node);
+            output.append(&mut m_expr_code);
+
+            // Get the array dimension
+            let variable_shape = variable_info.shape.unwrap();
+            let IdentifierShapeDeclaration::IdentifierArray(_, m) = variable_shape else {
+                panic!("Expected array");
+            };
+
+            // %1 = alloca [2 x i32], align 4                                           ; allocation (previous)
+            // %v = sext i32 %<expr> to i64                                             ; index expression value to i64
+            // %5 = getelementptr inbounds [2 x i32], [2 x i32]* %1, i64 0, i64 %v      ; addressing
+            // store i32 3, i32* %5, align 4                                            ; store
+            let convert_var = *temp_var;
+            *temp_var += 1;
+            output.push(format!("  %{} = sext i32 %{} to i64", convert_var, var_index));
+            let address_var = *temp_var;
+            *temp_var += 1;
+            output.push(format!(
+                "  %{} = getelementptr inbounds [{} x {}], [{} x {}]* %{}, i64 0, i64 %{}",
+                address_var, m, variable_type, m, variable_type, identifier.node, convert_var
+            ));
+            output.push(format!("  store {} %{}, i32* %{}", variable_type, var_num, address_var));
         }
         IdentifierShape::IdentifierArray2D(_identifier, _, _) => {
             // TODO: no ref
@@ -408,6 +451,9 @@ fn generate_code_expression(
 
     let var_num = match expression {
         Expression::IntConst(n) => {
+            // %3 = alloca i32              ; allocate ptr
+            // store i32 <const>, i32* %3   ; store const to ptr
+            // %4 = load i32, i32* %3       ; load value
             let store_var = *temp_var;
             *temp_var += 1;
             output.push(format!("  %{} = alloca i32", store_var));
@@ -454,7 +500,7 @@ fn generate_code_expression(
                 IdentifierShape::Identifier(identifier) => {
                     match variable_pass_indicator {
                         ParameterPassIndicator::Val => {
-                            // %v = load i32, i32* %identifier
+                            // %8 = load i32, i32* %identifier      ; load value of identifier (ptr) into temp var
                             let load_var = *temp_var;
                             *temp_var += 1;
 
@@ -465,12 +511,57 @@ fn generate_code_expression(
                             load_var
                         }
                         ParameterPassIndicator::Ref => {
-                            panic!("huh?");
+                            // %9 = load i32*, i32** %identifier    ; load identifier** into ptr
+                            // %10 = load i32, i32* %9              ; load value of ptr
+                            let load_var1 = *temp_var;
+                            *temp_var += 1;
+                            let load_var2 = *temp_var;
+                            *temp_var += 1;
+
+                            output.push(format!(
+                                "  %{} = load {}*, {}** %{}",
+                                load_var1, variable_type, variable_type, identifier.node
+                            ));
+                            output.push(format!(
+                                "  %{} = load {}, {}* %{}",
+                                load_var2, variable_type, variable_type, load_var1
+                            ));
+                            load_var2
                         }
                     }
                 }
-                IdentifierShape::IdentifierArray(_, _) => {
-                    panic!("huh?");
+                IdentifierShape::IdentifierArray(identifier, expr) => {
+                    // First evaluate the expression
+                    let (var_num, mut expr_code) = generate_code_expression(temp_var, procedure_symbols, &expr.node);
+                    output.append(&mut expr_code);
+
+                    // Get the array dimension
+                    let variable_shape = variable_info.shape.unwrap();
+                    let IdentifierShapeDeclaration::IdentifierArray(_, m) = variable_shape else {
+                        panic!("Expected array");
+                    };
+
+                    // %1 = alloca [2 x i32]                                                    ; allocate array (not part of this)
+                    // %v = sext i32 %<expr> to i64
+                    // %3 = getelementptr inbounds [2 x i32], [2 x i32]* %1, i64 0, i64 %v      ; calculate address, second does indexing
+                    // %4 = load i32, i32* %3                                                   ; load value
+                    let convert_var = *temp_var;
+                    *temp_var += 1;
+                    let address_var = *temp_var;
+                    *temp_var += 1;
+                    let load_var = *temp_var;
+                    *temp_var += 1;
+
+                    output.push(format!("  %{} = sext i32 %{} to i64", convert_var, var_num));
+                    output.push(format!(
+                        "  %{} = getelementptr inbounds [{} x {}], [{} x {}]* %{}, i64 0, i64 %{}",
+                        address_var, m, variable_type, m, variable_type, identifier.node, convert_var
+                    ));
+                    output.push(format!(
+                        "  %{} = load {}, {}* %{}",
+                        load_var, variable_type, variable_type, address_var
+                    ));
+                    load_var
                 }
                 IdentifierShape::IdentifierArray2D(_, _, _) => {
                     panic!("huh?");
@@ -490,23 +581,43 @@ fn generate_code_var_declarations(declarations: &Vec<VariableDeclaration>) -> Ve
     let mut output = vec![];
 
     for declaration in declarations {
-        let (identifier, shape) = match &declaration.identifier_declaration {
-            // %1 = alloca i32
+        let var_type = convert_type(declaration.r#type);
+
+        match &declaration.identifier_declaration {
             IdentifierShapeDeclaration::Identifier(identifier) => {
-                (identifier.node.clone(), convert_type(declaration.r#type))
+                // %1 = alloca i32          ; allocate
+                output.push(format!("  %{} = alloca {}", identifier.node, var_type));
+                // store i32 0, i32* %1     ; initialise with value of 0
+                output.push(format!(
+                    "  store {} {}, {}* %{}",
+                    var_type,
+                    if declaration.r#type == VariableType::Float {
+                        "0.0"
+                    } else {
+                        "0"
+                    },
+                    var_type,
+                    identifier.node
+                ));
             }
-            // %1 = alloca [m x i32]
-            IdentifierShapeDeclaration::IdentifierArray(identifier, n) => (
-                identifier.node.clone(),
-                format!("[{} x {}]", n, convert_type(declaration.r#type)),
-            ),
+
+            IdentifierShapeDeclaration::IdentifierArray(identifier, n) => {
+                // %1 = alloca [m x i32]
+                output.push(format!("  %{} = alloca [{} x {}]", identifier.node, n, var_type));
+
+                // TODO
+                // %3 = bitcast [10 x i32]* %2 to i8*
+                // call void @llvm.memset.p0i8.i64(i8* align 16 %3, i8 0, i64 40, i1 false)
+            }
             // %1 = alloca [m x [n x i32]]
-            IdentifierShapeDeclaration::IdentifierArray2D(identifier, m, n) => (
-                identifier.node.clone(),
-                format!("[{} x [{} x {}]]", m, n, convert_type(declaration.r#type)),
-            ),
-        };
-        output.push(format!("  %{} = alloca {}", identifier, shape));
+            IdentifierShapeDeclaration::IdentifierArray2D(identifier, m, n) => {
+                // TODO 0 allocate
+                output.push(format!(
+                    "  %{} = alloca [{} x [{} x {}]]",
+                    identifier.node, m, n, var_type
+                ));
+            }
+        }
     }
 
     output
