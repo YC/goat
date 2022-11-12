@@ -347,9 +347,51 @@ fn generate_code_assign(
                 variable_type, expr_var, address_var
             ));
         }
-        IdentifierShape::IdentifierArray2D(_identifier, _, _) => {
-            // TODO: no ref
-            panic!("huh?");
+        IdentifierShape::IdentifierArray2D(identifier, expr_m, expr_n) => {
+            // Evaluate index expressions
+            let (m_expr_var, mut m_expr_code) = generate_code_expression(temp_var, procedure_symbols, &expr_m.node);
+            output.append(&mut m_expr_code);
+
+            let (n_expr_var, mut n_expr_code) = generate_code_expression(temp_var, procedure_symbols, &expr_n.node);
+            output.append(&mut n_expr_code);
+
+            // Get the matrix dimension
+            let variable_shape = variable_info.shape.unwrap();
+            let IdentifierShapeDeclaration::IdentifierArray2D(_, m, n) = variable_shape else {
+                panic!("Expected matrix");
+            };
+
+            // %1 = alloca [2 x i32], align 4                                   ; allocation (previous)
+            // %m = sext i32 %<expr-m> to i64                                   ; m conversion to i64
+            // %n = sext i32 %<expr-n> to i64                                   ; n conversion to i64
+            let convert_var_m = *temp_var;
+            *temp_var += 1;
+            output.push(format!("  %{} = sext i32 %{} to i64", convert_var_m, m_expr_var));
+
+            let convert_var_n = *temp_var;
+            *temp_var += 1;
+            output.push(format!("  %{} = sext i32 %{} to i64", convert_var_n, n_expr_var));
+
+            // %7 = getelementptr inbounds [30 x [30 x i32]], [30 x [30 x i32]]* %1, i64 0, i64 %m
+            // %8 = getelementptr inbounds [30 x i32], [30 x i32]* %7, i64 0, i64 %n
+            let address_var_1 = *temp_var;
+            *temp_var += 1;
+            let address_var_2 = *temp_var;
+            *temp_var += 1;
+            output.push(format!(
+                "  %{} = getelementptr inbounds [{} x [{} x {}]], [{} x [{} x {}]]* %{}, i64 0, i64 %{}",
+                address_var_1, m, n, variable_type, m, n, variable_type, identifier.node, convert_var_m
+            ));
+            output.push(format!(
+                "  %{} = getelementptr inbounds [{} x {}], [{} x {}]* %{}, i64 0, i64 %{}",
+                address_var_2, n, variable_type, n, variable_type, address_var_1, convert_var_n
+            ));
+
+            // store i32 %<exp>, i32* %8, align 4                               ; store
+            output.push(format!(
+                "  store {} %{}, i32* %{}",
+                variable_type, expr_var, address_var_2
+            ));
         }
     }
 
@@ -566,8 +608,55 @@ fn generate_code_expression(
                     ));
                     load_var
                 }
-                IdentifierShape::IdentifierArray2D(_, _, _) => {
-                    panic!("huh?");
+                // TODO: Reduce duplicationw ith store
+                IdentifierShape::IdentifierArray2D(identifier, expr_m, expr_n) => {
+                    // Evaluate index expressions
+                    let (m_expr_var, mut m_expr_code) =
+                        generate_code_expression(temp_var, procedure_symbols, &expr_m.node);
+                    output.append(&mut m_expr_code);
+
+                    let (n_expr_var, mut n_expr_code) =
+                        generate_code_expression(temp_var, procedure_symbols, &expr_n.node);
+                    output.append(&mut n_expr_code);
+
+                    // Get the array dimension
+                    let variable_shape = variable_info.shape.unwrap();
+                    let IdentifierShapeDeclaration::IdentifierArray2D(_, m, n) = variable_shape else {
+                        panic!("Expected matrix");
+                    };
+
+                    // %m = sext i32 %<expr-m> to i64                                   ; m conversion to i64
+                    // %n = sext i32 %<expr-n> to i64                                   ; n conversion to i64
+                    let convert_var_m = *temp_var;
+                    *temp_var += 1;
+                    output.push(format!("  %{} = sext i32 %{} to i64", convert_var_m, m_expr_var));
+                    let convert_var_n = *temp_var;
+                    *temp_var += 1;
+                    output.push(format!("  %{} = sext i32 %{} to i64", convert_var_n, n_expr_var));
+
+                    // %7 = getelementptr inbounds [30 x [30 x i32]], [30 x [30 x i32]]* %1, i64 0, i64 %m
+                    // %8 = getelementptr inbounds [30 x i32], [30 x i32]* %7, i64 0, i64 %n
+                    let address_var_1 = *temp_var;
+                    *temp_var += 1;
+                    let address_var_2 = *temp_var;
+                    *temp_var += 1;
+                    output.push(format!(
+                        "  %{} = getelementptr inbounds [{} x [{} x {}]], [{} x [{} x {}]]* %{}, i64 0, i64 %{}",
+                        address_var_1, m, n, variable_type, m, n, variable_type, identifier.node, convert_var_m
+                    ));
+                    output.push(format!(
+                        "  %{} = getelementptr inbounds [{} x {}], [{} x {}]* %{}, i64 0, i64 %{}",
+                        address_var_2, n, variable_type, n, variable_type, address_var_1, convert_var_n
+                    ));
+
+                    // %9 = load i32, i32* %8                                           ; load value
+                    let load_var = *temp_var;
+                    *temp_var += 1;
+                    output.push(format!(
+                        "  %{} = load {}, {}* %{}",
+                        load_var, variable_type, variable_type, address_var_2
+                    ));
+                    load_var
                 }
             }
         }
