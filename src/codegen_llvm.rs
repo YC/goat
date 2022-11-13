@@ -187,7 +187,7 @@ fn generate_code_statement(
                 generate_code_statements(strings, temp_var, symbol_table, procedure, statements1);
             let else_label = increment_temp_var(temp_var);
             let mut else_statements_code =
-                &mut generate_code_statements(strings, temp_var, symbol_table, procedure, statements2);
+                generate_code_statements(strings, temp_var, symbol_table, procedure, statements2);
             let endif_label = increment_temp_var(temp_var);
 
             // Jump
@@ -248,7 +248,7 @@ fn generate_code_statement(
         }
         Statement::Assign(identifier_shape, expr) => {
             // First evaluate the expression
-            let expr_value_type = eval_expression_scalar(procedure_symbols, &expr)
+            let expr_value_type = eval_expression_scalar(procedure_symbols, expr)
                 .expect("generate_code_assign failed to eval expression type");
             let (expr_value_var, mut expr_value_code) =
                 generate_code_expression(temp_var, procedure_symbols, &expr.node);
@@ -805,7 +805,7 @@ fn generate_code_expression(
         }
         Expression::UnopExpr(Unop::Minus, expr) => {
             let expr_value_type =
-                eval_expression_scalar(procedure_symbols, &expr).expect("unop minus failed to eval expression type");
+                eval_expression_scalar(procedure_symbols, expr).expect("unop minus failed to eval expression type");
             let (expr_var, mut expr_code) = generate_code_expression(temp_var, procedure_symbols, &expr.node);
             output.append(&mut expr_code);
 
@@ -872,8 +872,7 @@ fn generate_code_var_declarations(temp_var: &mut usize, declarations: &Vec<Varia
 
                 let type_size = match declaration.r#type {
                     VariableType::Bool => 1,
-                    VariableType::Int => 4,
-                    VariableType::Float => 4,
+                    VariableType::Int | VariableType::Float => 4,
                 };
 
                 // %3 = bitcast [10 x i32]* %2 to i8*
@@ -900,8 +899,7 @@ fn generate_code_var_declarations(temp_var: &mut usize, declarations: &Vec<Varia
 
                 let type_size = match declaration.r#type {
                     VariableType::Bool => 1,
-                    VariableType::Int => 4,
-                    VariableType::Float => 4,
+                    VariableType::Int | VariableType::Float => 4,
                 };
 
                 // %2 = bitcast [30 x [30 x i32]]* %1 to i8*
@@ -923,7 +921,7 @@ fn generate_code_var_declarations(temp_var: &mut usize, declarations: &Vec<Varia
     output
 }
 
-/// Get current value of temp_var and increment by 1
+/// Get current value of `temp_var` and increment by 1
 fn increment_temp_var(temp_var: &mut usize) -> usize {
     *temp_var += 1;
     *temp_var - 1
@@ -971,9 +969,9 @@ fn determine_shape_info<'a>(
 ) -> (&'a str, &'a VariableInfo<'a>) {
     // Find identifier
     let identifier = match shape {
-        IdentifierShape::Identifier(identifier) => identifier,
-        IdentifierShape::IdentifierArray(identifier, _) => identifier,
-        IdentifierShape::IdentifierArray2D(identifier, _, _) => identifier,
+        IdentifierShape::Identifier(identifier)
+        | IdentifierShape::IdentifierArray(identifier, _)
+        | IdentifierShape::IdentifierArray2D(identifier, _, _) => identifier,
     };
 
     // Get information about variable
@@ -1007,5 +1005,5 @@ fn convert_string_const(string_const: &str) -> ConvertedStringConst {
 
 /// Escapes ' for LLVM variable and function names
 fn print_identifier_name(name: &str) -> String {
-    return "\"".to_owned() + name + "\"";
+    "\"".to_owned() + name + "\""
 }
