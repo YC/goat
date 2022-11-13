@@ -251,11 +251,20 @@ fn generate_code_statement(
             output.push(format!("{}:\t\t\t\t; end while", endwhile_label));
         }
         Statement::Assign(identifier_shape, expr) => {
-            output.append(&mut generate_code_assign(
+            // First evaluate the expression
+            let expr_value_type = eval_expression_scalar(procedure_symbols, &expr)
+                .expect("generate_code_assign failed to eval expression type");
+            let (expr_value_var, mut expr_value_code) =
+                generate_code_expression(temp_var, procedure_symbols, &expr.node);
+            output.append(&mut expr_value_code);
+
+            // Then generate the assign code
+            output.append(&mut generate_code_assign_var(
                 temp_var,
                 procedure_symbols,
                 identifier_shape,
-                expr,
+                expr_value_type,
+                expr_value_var,
             ));
         }
         Statement::Write(expr) => {
@@ -274,19 +283,14 @@ fn generate_code_statement(
     output
 }
 
-fn generate_code_assign(
+fn generate_code_assign_var(
     temp_var: &mut usize,
     procedure_symbols: &ProcedureSymbols,
     identifier_shape: &IdentifierShape,
-    expr: &Node<Expression>,
+    expr_value_type: VariableType,
+    expr_value_var: usize,
 ) -> Vec<String> {
     let mut output = vec![];
-
-    // First evaluate the expression
-    let expr_value_type =
-        eval_expression_scalar(procedure_symbols, &expr).expect("generate_code_assign failed to eval expression type");
-    let (expr_value_var, mut expr_value_code) = generate_code_expression(temp_var, procedure_symbols, &expr.node);
-    output.append(&mut expr_value_code);
 
     // Find identifier
     let identifier = match identifier_shape {
@@ -425,7 +429,6 @@ fn generate_code_assign(
             ));
         }
     }
-
     output
 }
 
