@@ -125,7 +125,7 @@ fn parse_identifier(tokens: &Vec<TokenInfo>, index: &mut usize) -> Result<Node<I
     let ident_token = peek_next(tokens, *index)?;
     // Note: apostrophes are replaced with - for LLVM
     let ident = match &ident_token.0 {
-        Token::Ident(t) => (t.clone().replace("'", "-"), ident_token.1),
+        Token::Ident(t) => (t.clone(), ident_token.1),
         _ => Err(format!(
             "Expected identifier, but found {:?} at {:?}",
             ident_token.0, ident_token.1

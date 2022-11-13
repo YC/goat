@@ -7,6 +7,8 @@ use crate::semantic::{eval_expression_scalar, ProcedureSymbols, SymbolTable};
 const SPACE_2: &str = "  ";
 type ConvertedStringConst = (usize, String);
 
+// TODO: functions with '
+
 pub fn generate_code(program: &GoatProgram, symbol_table: &SymbolTable) -> String {
     let mut output = vec![
         "@format.int = private unnamed_addr constant [3 x i8] c\"%d\\00\"".to_owned(),
