@@ -682,6 +682,7 @@ fn generate_code_expression(
             output.push(format!("  %{} = load i1, i1* %{}", load_var, store_var));
             load_var
         }
+        // TODO: fix this
         Expression::FloatConst(n) => {
             let store_var = increment_temp_var(temp_var);
             output.push(format!("  %{} = alloca float", store_var));
@@ -916,7 +917,60 @@ fn generate_code_expression(
             final_var
         }
         // TODO: binop
-        Expression::BinopExpr(op @ (Binop::Add | Binop::Minus | Binop::Multiply | Binop::Divide), _, _) => 1005,
+        Expression::BinopExpr(op @ (Binop::Add | Binop::Minus | Binop::Multiply | Binop::Divide), left, right) => {
+            let left_type = eval_expression_scalar(procedure_symbols, left)
+                .expect("generate_code_expression failed to evaluate scalar");
+            let right_type = eval_expression_scalar(procedure_symbols, right)
+                .expect("generate_code_expression failed to evaluate scalar");
+
+            let mut is_float = left_type == VariableType::Float || right_type == VariableType::Float;
+            let (left_var, mut left_code) = generate_code_expression(temp_var, procedure_symbols, &left.node);
+            let (right_var, mut right_code) = generate_code_expression(temp_var, procedure_symbols, &right.node);
+            output.append(&mut left_code);
+            output.append(&mut right_code);
+
+            let (left_var, right_var) = if left_type == VariableType::Float && right_type == VariableType::Int {
+                let new_right_var = increment_temp_var(temp_var);
+                output.push(format!("  %{} = sitofp i32 %{} to float", new_right_var, right_var));
+                (left_var, new_right_var)
+            } else if left_type == VariableType::Int && right_type == VariableType::Float {
+                let new_left_var = increment_temp_var(temp_var);
+                output.push(format!("  %{} = sitofp i32 %{} to float", new_left_var, left_var));
+                (new_left_var, right_var)
+            } else {
+                (left_var, right_var)
+            };
+
+            let result_var = increment_temp_var(temp_var);
+            match (op, is_float) {
+                (Binop::Add, false) => {
+                    output.push(format!("  %{} = add nsw i32 %{}, %{}", result_var, left_var, right_var));
+                }
+                (Binop::Add, true) => {
+                    output.push(format!("  %{} = fadd float %{}, %{}", result_var, left_var, right_var));
+                }
+                (Binop::Minus, false) => {
+                    output.push(format!("  %{} = sub nsw i32 %{}, %{}", result_var, left_var, right_var));
+                }
+                (Binop::Minus, true) => {
+                    output.push(format!("  %{} = fsub float %{}, %{}", result_var, left_var, right_var));
+                }
+                (Binop::Multiply, false) => {
+                    output.push(format!("  %{} = mul nsw i32 %{}, %{}", result_var, left_var, right_var));
+                }
+                (Binop::Multiply, true) => {
+                    output.push(format!("  %{} = fmul float %{}, %{}", result_var, left_var, right_var));
+                }
+                (Binop::Divide, false) => {
+                    output.push(format!("  %{} = sdiv i32 %{}, %{}", result_var, left_var, right_var));
+                }
+                (Binop::Divide, true) => {
+                    output.push(format!("  %{} = fdiv float %{}, %{}", result_var, left_var, right_var));
+                }
+                (_, _) => panic!("Unexpected numeric operation"),
+            }
+            result_var
+        }
         Expression::BinopExpr(
             op @ (Binop::LT | Binop::LTE | Binop::GT | Binop::GTE | Binop::EQ | Binop::NEQ),
             expr1,
