@@ -345,8 +345,6 @@ fn generate_code_statement(
                         strncmp_true_compare_var, strncmp_true_var
                     ));
 
-                    // Branch
-                    // br i1 %7, label %8, label %9
                     let if_true_label = increment_temp_var(temp_var);
                     let compare_false_label = increment_temp_var(temp_var);
                     let strncmp_false_var = increment_temp_var(temp_var);
@@ -354,12 +352,15 @@ fn generate_code_statement(
                     let if_false_label = increment_temp_var(temp_var);
                     let else_label = increment_temp_var(temp_var);
                     let endif_label = increment_temp_var(temp_var);
+
+                    // Branch
+                    // br i1 %7, label %8, label %9
                     output.push(format!(
                         "  br i1 %{}, label %{}, label %{}",
                         strncmp_true_compare_var, if_true_label, compare_false_label
                     ));
 
-                    // If branch (compare "true" succeeded)
+                    // if branch - compare "true" succeeded, set 1
                     output.push(format!("{}:", if_true_label));
                     output.push(format!("  store i1 1, i1* %{}", alloca_var));
                     output.push(format!("  br label %{}", endif_label));
@@ -379,7 +380,7 @@ fn generate_code_statement(
                         strncmp_false_compare_var, if_false_label, else_label
                     ));
 
-                    // Else if branch (compare "false" succeeded)
+                    // elseif branch - compare "false" succeeded, set 0
                     output.push(format!("{}:", if_false_label));
                     output.push(format!("  store i1 0, i1* %{}", alloca_var));
                     output.push(format!("  br label %{}", endif_label));
@@ -389,9 +390,10 @@ fn generate_code_statement(
                     output.push("  call void @exit(i32 noundef 1)".into());
                     output.push("  unreachable".into());
 
-                    // Endif
+                    // endif
                     output.push(format!("{}:", endif_label));
 
+                    // Load stored variable
                     let load_var = increment_temp_var(temp_var);
                     output.push(format!("  %{} = load i1, i1* %{}", load_var, alloca_var));
 
