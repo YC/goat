@@ -7,8 +7,6 @@ use crate::semantic::{eval_expression_scalar, ProcedureSymbols, SymbolTable};
 const SPACE_2: &str = "  ";
 type ConvertedStringConst = (usize, String);
 
-// TODO: functions with '
-
 pub fn generate_code(program: &GoatProgram, symbol_table: &SymbolTable) -> String {
     let mut output = vec![
         "@format.int = private unnamed_addr constant [3 x i8] c\"%d\\00\"".to_owned(),
@@ -57,7 +55,7 @@ fn generate_code_proc(
     output.push(format!(
         "define dso_local {} @{}({}) {{ ; proc {}({})",
         return_type,
-        procedure.identifier.node,
+        print_identifier_name(&procedure.identifier.node),
         parameters_declaration,
         // comment
         procedure.identifier.node,
@@ -328,7 +326,10 @@ fn generate_code_assign(
                     // store i32 %value_source, i32* %decl_dest
                     output.push(format!(
                         "  store {} %{}, {}* %{}",
-                        variable_type, expr_value_var, variable_type, identifier.node
+                        variable_type,
+                        expr_value_var,
+                        variable_type,
+                        print_identifier_name(&identifier.node)
                     ));
                 }
                 ParameterPassIndicator::Ref => {
@@ -357,7 +358,13 @@ fn generate_code_assign(
             *temp_var += 1;
             output.push(format!(
                 "  %{} = getelementptr inbounds [{} x {}], [{} x {}]* %{}, i64 0, i64 %{}",
-                address_var, m, variable_type, m, variable_type, identifier.node, convert_var
+                address_var,
+                m,
+                variable_type,
+                m,
+                variable_type,
+                print_identifier_name(&identifier.node),
+                convert_var
             ));
 
             // store i32 %<expr-value>, i32* %5, align 4                                            ; store
@@ -398,7 +405,15 @@ fn generate_code_assign(
             *temp_var += 1;
             output.push(format!(
                 "  %{} = getelementptr inbounds [{} x [{} x {}]], [{} x [{} x {}]]* %{}, i64 0, i64 %{}",
-                address_var_1, m, n, variable_type, m, n, variable_type, identifier.node, convert_var_m
+                address_var_1,
+                m,
+                n,
+                variable_type,
+                m,
+                n,
+                variable_type,
+                print_identifier_name(&identifier.node),
+                convert_var_m
             ));
             output.push(format!(
                 "  %{} = getelementptr inbounds [{} x {}], [{} x {}]* %{}, i64 0, i64 %{}",
@@ -585,7 +600,10 @@ fn generate_code_expression(
 
                             output.push(format!(
                                 "  %{} = load {}, {}* %{}",
-                                load_var, variable_type, variable_type, identifier.node
+                                load_var,
+                                variable_type,
+                                variable_type,
+                                print_identifier_name(&identifier.node)
                             ));
                             load_var
                         }
@@ -599,7 +617,10 @@ fn generate_code_expression(
 
                             output.push(format!(
                                 "  %{} = load {}*, {}** %{}",
-                                load_var1, variable_type, variable_type, identifier.node
+                                load_var1,
+                                variable_type,
+                                variable_type,
+                                print_identifier_name(&identifier.node)
                             ));
                             output.push(format!(
                                 "  %{} = load {}, {}* %{}",
@@ -634,7 +655,13 @@ fn generate_code_expression(
                     output.push(format!("  %{} = sext i32 %{} to i64", convert_var, expr_var));
                     output.push(format!(
                         "  %{} = getelementptr inbounds [{} x {}], [{} x {}]* %{}, i64 0, i64 %{}",
-                        address_var, m, variable_type, m, variable_type, identifier.node, convert_var
+                        address_var,
+                        m,
+                        variable_type,
+                        m,
+                        variable_type,
+                        print_identifier_name(&identifier.node),
+                        convert_var
                     ));
                     output.push(format!(
                         "  %{} = load {}, {}* %{}",
@@ -676,7 +703,15 @@ fn generate_code_expression(
                     *temp_var += 1;
                     output.push(format!(
                         "  %{} = getelementptr inbounds [{} x [{} x {}]], [{} x [{} x {}]]* %{}, i64 0, i64 %{}",
-                        address_var_1, m, n, variable_type, m, n, variable_type, identifier.node, convert_var_m
+                        address_var_1,
+                        m,
+                        n,
+                        variable_type,
+                        m,
+                        n,
+                        variable_type,
+                        print_identifier_name(&identifier.node),
+                        convert_var_m
                     ));
                     output.push(format!(
                         "  %{} = getelementptr inbounds [{} x {}], [{} x {}]* %{}, i64 0, i64 %{}",
@@ -712,7 +747,11 @@ fn generate_code_var_declarations(temp_var: &mut usize, declarations: &Vec<Varia
         match &declaration.identifier_declaration {
             IdentifierShapeDeclaration::Identifier(identifier) => {
                 // %1 = alloca i32          ; allocate
-                output.push(format!("  %{} = alloca {}", identifier.node, var_type));
+                output.push(format!(
+                    "  %{} = alloca {}",
+                    print_identifier_name(&identifier.node),
+                    var_type
+                ));
                 // store i32 0, i32* %1     ; initialise with value of 0
                 output.push(format!(
                     "  store {} {}, {}* %{}",
@@ -723,12 +762,17 @@ fn generate_code_var_declarations(temp_var: &mut usize, declarations: &Vec<Varia
                         "0"
                     },
                     var_type,
-                    identifier.node
+                    print_identifier_name(&identifier.node)
                 ));
             }
             IdentifierShapeDeclaration::IdentifierArray(identifier, n) => {
                 // %1 = alloca [n x i32]
-                output.push(format!("  %{} = alloca [{} x {}]", identifier.node, n, var_type));
+                output.push(format!(
+                    "  %{} = alloca [{} x {}]",
+                    print_identifier_name(&identifier.node),
+                    n,
+                    var_type
+                ));
 
                 let type_size = match declaration.r#type {
                     VariableType::Bool => 1,
@@ -743,7 +787,10 @@ fn generate_code_var_declarations(temp_var: &mut usize, declarations: &Vec<Varia
 
                 output.push(format!(
                     "  %{} = bitcast [{} x {}]* %{} to i8*",
-                    bitcast_var, n, var_type, identifier.node
+                    bitcast_var,
+                    n,
+                    var_type,
+                    print_identifier_name(&identifier.node)
                 ));
                 output.push(format!(
                     "  call void @llvm.memset.p0i8.i64(i8* %{}, i8 0, i64 {}, i1 false)",
@@ -755,7 +802,10 @@ fn generate_code_var_declarations(temp_var: &mut usize, declarations: &Vec<Varia
                 // %1 = alloca [m x [n x i32]]
                 output.push(format!(
                     "  %{} = alloca [{} x [{} x {}]]",
-                    identifier.node, m, n, var_type
+                    print_identifier_name(&identifier.node),
+                    m,
+                    n,
+                    var_type
                 ));
 
                 let type_size = match declaration.r#type {
@@ -771,7 +821,11 @@ fn generate_code_var_declarations(temp_var: &mut usize, declarations: &Vec<Varia
 
                 output.push(format!(
                     "  %{} = bitcast [{} x [{} x {}]]* %{} to i8*",
-                    bitcast_var, m, n, var_type, identifier.node
+                    bitcast_var,
+                    m,
+                    n,
+                    var_type,
+                    print_identifier_name(&identifier.node)
                 ));
                 output.push(format!(
                     "  call void @llvm.memset.p0i8.i64(i8* %{}, i8 0, i64 {}, i1 false)",
@@ -807,14 +861,21 @@ fn generate_code_formal_parameters(temp_var: &mut usize, parameters: &Vec<Parame
         // %name2 = alloca i32* (ref)
         stores.push(format!(
             "  %{} = alloca {}{}",
-            parameter.identifier.node, r#type, passing_indicator
+            print_identifier_name(&parameter.identifier.node),
+            r#type,
+            passing_indicator
         ));
 
         // store i32 %1, i32* %name1 (val)
         // store i32* %2, i32** %name2 (ref)
         stores.push(format!(
             "  store {}{} %{}, {}*{} %{}",
-            r#type, passing_indicator, temp_var, r#type, passing_indicator, parameter.identifier.node
+            r#type,
+            passing_indicator,
+            temp_var,
+            r#type,
+            passing_indicator,
+            print_identifier_name(&parameter.identifier.node)
         ));
     }
 
@@ -837,10 +898,11 @@ fn convert_string_const(string_const: &str) -> ConvertedStringConst {
         .replace("\\r", "\r");
     let bytes = string.bytes();
     let bytes_len = bytes.len();
-    let escaped = bytes.map(|b| map_to_escape(b)).collect::<String>();
+    let escaped = bytes.map(|b| format!("\\{:02x}", b)).collect::<String>();
     (bytes_len + 1, escaped + "\\00")
 }
 
-fn map_to_escape(c: u8) -> String {
-    format!("\\{:02x}", c)
+/// Escapes ' for LLVM variable and function names
+fn print_identifier_name(name: &str) -> String {
+    return "\"".to_owned() + name + "\"";
 }
