@@ -324,12 +324,10 @@ fn generate_code_assign(
             match variable_pass_indicator {
                 ParameterPassIndicator::Val => {
                     // store i32 %value_source, i32* %decl_dest
+                    let identifier_escaped = print_identifier_name(&identifier.node);
                     output.push(format!(
                         "  store {} %{}, {}* %{}",
-                        variable_type,
-                        expr_value_var,
-                        variable_type,
-                        print_identifier_name(&identifier.node)
+                        variable_type, expr_value_var, variable_type, identifier_escaped
                     ));
                 }
                 ParameterPassIndicator::Ref => {
@@ -356,15 +354,10 @@ fn generate_code_assign(
             output.push(format!("  %{} = sext i32 %{} to i64", convert_var, m_expr_var));
             let address_var = *temp_var;
             *temp_var += 1;
+            let identifier_escaped = print_identifier_name(&identifier.node);
             output.push(format!(
                 "  %{} = getelementptr inbounds [{} x {}], [{} x {}]* %{}, i64 0, i64 %{}",
-                address_var,
-                m,
-                variable_type,
-                m,
-                variable_type,
-                print_identifier_name(&identifier.node),
-                convert_var
+                address_var, m, variable_type, m, variable_type, identifier_escaped, convert_var
             ));
 
             // store i32 %<expr-value>, i32* %5, align 4                                            ; store
@@ -403,17 +396,10 @@ fn generate_code_assign(
             *temp_var += 1;
             let address_var_2 = *temp_var;
             *temp_var += 1;
+            let identifier_escaped = print_identifier_name(&identifier.node);
             output.push(format!(
                 "  %{} = getelementptr inbounds [{} x [{} x {}]], [{} x [{} x {}]]* %{}, i64 0, i64 %{}",
-                address_var_1,
-                m,
-                n,
-                variable_type,
-                m,
-                n,
-                variable_type,
-                print_identifier_name(&identifier.node),
-                convert_var_m
+                address_var_1, m, n, variable_type, m, n, variable_type, identifier_escaped, convert_var_m
             ));
             output.push(format!(
                 "  %{} = getelementptr inbounds [{} x {}], [{} x {}]* %{}, i64 0, i64 %{}",
@@ -592,6 +578,8 @@ fn generate_code_expression(
 
             match shape {
                 IdentifierShape::Identifier(identifier) => {
+                    let identifier_escaped = print_identifier_name(&identifier.node);
+
                     match variable_pass_indicator {
                         ParameterPassIndicator::Val => {
                             // %8 = load i32, i32* %identifier      ; load value of identifier (ptr) into temp var
@@ -600,10 +588,7 @@ fn generate_code_expression(
 
                             output.push(format!(
                                 "  %{} = load {}, {}* %{}",
-                                load_var,
-                                variable_type,
-                                variable_type,
-                                print_identifier_name(&identifier.node)
+                                load_var, variable_type, variable_type, identifier_escaped
                             ));
                             load_var
                         }
@@ -617,10 +602,7 @@ fn generate_code_expression(
 
                             output.push(format!(
                                 "  %{} = load {}*, {}** %{}",
-                                load_var1,
-                                variable_type,
-                                variable_type,
-                                print_identifier_name(&identifier.node)
+                                load_var1, variable_type, variable_type, identifier_escaped
                             ));
                             output.push(format!(
                                 "  %{} = load {}, {}* %{}",
@@ -652,16 +634,11 @@ fn generate_code_expression(
                     let load_var = *temp_var;
                     *temp_var += 1;
 
+                    let identifier_escaped = print_identifier_name(&identifier.node);
                     output.push(format!("  %{} = sext i32 %{} to i64", convert_var, expr_var));
                     output.push(format!(
                         "  %{} = getelementptr inbounds [{} x {}], [{} x {}]* %{}, i64 0, i64 %{}",
-                        address_var,
-                        m,
-                        variable_type,
-                        m,
-                        variable_type,
-                        print_identifier_name(&identifier.node),
-                        convert_var
+                        address_var, m, variable_type, m, variable_type, identifier_escaped, convert_var
                     ));
                     output.push(format!(
                         "  %{} = load {}, {}* %{}",
@@ -697,21 +674,14 @@ fn generate_code_expression(
 
                     // %7 = getelementptr inbounds [30 x [30 x i32]], [30 x [30 x i32]]* %1, i64 0, i64 %m
                     // %8 = getelementptr inbounds [30 x i32], [30 x i32]* %7, i64 0, i64 %n
+                    let identifier_escaped = print_identifier_name(&identifier.node);
                     let address_var_1 = *temp_var;
                     *temp_var += 1;
                     let address_var_2 = *temp_var;
                     *temp_var += 1;
                     output.push(format!(
                         "  %{} = getelementptr inbounds [{} x [{} x {}]], [{} x [{} x {}]]* %{}, i64 0, i64 %{}",
-                        address_var_1,
-                        m,
-                        n,
-                        variable_type,
-                        m,
-                        n,
-                        variable_type,
-                        print_identifier_name(&identifier.node),
-                        convert_var_m
+                        address_var_1, m, n, variable_type, m, n, variable_type, identifier_escaped, convert_var_m
                     ));
                     output.push(format!(
                         "  %{} = getelementptr inbounds [{} x {}], [{} x {}]* %{}, i64 0, i64 %{}",
@@ -747,11 +717,8 @@ fn generate_code_var_declarations(temp_var: &mut usize, declarations: &Vec<Varia
         match &declaration.identifier_declaration {
             IdentifierShapeDeclaration::Identifier(identifier) => {
                 // %1 = alloca i32          ; allocate
-                output.push(format!(
-                    "  %{} = alloca {}",
-                    print_identifier_name(&identifier.node),
-                    var_type
-                ));
+                let identifier_escaped = print_identifier_name(&identifier.node);
+                output.push(format!("  %{} = alloca {}", identifier_escaped, var_type));
                 // store i32 0, i32* %1     ; initialise with value of 0
                 output.push(format!(
                     "  store {} {}, {}* %{}",
@@ -762,17 +729,13 @@ fn generate_code_var_declarations(temp_var: &mut usize, declarations: &Vec<Varia
                         "0"
                     },
                     var_type,
-                    print_identifier_name(&identifier.node)
+                    identifier_escaped,
                 ));
             }
             IdentifierShapeDeclaration::IdentifierArray(identifier, n) => {
                 // %1 = alloca [n x i32]
-                output.push(format!(
-                    "  %{} = alloca [{} x {}]",
-                    print_identifier_name(&identifier.node),
-                    n,
-                    var_type
-                ));
+                let identifier_escaped = print_identifier_name(&identifier.node);
+                output.push(format!("  %{} = alloca [{} x {}]", identifier_escaped, n, var_type));
 
                 let type_size = match declaration.r#type {
                     VariableType::Bool => 1,
@@ -787,10 +750,7 @@ fn generate_code_var_declarations(temp_var: &mut usize, declarations: &Vec<Varia
 
                 output.push(format!(
                     "  %{} = bitcast [{} x {}]* %{} to i8*",
-                    bitcast_var,
-                    n,
-                    var_type,
-                    print_identifier_name(&identifier.node)
+                    bitcast_var, n, var_type, identifier_escaped,
                 ));
                 output.push(format!(
                     "  call void @llvm.memset.p0i8.i64(i8* %{}, i8 0, i64 {}, i1 false)",
@@ -800,12 +760,10 @@ fn generate_code_var_declarations(temp_var: &mut usize, declarations: &Vec<Varia
             }
             IdentifierShapeDeclaration::IdentifierArray2D(identifier, m, n) => {
                 // %1 = alloca [m x [n x i32]]
+                let identifier_escaped = print_identifier_name(&identifier.node);
                 output.push(format!(
                     "  %{} = alloca [{} x [{} x {}]]",
-                    print_identifier_name(&identifier.node),
-                    m,
-                    n,
-                    var_type
+                    identifier_escaped, m, n, var_type
                 ));
 
                 let type_size = match declaration.r#type {
@@ -821,11 +779,7 @@ fn generate_code_var_declarations(temp_var: &mut usize, declarations: &Vec<Varia
 
                 output.push(format!(
                     "  %{} = bitcast [{} x [{} x {}]]* %{} to i8*",
-                    bitcast_var,
-                    m,
-                    n,
-                    var_type,
-                    print_identifier_name(&identifier.node)
+                    bitcast_var, m, n, var_type, identifier_escaped,
                 ));
                 output.push(format!(
                     "  call void @llvm.memset.p0i8.i64(i8* %{}, i8 0, i64 {}, i1 false)",
@@ -849,6 +803,7 @@ fn generate_code_formal_parameters(temp_var: &mut usize, parameters: &Vec<Parame
             ParameterPassIndicator::Ref => "*",
             ParameterPassIndicator::Val => "",
         };
+        let identifier_escaped = print_identifier_name(&parameter.identifier.node);
 
         let var_num = *temp_var;
         *temp_var += 1;
@@ -861,21 +816,14 @@ fn generate_code_formal_parameters(temp_var: &mut usize, parameters: &Vec<Parame
         // %name2 = alloca i32* (ref)
         stores.push(format!(
             "  %{} = alloca {}{}",
-            print_identifier_name(&parameter.identifier.node),
-            r#type,
-            passing_indicator
+            identifier_escaped, r#type, passing_indicator
         ));
 
         // store i32 %1, i32* %name1 (val)
         // store i32* %2, i32** %name2 (ref)
         stores.push(format!(
             "  store {}{} %{}, {}*{} %{}",
-            r#type,
-            passing_indicator,
-            temp_var,
-            r#type,
-            passing_indicator,
-            print_identifier_name(&parameter.identifier.node)
+            r#type, passing_indicator, temp_var, r#type, passing_indicator, identifier_escaped
         ));
     }
 
