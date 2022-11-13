@@ -537,10 +537,7 @@ fn construct_regex() -> Vec<(RegEx, (u64, Box<TokenFunction>))> {
             RegEx::Charset(Charset::CharRange('0', '9')),
             RegEx::Star(Box::new(RegEx::Charset(Charset::CharRange('0', '9')))),
         ]),
-        (
-            3,
-            Box::new(|s| Ok(Token::IntConst(s.parse::<i32>()?))),
-        ),
+        (3, Box::new(|s| Ok(Token::IntConst(s.parse::<i32>()?)))),
     ));
 
     // FloatConst

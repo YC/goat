@@ -1,6 +1,6 @@
 use crate::ast::{
     Expression, GoatProgram, IdentifierShape, IdentifierShapeDeclaration, Node, Parameter, ParameterPassIndicator,
-    Procedure, Statement, VariableDeclaration, VariableType,
+    Procedure, Statement, Unop, VariableDeclaration, VariableType,
 };
 use crate::semantic::{eval_expression_scalar, ProcedureSymbols, SymbolTable};
 
@@ -321,18 +321,30 @@ fn generate_code_assign(
 
     match identifier_shape {
         IdentifierShape::Identifier(identifier) => {
+            let identifier_escaped = print_identifier_name(&identifier.node);
+
             match variable_pass_indicator {
                 ParameterPassIndicator::Val => {
                     // store i32 %value_source, i32* %decl_dest
-                    let identifier_escaped = print_identifier_name(&identifier.node);
                     output.push(format!(
                         "  store {} %{}, {}* %{}",
                         variable_type, expr_value_var, variable_type, identifier_escaped
                     ));
                 }
                 ParameterPassIndicator::Ref => {
-                    // TODO: ref assign
-                    panic!("huh?");
+                    // %9 = load i32*, i32** %identifier    ; load identifier** into ptr
+                    // store i32 %9, i32* %decl_dest        ; store value to ptr
+                    let load_var1 = *temp_var;
+                    *temp_var += 1;
+
+                    output.push(format!(
+                        "  %{} = load {}*, {}** %{}",
+                        load_var1, variable_type, variable_type, identifier_escaped
+                    ));
+                    output.push(format!(
+                        "  store {} %{}, {}* %{}",
+                        variable_type, expr_value_var, variable_type, load_var1
+                    ));
                 }
             }
         }
@@ -700,7 +712,17 @@ fn generate_code_expression(
             }
         }
         // TODO: unop
-        Expression::UnopExpr(_, _) => 1004,
+        Expression::UnopExpr(Unop::Minus, _) => 1004,
+        Expression::UnopExpr(Unop::NOT, expr) => {
+            let (expr_var, mut expr_code) = generate_code_expression(temp_var, procedure_symbols, &expr.node);
+            output.append(&mut expr_code);
+
+            // %5 = xor i1 %4, true (exclusive or with true)
+            let negate_var = *temp_var;
+            *temp_var += 1;
+            output.push(format!("  %{} = xor i1 %{}, true", negate_var, expr_var));
+            negate_var
+        }
         // TODO: binop
         Expression::BinopExpr(_, _, _) => 1005,
     };
