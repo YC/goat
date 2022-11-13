@@ -263,7 +263,6 @@ fn generate_code_statement(
         Statement::Write(expr) => {
             output.append(&mut generate_code_write(strings, temp_var, procedure_symbols, expr));
         }
-        // TODO: reads
         Statement::Read(shape) => {
             let (_, variable_info) = determine_shape_info(procedure_symbols, shape);
 
@@ -276,7 +275,10 @@ fn generate_code_statement(
                     // %1 = alloca i32, align 4
                     output.push(format!("  %{} = alloca i32", alloca_var));
                     // %2 = call i32 (i8*, ...) @__isoc99_scanf(i8* noundef getelementptr inbounds ([3 x i8], [3 x i8]* @.str, i64 0, i64 0), i32* noundef %1)
-                    output.push(format!("  %{} = call i32 (i8*, ...) @__isoc99_scanf(i8* noundef getelementptr inbounds ([3 x i8], [3 x i8]* @format.int, i64 0, i64 0), i32* noundef %{})", assign_ret_var, alloca_var));
+                    output.push(
+                        format!("  %{} = call i32 (i8*, ...) @__isoc99_scanf(i8* noundef getelementptr inbounds ([3 x i8], [3 x i8]* @format.int, i64 0, i64 0), i32* noundef %{})",
+                            assign_ret_var, alloca_var)
+                    );
                     // %3 = load i32, i32* %2
                     output.push(format!("  %{} = load i32, i32* %{}", load_var, alloca_var));
 
@@ -286,9 +288,27 @@ fn generate_code_statement(
                     output.append(&mut code_assign_code);
                 }
                 VariableType::Float => {
-                    panic!("not supported");
+                    let alloca_var = increment_temp_var(temp_var);
+                    let assign_ret_var = increment_temp_var(temp_var);
+                    let load_var = increment_temp_var(temp_var);
+
+                    // %1 = alloca float, align 4
+                    output.push(format!("  %{} = alloca float", alloca_var));
+                    // %2 = call i32 (i8*, ...) @__isoc99_scanf(i8* noundef getelementptr inbounds ([3 x i8], [3 x i8]* @.str, i64 0, i64 0), float* noundef %1)
+                    output.push(
+                        format!("  %{} = call i32 (i8*, ...) @__isoc99_scanf(i8* noundef getelementptr inbounds ([3 x i8], [3 x i8]* @format.float, i64 0, i64 0), float* noundef %{})",
+                            assign_ret_var, alloca_var)
+                    );
+                    // %3 = load float, float* %2
+                    output.push(format!("  %{} = load float, float* %{}", load_var, alloca_var));
+
+                    // Assign
+                    let mut code_assign_code =
+                        generate_code_assign_var(temp_var, procedure_symbols, shape, VariableType::Float, load_var);
+                    output.append(&mut code_assign_code);
                 }
                 VariableType::Bool => {
+                    // TODO: read bool
                     panic!("not supported");
                 }
             }
