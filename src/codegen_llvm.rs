@@ -1,6 +1,6 @@
 use crate::ast::{
-    Expression, GoatProgram, IdentifierShape, IdentifierShapeDeclaration, Node, Parameter, ParameterPassIndicator,
-    Procedure, Statement, Unop, VariableDeclaration, VariableType,
+    Binop, Expression, GoatProgram, IdentifierShape, IdentifierShapeDeclaration, Node, Parameter,
+    ParameterPassIndicator, Procedure, Statement, Unop, VariableDeclaration, VariableType,
 };
 use crate::semantic::{eval_expression_scalar, ProcedureSymbols, SymbolTable, VariableInfo};
 
@@ -834,8 +834,87 @@ fn generate_code_expression(
             output.push(format!("  %{} = xor i1 %{}, true", negate_var, expr_var));
             negate_var
         }
+        Expression::BinopExpr(Binop::AND, expr1, expr2) => {
+            // alloca
+            let alloca_var = increment_temp_var(temp_var);
+            output.push(format!("  %{} = alloca i1", alloca_var));
+
+            // lhs
+            let (expr1_var, mut expr1_code) = generate_code_expression(temp_var, procedure_symbols, &expr1.node);
+            output.append(&mut expr1_code);
+            let lhs_false_label = increment_temp_var(temp_var);
+
+            let rhs_label = increment_temp_var(temp_var);
+            let (expr2_var, mut expr2_code) = generate_code_expression(temp_var, procedure_symbols, &expr2.node);
+            let end_label = increment_temp_var(temp_var);
+
+            // If lhs is true, then need to check whether rhs is true
+            output.push(format!(
+                "  br i1 %{}, label %{}, label %{}",
+                expr1_var, rhs_label, lhs_false_label
+            ));
+
+            // lhs is false, whole condition is false
+            output.push(format!("{}:", lhs_false_label));
+            output.push(format!("  store i1 0, i1* %{}", alloca_var));
+            output.push(format!("  br label %{}", end_label));
+
+            // otherwise, keep value of rhs
+            output.push(format!("{}:", rhs_label));
+            output.append(&mut expr2_code);
+            output.push(format!("  store i1 %{}, i1* %{}", expr2_var, alloca_var));
+            output.push(format!("  br label %{}", end_label));
+
+            // end
+            output.push(format!("{}:", end_label));
+            let final_var = increment_temp_var(temp_var);
+            output.push(format!("  %{} = load i1, i1* %{}", final_var, alloca_var));
+            final_var
+        }
+        Expression::BinopExpr(Binop::OR, expr1, expr2) => {
+            // alloca
+            let alloca_var = increment_temp_var(temp_var);
+            output.push(format!("  %{} = alloca i1", alloca_var));
+
+            // lhs
+            let (expr1_var, mut expr1_code) = generate_code_expression(temp_var, procedure_symbols, &expr1.node);
+            output.append(&mut expr1_code);
+            let lhs_true_label = increment_temp_var(temp_var);
+
+            let rhs_label = increment_temp_var(temp_var);
+            let (expr2_var, mut expr2_code) = generate_code_expression(temp_var, procedure_symbols, &expr2.node);
+            let end_label = increment_temp_var(temp_var);
+
+            // If lhs is true, can return true. Otherwise, need to check rhs.
+            output.push(format!(
+                "  br i1 %{}, label %{}, label %{}",
+                expr1_var, lhs_true_label, rhs_label
+            ));
+
+            // lhs is true, while condition is true
+            output.push(format!("{}:", lhs_true_label));
+            output.push(format!("  store i1 1, i1* %{}", alloca_var));
+            output.push(format!("  br label %{}", end_label));
+
+            // rhs
+            output.push(format!("{}:", rhs_label));
+            output.append(&mut expr2_code);
+            output.push(format!("  store i1 %{}, i1* %{}", expr2_var, alloca_var));
+            output.push(format!("  br label %{}", end_label));
+
+            // end
+            output.push(format!("{}:", end_label));
+            let final_var = increment_temp_var(temp_var);
+            output.push(format!("  %{} = load i1, i1* %{}", final_var, alloca_var));
+            final_var
+        }
         // TODO: binop
-        Expression::BinopExpr(_, _, _) => 1005,
+        Expression::BinopExpr(op @ (Binop::Add | Binop::Minus | Binop::Multiply | Binop::Divide), _, _) => 1005,
+        Expression::BinopExpr(
+            op @ (Binop::LT | Binop::LTE | Binop::GT | Binop::GTE | Binop::EQ | Binop::NEQ),
+            expr1,
+            expr2,
+        ) => 1000,
     };
 
     (var_num, output)

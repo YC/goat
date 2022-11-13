@@ -378,7 +378,7 @@ fn parse_expression_or(tokens: &Vec<TokenInfo>, index: &mut usize) -> Result<Nod
 fn parse_expression_and(tokens: &Vec<TokenInfo>, index: &mut usize) -> Result<Node<Expression>, Box<dyn Error>> {
     let mut current = parse_expression_not(tokens, index)?;
 
-    while peek_next(tokens, *index)?.0 == Token::ADD {
+    while peek_next(tokens, *index)?.0 == Token::AND {
         let token_location = match_next(tokens, Token::AND, index)?;
         let right = parse_expression_not(tokens, index)?;
         current = Node {

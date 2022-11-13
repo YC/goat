@@ -129,6 +129,7 @@ fn main() -> process::ExitCode {
             .arg("-o")
             .arg(outfile)
             .arg(&ll_path)
+            .stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .output()
             .expect("failed to execute llvm");
