@@ -277,11 +277,13 @@ fn generate_code_statement(
 
                     // %1 = alloca i32, align 4
                     output.push(format!("  %{} = alloca i32", alloca_var));
-                    // %2 = call i32 (i8*, ...) @__isoc99_scanf(i8* noundef getelementptr inbounds ([3 x i8], [3 x i8]* @.str, i64 0, i64 0), i32* noundef %1)
-                    output.push(
-                        format!("  %{} = call i32 (i8*, ...) @__isoc99_scanf(i8* noundef getelementptr inbounds ([3 x i8], [3 x i8]* @format.int, i64 0, i64 0), i32* noundef %{})",
-                            assign_ret_var, alloca_var)
-                    );
+                    // %2 = call i32 (i8*, ...) @__isoc99_scanf(i8* noundef getelementptr inbounds
+                    //      ([3 x i8], [3 x i8]* @.str, i64 0, i64 0), i32* noundef %1)
+                    output.push(format!(
+                        "  %{} = call i32 (i8*, ...) @__isoc99_scanf(i8* noundef getelementptr inbounds \
+                            ([3 x i8], [3 x i8]* @format.int, i64 0, i64 0), i32* noundef %{})",
+                        assign_ret_var, alloca_var
+                    ));
                     // %3 = load i32, i32* %2
                     output.push(format!("  %{} = load i32, i32* %{}", load_var, alloca_var));
 
@@ -297,11 +299,13 @@ fn generate_code_statement(
 
                     // %1 = alloca float, align 4
                     output.push(format!("  %{} = alloca float", alloca_var));
-                    // %2 = call i32 (i8*, ...) @__isoc99_scanf(i8* noundef getelementptr inbounds ([3 x i8], [3 x i8]* @.str, i64 0, i64 0), float* noundef %1)
-                    output.push(
-                        format!("  %{} = call i32 (i8*, ...) @__isoc99_scanf(i8* noundef getelementptr inbounds ([3 x i8], [3 x i8]* @format.float, i64 0, i64 0), float* noundef %{})",
-                            assign_ret_var, alloca_var)
-                    );
+                    // %2 = call i32 (i8*, ...) @__isoc99_scanf(i8* noundef getelementptr inbounds
+                    //      ([3 x i8], [3 x i8]* @.str, i64 0, i64 0), float* noundef %1)
+                    output.push(format!(
+                        "  %{} = call i32 (i8*, ...) @__isoc99_scanf(i8* noundef getelementptr inbounds \
+                            ([3 x i8], [3 x i8]* @format.float, i64 0, i64 0), float* noundef %{})",
+                        assign_ret_var, alloca_var
+                    ));
                     // %3 = load float, float* %2
                     output.push(format!("  %{} = load float, float* %{}", load_var, alloca_var));
 
@@ -325,20 +329,24 @@ fn generate_code_statement(
                         "  %{} = getelementptr inbounds [6 x i8], [6 x i8]* %{}, i64 0, i64 0",
                         read_buf_ptr_var, read_buf_var
                     ));
-                    // %4 = call i32 (i8*, ...) @__isoc99_scanf(i8* noundef getelementptr inbounds ([4 x i8], [4 x i8]* @format.bool, i64 0, i64 0), i8* noundef %3)
-                    output.push(
-                        format!("  %{} = call i32 (i8*, ...) @__isoc99_scanf(i8* noundef getelementptr inbounds ([4 x i8], [4 x i8]* @format.bool, i64 0, i64 0), i8* noundef %{})",
-                            scanf_ret_var, read_buf_ptr_var)
-                    );
+                    // %4 = call i32 (i8*, ...) @__isoc99_scanf(i8* noundef getelementptr inbounds
+                    //      ([4 x i8], [4 x i8]* @format.bool, i64 0, i64 0), i8* noundef %3)
+                    output.push(format!(
+                        "  %{} = call i32 (i8*, ...) @__isoc99_scanf(i8* noundef getelementptr inbounds \
+                            ([4 x i8], [4 x i8]* @format.bool, i64 0, i64 0), i8* noundef %{})",
+                        scanf_ret_var, read_buf_ptr_var
+                    ));
 
                     // if <scanf-value> == "true" (with strncmp)
-                    // %6 = call i32 @strncmp(i8* noundef %5, i8* noundef getelementptr inbounds ([5 x i8], [5 x i8]* @.str.1, i64 0, i64 0), i64 noundef 4) #3
+                    // %6 = call i32 @strncmp(i8* noundef %5, i8* noundef getelementptr inbounds
+                    //      ([5 x i8], [5 x i8]* @.str.1, i64 0, i64 0), i64 noundef 4) #3
                     // %7 = icmp eq i32 %6, 0
                     let strncmp_true_var = increment_temp_var(temp_var);
-                    output.push(
-                        format!("  %{} = call i32 @strncmp(i8* noundef %{}, i8* noundef getelementptr inbounds ([5 x i8], [5 x i8]* @format.true, i64 0, i64 0), i64 noundef 4)",
-                            strncmp_true_var, read_buf_ptr_var)
-                    );
+                    output.push(format!(
+                        "  %{} = call i32 @strncmp(i8* noundef %{}, i8* noundef getelementptr inbounds \
+                            ([5 x i8], [5 x i8]* @format.true, i64 0, i64 0), i64 noundef 4)",
+                        strncmp_true_var, read_buf_ptr_var
+                    ));
                     let strncmp_true_compare_var = increment_temp_var(temp_var);
                     output.push(format!(
                         "  %{} = icmp eq i32 %{}, 0",
@@ -367,10 +375,11 @@ fn generate_code_statement(
 
                     // Compare "false"
                     output.push(format!("{}:", compare_false_label));
-                    output.push(
-                        format!("  %{} = call i32 @strncmp(i8* noundef %{}, i8* noundef getelementptr inbounds ([6 x i8], [6 x i8]* @format.false, i64 0, i64 0), i64 noundef 5)",
-                            strncmp_false_var, read_buf_ptr_var)
-                    );
+                    output.push(format!(
+                        "  %{} = call i32 @strncmp(i8* noundef %{}, i8* noundef getelementptr inbounds \
+                                ([6 x i8], [6 x i8]* @format.false, i64 0, i64 0), i64 noundef 5)",
+                        strncmp_false_var, read_buf_ptr_var
+                    ));
                     output.push(format!(
                         "  %{} = icmp eq i32 %{}, 0",
                         strncmp_false_compare_var, strncmp_false_var
@@ -562,10 +571,11 @@ fn generate_code_write(
         let str_const_index = strings.len();
         strings.push(converted);
 
-        output.push(
-            format!("  %{} = call i32 (i8*, ...) @printf(i8* noundef getelementptr inbounds ([{} x i8], [{} x i8]* @strconst.{}, i64 0, i64 0))",
-                print_return_num, str_const_len, str_const_len, str_const_index)
-        );
+        output.push(format!(
+            "  %{} = call i32 (i8*, ...) @printf(i8* noundef getelementptr \
+                inbounds ([{} x i8], [{} x i8]* @strconst.{}, i64 0, i64 0))",
+            print_return_num, str_const_len, str_const_len, str_const_index
+        ));
         return output;
     }
 
@@ -589,18 +599,20 @@ fn generate_code_write(
 
             // If true
             output.push(format!("{}:\t\t\t\t; if bool", if_label));
-            output.push(
-                format!("  %{} = call i32 (i8*, ...) @printf(i8* noundef getelementptr inbounds ([5 x i8], [5 x i8]* @format.true, i64 0, i64 0))",
-               print_return_num1)
-            );
+            output.push(format!(
+                "  %{} = call i32 (i8*, ...) @printf(i8* noundef getelementptr inbounds \
+                    ([5 x i8], [5 x i8]* @format.true, i64 0, i64 0))",
+                print_return_num1
+            ));
             output.push(format!("  br label %{}", endif_label));
 
             // Else false
             output.push(format!("{}:\t\t\t\t; else bool", else_label));
-            output.push(
-                format!("  %{} = call i32 (i8*, ...) @printf(i8* noundef getelementptr inbounds ([6 x i8], [6 x i8]* @format.false, i64 0, i64 0))",
-                    print_return_num2)
-            );
+            output.push(format!(
+                "  %{} = call i32 (i8*, ...) @printf(i8* noundef getelementptr inbounds \
+                    ([6 x i8], [6 x i8]* @format.false, i64 0, i64 0))",
+                print_return_num2
+            ));
             output.push(format!("  br label %{}", endif_label));
 
             // After endif
@@ -615,17 +627,19 @@ fn generate_code_write(
             ));
 
             let print_return_num = increment_temp_var(temp_var);
-            output.push(
-                format!("  %{} = call i32 (i8*, ...) @printf(i8* noundef getelementptr inbounds ([3 x i8], [3 x i8]* @format.float, i64 0, i64 0), double noundef %{})",
-                    print_return_num, convert_double_var)
-            );
+            output.push(format!(
+                "  %{} = call i32 (i8*, ...) @printf(i8* noundef getelementptr inbounds \
+                    ([3 x i8], [3 x i8]* @format.float, i64 0, i64 0), double noundef %{})",
+                print_return_num, convert_double_var
+            ));
         }
         VariableType::Int => {
             let print_return_num = increment_temp_var(temp_var);
-            output.push(
-                format!("  %{} = call i32 (i8*, ...) @printf(i8* noundef getelementptr inbounds ([3 x i8], [3 x i8]* @format.int, i64 0, i64 0), i32 noundef %{})",
-                print_return_num, expr_var)
-            );
+            output.push(format!(
+                "  %{} = call i32 (i8*, ...) @printf(i8* noundef getelementptr inbounds \
+                    ([3 x i8], [3 x i8]* @format.int, i64 0, i64 0), i32 noundef %{})",
+                print_return_num, expr_var
+            ));
         }
     }
     output
@@ -721,10 +735,10 @@ fn generate_code_expression(
                         panic!("Expected array");
                     };
 
-                    // %1 = alloca [2 x i32]                                                    ; allocate array (not part of this)
+                    // %1 = alloca [2 x i32]                                                ; allocate array
                     // %v = sext i32 %<expr> to i64
-                    // %3 = getelementptr inbounds [2 x i32], [2 x i32]* %1, i64 0, i64 %v      ; calculate address, second does indexing
-                    // %4 = load i32, i32* %3                                                   ; load value
+                    // %3 = getelementptr inbounds [2 x i32], [2 x i32]* %1, i64 0, i64 %v  ; calculate address
+                    // %4 = load i32, i32* %3                                               ; load value
                     let convert_var = increment_temp_var(temp_var);
                     let address_var = increment_temp_var(temp_var);
                     let load_var = increment_temp_var(temp_var);
@@ -893,7 +907,6 @@ fn generate_code_var_declarations(temp_var: &mut usize, declarations: &Vec<Varia
                 // %2 = bitcast [30 x [30 x i32]]* %1 to i8*
                 // call void @llvm.memset.p0i8.i64(i8* align 16 %2, i8 0, i64 3600, i1 false)
                 let bitcast_var = increment_temp_var(temp_var);
-
                 output.push(format!(
                     "  %{} = bitcast [{} x [{} x {}]]* %{} to i8*",
                     bitcast_var, m, n, var_type, identifier_escaped,
