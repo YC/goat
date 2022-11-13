@@ -539,7 +539,6 @@ fn construct_regex() -> Vec<(RegEx, (u64, Box<TokenFunction>))> {
         ]),
         (
             3,
-            // TODO(later): Better reporting of error
             Box::new(|s| Ok(Token::IntConst(s.parse::<i32>()?))),
         ),
     ));
