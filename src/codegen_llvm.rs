@@ -2,7 +2,7 @@ use crate::ast::{
     Expression, GoatProgram, IdentifierShape, IdentifierShapeDeclaration, Node, Parameter, ParameterPassIndicator,
     Procedure, Statement, Unop, VariableDeclaration, VariableType,
 };
-use crate::semantic::{eval_expression_scalar, ProcedureSymbols, SymbolTable};
+use crate::semantic::{eval_expression_scalar, ProcedureSymbols, SymbolTable, VariableInfo};
 
 const SPACE_2: &str = "  ";
 type ConvertedStringConst = (usize, String);
@@ -14,6 +14,7 @@ pub fn generate_code(program: &GoatProgram, symbol_table: &SymbolTable) -> Strin
         "@format.true = private unnamed_addr constant [5 x i8] c\"true\\00\"".to_owned(),
         "@format.false = private unnamed_addr constant [6 x i8] c\"false\\00\"".to_owned(),
         "declare i32 @printf(i8* noundef, ...)".to_owned(),
+        "declare i32 @__isoc99_scanf(i8* noundef, ...)".to_owned(),
         "declare void @llvm.memset.p0i8.i64(i8* nocapture writeonly, i8, i64, i1 immarg)".to_owned(),
         String::new(),
     ];
@@ -271,8 +272,37 @@ fn generate_code_statement(
             output.append(&mut generate_code_write(strings, temp_var, procedure_symbols, expr));
         }
         // TODO: reads
-        Statement::Read(_) => {
-            output.push("    ; a read statement".to_owned());
+        Statement::Read(shape) => {
+            let (_, variable_info) = determine_shape_info(procedure_symbols, shape);
+
+            match variable_info.r#type {
+                VariableType::Int => {
+                    let alloca_var = *temp_var;
+                    *temp_var += 1;
+                    let assign_ret_var = *temp_var;
+                    *temp_var += 1;
+                    let load_var = *temp_var;
+                    *temp_var += 1;
+
+                    // %1 = alloca i32, align 4
+                    output.push(format!("  %{} = alloca i32", alloca_var));
+                    // %2 = call i32 (i8*, ...) @__isoc99_scanf(i8* noundef getelementptr inbounds ([3 x i8], [3 x i8]* @.str, i64 0, i64 0), i32* noundef %1)
+                    output.push(format!("  %{} = call i32 (i8*, ...) @__isoc99_scanf(i8* noundef getelementptr inbounds ([3 x i8], [3 x i8]* @format.int, i64 0, i64 0), i32* noundef %{})", assign_ret_var, alloca_var));
+                    // %3 = load i32, i32* %2
+                    output.push(format!("  %{} = load i32, i32* %{}", load_var, alloca_var));
+
+                    // Assign
+                    let mut code_assign_code =
+                        generate_code_assign_var(temp_var, procedure_symbols, shape, VariableType::Int, load_var);
+                    output.append(&mut code_assign_code);
+                }
+                VariableType::Float => {
+                    panic!("not supported");
+                }
+                VariableType::Bool => {
+                    panic!("not supported");
+                }
+            }
         }
         // TODO: calls
         Statement::Call(_, _) => {
@@ -292,18 +322,8 @@ fn generate_code_assign_var(
 ) -> Vec<String> {
     let mut output = vec![];
 
-    // Find identifier
-    let identifier = match identifier_shape {
-        IdentifierShape::Identifier(identifier) => identifier,
-        IdentifierShape::IdentifierArray(identifier, _) => identifier,
-        IdentifierShape::IdentifierArray2D(identifier, _, _) => identifier,
-    };
-
-    // Get information about variable
-    let variable_info = procedure_symbols
-        .iter()
-        .find(|v| v.identifier == &identifier.node)
-        .expect("Failed to retrieve variable_info");
+    // Get variable information
+    let (_, variable_info) = determine_shape_info(procedure_symbols, identifier_shape);
     let variable_type = convert_type(variable_info.r#type);
     let variable_pass_indicator = *variable_info.pass_indicator.unwrap_or(&ParameterPassIndicator::Val);
 
@@ -576,18 +596,8 @@ fn generate_code_expression(
         }
         Expression::StringConst(_) => panic!("StringConst is not supported by generate_code_expression"),
         Expression::IdentifierShape(shape) => {
-            // Find identifier
-            let identifier = match shape {
-                IdentifierShape::Identifier(identifier) => identifier,
-                IdentifierShape::IdentifierArray(identifier, _) => identifier,
-                IdentifierShape::IdentifierArray2D(identifier, _, _) => identifier,
-            };
-
-            // Get information about variable
-            let variable_info = procedure_symbols
-                .iter()
-                .find(|v| v.identifier == &identifier.node)
-                .expect("Failed to retrieve variable_info");
+            // Get variable information
+            let (_, variable_info) = determine_shape_info(procedure_symbols, shape);
             let variable_type = convert_type(variable_info.r#type);
             let variable_pass_indicator = *variable_info.pass_indicator.unwrap_or(&ParameterPassIndicator::Val);
 
@@ -839,6 +849,12 @@ fn generate_code_var_declarations(temp_var: &mut usize, declarations: &Vec<Varia
     output
 }
 
+/// Get current value of temp_var and increment by 1
+fn increment_temp_var(temp_var: &mut usize) -> usize {
+    *temp_var += 1;
+    *temp_var - 1
+}
+
 fn generate_code_formal_parameters(temp_var: &mut usize, parameters: &Vec<Parameter>) -> (String, Vec<String>) {
     let mut declarations: Vec<String> = vec![];
     let mut stores = vec![];
@@ -874,6 +890,26 @@ fn generate_code_formal_parameters(temp_var: &mut usize, parameters: &Vec<Parame
     }
 
     (declarations.join(", "), stores)
+}
+
+fn determine_shape_info<'a>(
+    procedure_symbols: &'a ProcedureSymbols,
+    shape: &'a IdentifierShape,
+) -> (&'a str, &'a VariableInfo<'a>) {
+    // Find identifier
+    let identifier = match shape {
+        IdentifierShape::Identifier(identifier) => identifier,
+        IdentifierShape::IdentifierArray(identifier, _) => identifier,
+        IdentifierShape::IdentifierArray2D(identifier, _, _) => identifier,
+    };
+
+    // Get information about variable
+    let variable_info = procedure_symbols
+        .iter()
+        .find(|v| v.identifier == &identifier.node)
+        .expect("Failed to retrieve variable_info");
+
+    (&identifier.node, variable_info)
 }
 
 fn convert_type(r#type: VariableType) -> String {
