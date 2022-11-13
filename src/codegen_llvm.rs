@@ -13,8 +13,11 @@ pub fn generate_code(program: &GoatProgram, symbol_table: &SymbolTable) -> Strin
         "@format.float = private unnamed_addr constant [3 x i8] c\"%f\\00\"".to_owned(),
         "@format.true = private unnamed_addr constant [5 x i8] c\"true\\00\"".to_owned(),
         "@format.false = private unnamed_addr constant [6 x i8] c\"false\\00\"".to_owned(),
+        "@format.bool= private unnamed_addr constant [4 x i8] c\"%5s\\00\"".to_owned(),
+        "declare void @exit(i32 noundef)".to_owned(),
         "declare i32 @printf(i8* noundef, ...)".to_owned(),
         "declare i32 @__isoc99_scanf(i8* noundef, ...)".to_owned(),
+        "declare i32 @strncmp(i8* noundef, i8* noundef, i64 noundef)".to_owned(),
         "declare void @llvm.memset.p0i8.i64(i8* nocapture writeonly, i8, i64, i1 immarg)".to_owned(),
         String::new(),
     ];
@@ -308,8 +311,94 @@ fn generate_code_statement(
                     output.append(&mut code_assign_code);
                 }
                 VariableType::Bool => {
-                    // TODO: read bool
-                    panic!("not supported");
+                    let alloca_var = increment_temp_var(temp_var);
+                    let read_buf_var = increment_temp_var(temp_var);
+                    let read_buf_ptr_var = increment_temp_var(temp_var);
+                    let scanf_ret_var = increment_temp_var(temp_var);
+
+                    // %1 = alloca i1                                                       ; var 'read'
+                    output.push(format!("  %{} = alloca i1", alloca_var));
+                    // %2 = alloca [6 x i8]                                                 ; char*
+                    output.push(format!("  %{} = alloca [6 x i8]", read_buf_var));
+                    // %3 = getelementptr inbounds [6 x i8], [6 x i8]* %2, i64 0, i64 0
+                    output.push(format!(
+                        "  %{} = getelementptr inbounds [6 x i8], [6 x i8]* %{}, i64 0, i64 0",
+                        read_buf_ptr_var, read_buf_var
+                    ));
+                    // %4 = call i32 (i8*, ...) @__isoc99_scanf(i8* noundef getelementptr inbounds ([4 x i8], [4 x i8]* @format.bool, i64 0, i64 0), i8* noundef %3)
+                    output.push(
+                        format!("  %{} = call i32 (i8*, ...) @__isoc99_scanf(i8* noundef getelementptr inbounds ([4 x i8], [4 x i8]* @format.bool, i64 0, i64 0), i8* noundef %{})",
+                            scanf_ret_var, read_buf_ptr_var)
+                    );
+
+                    // if <scanf-value> == "true" (with strncmp)
+                    // %6 = call i32 @strncmp(i8* noundef %5, i8* noundef getelementptr inbounds ([5 x i8], [5 x i8]* @.str.1, i64 0, i64 0), i64 noundef 4) #3
+                    // %7 = icmp eq i32 %6, 0
+                    let strncmp_true_var = increment_temp_var(temp_var);
+                    output.push(
+                        format!("  %{} = call i32 @strncmp(i8* noundef %{}, i8* noundef getelementptr inbounds ([5 x i8], [5 x i8]* @format.true, i64 0, i64 0), i64 noundef 4)",
+                            strncmp_true_var, read_buf_ptr_var)
+                    );
+                    let strncmp_true_compare_var = increment_temp_var(temp_var);
+                    output.push(format!(
+                        "  %{} = icmp eq i32 %{}, 0",
+                        strncmp_true_compare_var, strncmp_true_var
+                    ));
+
+                    // Branch
+                    // br i1 %7, label %8, label %9
+                    let if_true_label = increment_temp_var(temp_var);
+                    let compare_false_label = increment_temp_var(temp_var);
+                    let strncmp_false_var = increment_temp_var(temp_var);
+                    let strncmp_false_compare_var = increment_temp_var(temp_var);
+                    let if_false_label = increment_temp_var(temp_var);
+                    let else_label = increment_temp_var(temp_var);
+                    let endif_label = increment_temp_var(temp_var);
+                    output.push(format!(
+                        "  br i1 %{}, label %{}, label %{}",
+                        strncmp_true_compare_var, if_true_label, compare_false_label
+                    ));
+
+                    // If branch (compare "true" succeeded)
+                    output.push(format!("{}:", if_true_label));
+                    output.push(format!("  store i1 1, i1* %{}", alloca_var));
+                    output.push(format!("  br label %{}", endif_label));
+
+                    // Compare "false"
+                    output.push(format!("{}:", compare_false_label));
+                    output.push(
+                        format!("  %{} = call i32 @strncmp(i8* noundef %{}, i8* noundef getelementptr inbounds ([6 x i8], [6 x i8]* @format.false, i64 0, i64 0), i64 noundef 5)",
+                            strncmp_false_var, read_buf_ptr_var)
+                    );
+                    output.push(format!(
+                        "  %{} = icmp eq i32 %{}, 0",
+                        strncmp_false_compare_var, strncmp_false_var
+                    ));
+                    output.push(format!(
+                        "  br i1 %{}, label %{}, label %{}",
+                        strncmp_false_compare_var, if_false_label, else_label
+                    ));
+
+                    // Else if branch (compare "false" succeeded)
+                    output.push(format!("{}:", if_false_label));
+                    output.push(format!("  store i1 0, i1* %{}", alloca_var));
+                    output.push(format!("  br label %{}", endif_label));
+
+                    // else branch
+                    output.push(format!("{}:", else_label));
+                    output.push("  call void @exit(i32 noundef 1)".into());
+                    output.push("  unreachable".into());
+
+                    // Endif
+                    output.push(format!("{}:", endif_label));
+
+                    let load_var = increment_temp_var(temp_var);
+                    output.push(format!("  %{} = load i1, i1* %{}", load_var, alloca_var));
+
+                    // Assign
+                    let mut code_assign_code =
+                        generate_code_assign_var(temp_var, procedure_symbols, shape, VariableType::Bool, load_var);
+                    output.append(&mut code_assign_code);
                 }
             }
         }
