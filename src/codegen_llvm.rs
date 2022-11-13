@@ -146,14 +146,12 @@ fn generate_code_statement(
             // if: ...
             // br label %endif
             // endif:
-            let if_label = *temp_var;
-            *temp_var += 1;
+            let if_label = increment_temp_var(temp_var);
 
             let mut if_statements_code =
                 generate_code_statements(strings, temp_var, symbol_table, procedure, statements);
 
-            let endif_label = *temp_var;
-            *temp_var += 1;
+            let endif_label = increment_temp_var(temp_var);
 
             // Jump
             output.push(format!(
@@ -181,16 +179,13 @@ fn generate_code_statement(
             // else: ...
             // br label %endif
             // endif:
-            let if_label = *temp_var;
-            *temp_var += 1;
+            let if_label = increment_temp_var(temp_var);
             let mut if_statements_code =
                 generate_code_statements(strings, temp_var, symbol_table, procedure, statements1);
-            let else_label = *temp_var;
-            *temp_var += 1;
+            let else_label = increment_temp_var(temp_var);
             let mut else_statements_code =
                 &mut generate_code_statements(strings, temp_var, symbol_table, procedure, statements2);
-            let endif_label = *temp_var;
-            *temp_var += 1;
+            let endif_label = increment_temp_var(temp_var);
 
             // Jump
             output.push(format!(
@@ -220,13 +215,10 @@ fn generate_code_statement(
             // ...
             // br label %conditional, !llvm.loop !while_body
             // while_end:
-            let conditional_label = *temp_var;
-            *temp_var += 1;
-            let body_label = *temp_var;
-            *temp_var += 1;
+            let conditional_label = increment_temp_var(temp_var);
+            let body_label = increment_temp_var(temp_var);
             let mut while_body_code = generate_code_statements(strings, temp_var, symbol_table, procedure, statements);
-            let endwhile_label = *temp_var;
-            *temp_var += 1;
+            let endwhile_label = increment_temp_var(temp_var);
 
             // Immediate jump to conditional
             output.push(format!("  br label %{}", conditional_label));
@@ -277,12 +269,9 @@ fn generate_code_statement(
 
             match variable_info.r#type {
                 VariableType::Int => {
-                    let alloca_var = *temp_var;
-                    *temp_var += 1;
-                    let assign_ret_var = *temp_var;
-                    *temp_var += 1;
-                    let load_var = *temp_var;
-                    *temp_var += 1;
+                    let alloca_var = increment_temp_var(temp_var);
+                    let assign_ret_var = increment_temp_var(temp_var);
+                    let load_var = increment_temp_var(temp_var);
 
                     // %1 = alloca i32, align 4
                     output.push(format!("  %{} = alloca i32", alloca_var));
@@ -330,8 +319,7 @@ fn generate_code_assign_var(
     // Int to float conversion
     let expr_value_var = if expr_value_type == VariableType::Int && variable_info.r#type == VariableType::Float {
         // %4 = sitofp i32 %3 to float
-        let new_converted_var = *temp_var;
-        *temp_var += 1;
+        let new_converted_var = increment_temp_var(temp_var);
 
         output.push(format!(
             "  %{} = sitofp i32 %{} to float",
@@ -358,8 +346,7 @@ fn generate_code_assign_var(
                 ParameterPassIndicator::Ref => {
                     // %9 = load i32*, i32** %identifier    ; load identifier** into ptr
                     // store i32 %9, i32* %decl_dest        ; store value to ptr
-                    let load_var1 = *temp_var;
-                    *temp_var += 1;
+                    let load_var1 = increment_temp_var(temp_var);
 
                     output.push(format!(
                         "  %{} = load {}*, {}** %{}",
@@ -385,11 +372,9 @@ fn generate_code_assign_var(
             // %1 = alloca [2 x i32], align 4                                           ; allocation (previous)
             // %v = sext i32 %<expr> to i64                                             ; index expression value to i64
             // %5 = getelementptr inbounds [2 x i32], [2 x i32]* %1, i64 0, i64 %v      ; addressing
-            let convert_var = *temp_var;
-            *temp_var += 1;
+            let convert_var = increment_temp_var(temp_var);
             output.push(format!("  %{} = sext i32 %{} to i64", convert_var, m_expr_var));
-            let address_var = *temp_var;
-            *temp_var += 1;
+            let address_var = increment_temp_var(temp_var);
             let identifier_escaped = print_identifier_name(&identifier.node);
             output.push(format!(
                 "  %{} = getelementptr inbounds [{} x {}], [{} x {}]* %{}, i64 0, i64 %{}",
@@ -418,20 +403,16 @@ fn generate_code_assign_var(
 
             // %m = sext i32 %<expr-m> to i64                                   ; m conversion to i64
             // %n = sext i32 %<expr-n> to i64                                   ; n conversion to i64
-            let convert_var_m = *temp_var;
-            *temp_var += 1;
+            let convert_var_m = increment_temp_var(temp_var);
             output.push(format!("  %{} = sext i32 %{} to i64", convert_var_m, m_expr_var));
 
-            let convert_var_n = *temp_var;
-            *temp_var += 1;
+            let convert_var_n = increment_temp_var(temp_var);
             output.push(format!("  %{} = sext i32 %{} to i64", convert_var_n, n_expr_var));
 
             // %7 = getelementptr inbounds [30 x [30 x i32]], [30 x [30 x i32]]* %1, i64 0, i64 %m
             // %8 = getelementptr inbounds [30 x i32], [30 x i32]* %7, i64 0, i64 %n
-            let address_var_1 = *temp_var;
-            *temp_var += 1;
-            let address_var_2 = *temp_var;
-            *temp_var += 1;
+            let address_var_1 = increment_temp_var(temp_var);
+            let address_var_2 = increment_temp_var(temp_var);
             let identifier_escaped = print_identifier_name(&identifier.node);
             output.push(format!(
                 "  %{} = getelementptr inbounds [{} x [{} x {}]], [{} x [{} x {}]]* %{}, i64 0, i64 %{}",
@@ -461,8 +442,7 @@ fn generate_code_write(
     let mut output = vec![];
 
     if let Expression::StringConst(str_const) = &expr.node {
-        let print_return_num = *temp_var;
-        *temp_var += 1;
+        let print_return_num = increment_temp_var(temp_var);
 
         // Convert to (number of bytes, string constant representation)
         let converted = convert_string_const(str_const);
@@ -484,16 +464,11 @@ fn generate_code_write(
     let expr_type = eval_expression_scalar(procedure_symbols, expr).expect("type to be well-formed");
     match expr_type {
         VariableType::Bool => {
-            let if_label = *temp_var;
-            *temp_var += 1;
-            let print_return_num1 = *temp_var;
-            *temp_var += 1;
-            let else_label = *temp_var;
-            *temp_var += 1;
-            let print_return_num2 = *temp_var;
-            *temp_var += 1;
-            let endif_label = *temp_var;
-            *temp_var += 1;
+            let if_label = increment_temp_var(temp_var);
+            let print_return_num1 = increment_temp_var(temp_var);
+            let else_label = increment_temp_var(temp_var);
+            let print_return_num2 = increment_temp_var(temp_var);
+            let endif_label = increment_temp_var(temp_var);
 
             // Jump
             output.push(format!(
@@ -522,24 +497,20 @@ fn generate_code_write(
         }
         VariableType::Float => {
             // %6 = fpext float %5 to double
-            let convert_double_var = *temp_var;
-            *temp_var += 1;
+            let convert_double_var = increment_temp_var(temp_var);
             output.push(format!(
                 "  %{} = fpext float %{} to double",
                 convert_double_var, expr_var
             ));
 
-            let print_return_num = *temp_var;
-            *temp_var += 1;
+            let print_return_num = increment_temp_var(temp_var);
             output.push(
                 format!("  %{} = call i32 (i8*, ...) @printf(i8* noundef getelementptr inbounds ([3 x i8], [3 x i8]* @format.float, i64 0, i64 0), double noundef %{})",
                     print_return_num, convert_double_var)
             );
         }
         VariableType::Int => {
-            let print_return_num = *temp_var;
-            *temp_var += 1;
-
+            let print_return_num = increment_temp_var(temp_var);
             output.push(
                 format!("  %{} = call i32 (i8*, ...) @printf(i8* noundef getelementptr inbounds ([3 x i8], [3 x i8]* @format.int, i64 0, i64 0), i32 noundef %{})",
                 print_return_num, expr_var)
@@ -562,35 +533,29 @@ fn generate_code_expression(
             // %3 = alloca i32              ; allocate ptr
             // store i32 <const>, i32* %3   ; store const to ptr
             // %4 = load i32, i32* %3       ; load value
-            let store_var = *temp_var;
-            *temp_var += 1;
+            let store_var = increment_temp_var(temp_var);
             output.push(format!("  %{} = alloca i32", store_var));
             output.push(format!("  store i32 {}, i32* %{}", n, store_var));
 
-            let load_var = *temp_var;
-            *temp_var += 1;
+            let load_var = increment_temp_var(temp_var);
             output.push(format!("  %{} = load i32, i32* %{}", load_var, store_var));
             load_var
         }
         Expression::BoolConst(b) => {
-            let store_var = *temp_var;
-            *temp_var += 1;
+            let store_var = increment_temp_var(temp_var);
             output.push(format!("  %{} = alloca i1", store_var));
             output.push(format!("  store i1 {}, i1* %{}", if *b { "1" } else { "0" }, store_var));
 
-            let load_var = *temp_var;
-            *temp_var += 1;
+            let load_var = increment_temp_var(temp_var);
             output.push(format!("  %{} = load i1, i1* %{}", load_var, store_var));
             load_var
         }
         Expression::FloatConst(n) => {
-            let store_var = *temp_var;
-            *temp_var += 1;
+            let store_var = increment_temp_var(temp_var);
             output.push(format!("  %{} = alloca float", store_var));
             output.push(format!("  store float {}, float* %{}", n, store_var));
 
-            let load_var = *temp_var;
-            *temp_var += 1;
+            let load_var = increment_temp_var(temp_var);
             output.push(format!("  %{} = load float, float* %{}", load_var, store_var));
             load_var
         }
@@ -608,8 +573,7 @@ fn generate_code_expression(
                     match variable_pass_indicator {
                         ParameterPassIndicator::Val => {
                             // %8 = load i32, i32* %identifier      ; load value of identifier (ptr) into temp var
-                            let load_var = *temp_var;
-                            *temp_var += 1;
+                            let load_var = increment_temp_var(temp_var);
 
                             output.push(format!(
                                 "  %{} = load {}, {}* %{}",
@@ -620,10 +584,8 @@ fn generate_code_expression(
                         ParameterPassIndicator::Ref => {
                             // %9 = load i32*, i32** %identifier    ; load identifier** into ptr
                             // %10 = load i32, i32* %9              ; load value of ptr
-                            let load_var1 = *temp_var;
-                            *temp_var += 1;
-                            let load_var2 = *temp_var;
-                            *temp_var += 1;
+                            let load_var1 = increment_temp_var(temp_var);
+                            let load_var2 = increment_temp_var(temp_var);
 
                             output.push(format!(
                                 "  %{} = load {}*, {}** %{}",
@@ -652,12 +614,9 @@ fn generate_code_expression(
                     // %v = sext i32 %<expr> to i64
                     // %3 = getelementptr inbounds [2 x i32], [2 x i32]* %1, i64 0, i64 %v      ; calculate address, second does indexing
                     // %4 = load i32, i32* %3                                                   ; load value
-                    let convert_var = *temp_var;
-                    *temp_var += 1;
-                    let address_var = *temp_var;
-                    *temp_var += 1;
-                    let load_var = *temp_var;
-                    *temp_var += 1;
+                    let convert_var = increment_temp_var(temp_var);
+                    let address_var = increment_temp_var(temp_var);
+                    let load_var = increment_temp_var(temp_var);
 
                     let identifier_escaped = print_identifier_name(&identifier.node);
                     output.push(format!("  %{} = sext i32 %{} to i64", convert_var, expr_var));
@@ -690,20 +649,16 @@ fn generate_code_expression(
 
                     // %m = sext i32 %<expr-m> to i64                                   ; m conversion to i64
                     // %n = sext i32 %<expr-n> to i64                                   ; n conversion to i64
-                    let convert_var_m = *temp_var;
-                    *temp_var += 1;
+                    let convert_var_m = increment_temp_var(temp_var);
                     output.push(format!("  %{} = sext i32 %{} to i64", convert_var_m, m_expr_var));
-                    let convert_var_n = *temp_var;
-                    *temp_var += 1;
+                    let convert_var_n = increment_temp_var(temp_var);
                     output.push(format!("  %{} = sext i32 %{} to i64", convert_var_n, n_expr_var));
 
                     // %7 = getelementptr inbounds [30 x [30 x i32]], [30 x [30 x i32]]* %1, i64 0, i64 %m
                     // %8 = getelementptr inbounds [30 x i32], [30 x i32]* %7, i64 0, i64 %n
                     let identifier_escaped = print_identifier_name(&identifier.node);
-                    let address_var_1 = *temp_var;
-                    *temp_var += 1;
-                    let address_var_2 = *temp_var;
-                    *temp_var += 1;
+                    let address_var_1 = increment_temp_var(temp_var);
+                    let address_var_2 = increment_temp_var(temp_var);
                     output.push(format!(
                         "  %{} = getelementptr inbounds [{} x [{} x {}]], [{} x [{} x {}]]* %{}, i64 0, i64 %{}",
                         address_var_1, m, n, variable_type, m, n, variable_type, identifier_escaped, convert_var_m
@@ -714,8 +669,7 @@ fn generate_code_expression(
                     ));
 
                     // %9 = load i32, i32* %8                                           ; load value
-                    let load_var = *temp_var;
-                    *temp_var += 1;
+                    let load_var = increment_temp_var(temp_var);
                     output.push(format!(
                         "  %{} = load {}, {}* %{}",
                         load_var, variable_type, variable_type, address_var_2
@@ -732,8 +686,7 @@ fn generate_code_expression(
 
             // %4 = sub nsw i32 0, %3 (0 subtract number)
             let variable_type = convert_type(expr_value_type);
-            let sub_var = *temp_var;
-            *temp_var += 1;
+            let sub_var = increment_temp_var(temp_var);
             output.push(format!(
                 "  %{} = sub nsw {} {}, %{}",
                 sub_var,
@@ -752,8 +705,7 @@ fn generate_code_expression(
             output.append(&mut expr_code);
 
             // %5 = xor i1 %4, true (exclusive or with true)
-            let negate_var = *temp_var;
-            *temp_var += 1;
+            let negate_var = increment_temp_var(temp_var);
             output.push(format!("  %{} = xor i1 %{}, true", negate_var, expr_var));
             negate_var
         }
@@ -801,8 +753,7 @@ fn generate_code_var_declarations(temp_var: &mut usize, declarations: &Vec<Varia
 
                 // %3 = bitcast [10 x i32]* %2 to i8*
                 // call void @llvm.memset.p0i8.i64(i8* align 16 %3, i8 0, i64 40, i1 false)
-                let bitcast_var = *temp_var;
-                *temp_var += 1;
+                let bitcast_var = increment_temp_var(temp_var);
 
                 output.push(format!(
                     "  %{} = bitcast [{} x {}]* %{} to i8*",
@@ -830,8 +781,7 @@ fn generate_code_var_declarations(temp_var: &mut usize, declarations: &Vec<Varia
 
                 // %2 = bitcast [30 x [30 x i32]]* %1 to i8*
                 // call void @llvm.memset.p0i8.i64(i8* align 16 %2, i8 0, i64 3600, i1 false)
-                let bitcast_var = *temp_var;
-                *temp_var += 1;
+                let bitcast_var = increment_temp_var(temp_var);
 
                 output.push(format!(
                     "  %{} = bitcast [{} x [{} x {}]]* %{} to i8*",
@@ -867,8 +817,7 @@ fn generate_code_formal_parameters(temp_var: &mut usize, parameters: &Vec<Parame
         };
         let identifier_escaped = print_identifier_name(&parameter.identifier.node);
 
-        let var_num = *temp_var;
-        *temp_var += 1;
+        let var_num = increment_temp_var(temp_var);
 
         // i32 noundef %1 (val)
         // i32* noundef %2 (ref)
