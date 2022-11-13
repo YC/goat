@@ -567,9 +567,16 @@ fn generate_code_write(
         // Convert to (number of bytes, string constant representation)
         let converted = convert_string_const(str_const);
         let str_const_len = converted.0;
-        // Get constant index
-        let str_const_index = strings.len();
-        strings.push(converted);
+
+        let str_const_index = strings.iter().position(|s| s == &converted).map_or_else(
+            // Insert if not found
+            || {
+                strings.push(converted);
+                strings.len() - 1
+            },
+            // Exists
+            |pos| pos,
+        );
 
         output.push(format!(
             "  %{} = call i32 (i8*, ...) @printf(i8* noundef getelementptr \
