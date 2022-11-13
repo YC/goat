@@ -711,8 +711,29 @@ fn generate_code_expression(
                 }
             }
         }
-        // TODO: unop
-        Expression::UnopExpr(Unop::Minus, _) => 1004,
+        Expression::UnopExpr(Unop::Minus, expr) => {
+            let expr_value_type =
+                eval_expression_scalar(procedure_symbols, &expr).expect("unop minus failed to eval expression type");
+            let (expr_var, mut expr_code) = generate_code_expression(temp_var, procedure_symbols, &expr.node);
+            output.append(&mut expr_code);
+
+            // %4 = sub nsw i32 0, %3 (0 subtract number)
+            let variable_type = convert_type(expr_value_type);
+            let sub_var = *temp_var;
+            *temp_var += 1;
+            output.push(format!(
+                "  %{} = sub nsw {} {}, %{}",
+                sub_var,
+                variable_type,
+                if expr_value_type == VariableType::Int {
+                    "0"
+                } else {
+                    "0.0"
+                },
+                expr_var
+            ));
+            sub_var
+        }
         Expression::UnopExpr(Unop::NOT, expr) => {
             let (expr_var, mut expr_code) = generate_code_expression(temp_var, procedure_symbols, &expr.node);
             output.append(&mut expr_code);
