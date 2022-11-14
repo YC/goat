@@ -3,3 +3,4 @@ goat
 *.ll
 *.s
 *.o
+/test.gt
