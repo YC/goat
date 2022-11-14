@@ -16,6 +16,7 @@
     clippy::string_add
 )]
 
+extern crate core;
 use std::{
     env, fs,
     io::{self, Write},

@@ -3,7 +3,7 @@ use crate::ast::{
     ParameterPassIndicator, ProcBody, Procedure, Statement, TokenLocation, Unop, VariableDeclaration, VariableType,
 };
 use crate::tokens::{Keyword, Token, TokenInfo};
-use std::error::Error;
+use std::{convert::TryFrom, error::Error};
 
 pub fn parse(tokens: &Vec<TokenInfo>) -> Result<GoatProgram, Box<dyn Error>> {
     let mut index = 0;

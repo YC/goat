@@ -1,5 +1,5 @@
 use crate::tokens::{Keyword, Token, TokenInfo};
-use std::error::Error;
+use std::{convert::TryFrom, error::Error};
 
 #[derive(Debug)]
 enum RegEx {
