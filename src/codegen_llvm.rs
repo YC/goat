@@ -682,11 +682,15 @@ fn generate_code_expression(
             output.push(format!("  %{} = load i1, i1* %{}", load_var, store_var));
             load_var
         }
-        // TODO: fix this
         Expression::FloatConst(n) => {
+            // To IEEE754 double
+            let float_parsed = n.parse::<f32>().expect("failed to parse float");
+            let float_double = float_parsed as f64;
+            let float_double_str = float_double.to_be_bytes().map(|b| format!("{:02X}", b)).concat();
+
             let store_var = increment_temp_var(temp_var);
             output.push(format!("  %{} = alloca float", store_var));
-            output.push(format!("  store float {}, float* %{}", n, store_var));
+            output.push(format!("  store float 0x{}, float* %{}", float_double_str, store_var));
 
             let load_var = increment_temp_var(temp_var);
             output.push(format!("  %{} = load float, float* %{}", load_var, store_var));
