@@ -684,8 +684,8 @@ fn generate_code_expression(
         }
         Expression::FloatConst(n) => {
             // To IEEE754 double
-            let float_parsed = n.parse::<f32>().expect("failed to parse float");
-            let float_double = float_parsed as f64;
+            let float_parsed: f32 = n.parse::<f32>().expect("failed to parse float");
+            let float_double: f64 = float_parsed.into();
             let float_double_str = float_double.to_be_bytes().map(|b| format!("{:02X}", b)).concat();
 
             let store_var = increment_temp_var(temp_var);
@@ -920,14 +920,30 @@ fn generate_code_expression(
             output.push(format!("  %{} = load i1, i1* %{}", final_var, alloca_var));
             final_var
         }
-        // TODO: binop
-        Expression::BinopExpr(op @ (Binop::Add | Binop::Minus | Binop::Multiply | Binop::Divide), left, right) => {
+        Expression::BinopExpr(
+            op @ (Binop::Add
+            | Binop::Minus
+            | Binop::Multiply
+            | Binop::Divide
+            | Binop::LT
+            | Binop::LTE
+            | Binop::GT
+            | Binop::GTE
+            | Binop::EQ
+            | Binop::NEQ),
+            left,
+            right,
+        ) => {
             let left_type = eval_expression_scalar(procedure_symbols, left)
                 .expect("generate_code_expression failed to evaluate scalar");
             let right_type = eval_expression_scalar(procedure_symbols, right)
                 .expect("generate_code_expression failed to evaluate scalar");
 
-            let mut is_float = left_type == VariableType::Float || right_type == VariableType::Float;
+            let mut operand_type = if left_type == VariableType::Float || right_type == VariableType::Float {
+                VariableType::Float
+            } else {
+                left_type
+            };
             let (left_var, mut left_code) = generate_code_expression(temp_var, procedure_symbols, &left.node);
             let (right_var, mut right_code) = generate_code_expression(temp_var, procedure_symbols, &right.node);
             output.append(&mut left_code);
@@ -945,41 +961,93 @@ fn generate_code_expression(
                 (left_var, right_var)
             };
 
-            let result_var = increment_temp_var(temp_var);
-            match (op, is_float) {
-                (Binop::Add, false) => {
-                    output.push(format!("  %{} = add nsw i32 %{}, %{}", result_var, left_var, right_var));
+            let res_var = increment_temp_var(temp_var);
+            match (op, operand_type) {
+                // Numeric
+                (Binop::Add, VariableType::Int) => {
+                    output.push(format!("  %{} = add nsw i32 %{}, %{}", res_var, left_var, right_var));
                 }
-                (Binop::Add, true) => {
-                    output.push(format!("  %{} = fadd float %{}, %{}", result_var, left_var, right_var));
+                (Binop::Add, VariableType::Float) => {
+                    output.push(format!("  %{} = fadd float %{}, %{}", res_var, left_var, right_var));
                 }
-                (Binop::Minus, false) => {
-                    output.push(format!("  %{} = sub nsw i32 %{}, %{}", result_var, left_var, right_var));
+                (Binop::Minus, VariableType::Int) => {
+                    output.push(format!("  %{} = sub nsw i32 %{}, %{}", res_var, left_var, right_var));
                 }
-                (Binop::Minus, true) => {
-                    output.push(format!("  %{} = fsub float %{}, %{}", result_var, left_var, right_var));
+                (Binop::Minus, VariableType::Float) => {
+                    output.push(format!("  %{} = fsub float %{}, %{}", res_var, left_var, right_var));
                 }
-                (Binop::Multiply, false) => {
-                    output.push(format!("  %{} = mul nsw i32 %{}, %{}", result_var, left_var, right_var));
+                (Binop::Multiply, VariableType::Int) => {
+                    output.push(format!("  %{} = mul nsw i32 %{}, %{}", res_var, left_var, right_var));
                 }
-                (Binop::Multiply, true) => {
-                    output.push(format!("  %{} = fmul float %{}, %{}", result_var, left_var, right_var));
+                (Binop::Multiply, VariableType::Float) => {
+                    output.push(format!("  %{} = fmul float %{}, %{}", res_var, left_var, right_var));
                 }
-                (Binop::Divide, false) => {
-                    output.push(format!("  %{} = sdiv i32 %{}, %{}", result_var, left_var, right_var));
+                (Binop::Divide, VariableType::Int) => {
+                    output.push(format!("  %{} = sdiv i32 %{}, %{}", res_var, left_var, right_var));
                 }
-                (Binop::Divide, true) => {
-                    output.push(format!("  %{} = fdiv float %{}, %{}", result_var, left_var, right_var));
+                (Binop::Divide, VariableType::Float) => {
+                    output.push(format!("  %{} = fdiv float %{}, %{}", res_var, left_var, right_var));
+                }
+                // EQ, NEQ
+                (Binop::EQ, VariableType::Bool) => {
+                    output.push(format!("  %{} = icmp eq i1 %{}, %{}", res_var, left_var, right_var));
+                }
+                (Binop::EQ, VariableType::Int) => {
+                    output.push(format!("  %{} = icmp eq i32 %{}, %{}", res_var, left_var, right_var));
+                }
+                (Binop::EQ, VariableType::Float) => {
+                    output.push(format!("  %{} = fcmp oeq float %{}, %{}", res_var, left_var, right_var));
+                }
+                (Binop::NEQ, VariableType::Bool) => {
+                    output.push(format!("  %{} = icmp ne i1 %{}, %{}", res_var, left_var, right_var));
+                }
+                (Binop::NEQ, VariableType::Int) => {
+                    output.push(format!("  %{} = icmp ne i32 %{}, %{}", res_var, left_var, right_var));
+                }
+                (Binop::NEQ, VariableType::Float) => {
+                    output.push(format!("  %{} = fcmp une float %{}, %{}", res_var, left_var, right_var));
+                }
+                // Comparison
+                (Binop::LT, VariableType::Bool) => {
+                    output.push(format!("  %{} = icmp slt i1 %{}, %{}", res_var, left_var, right_var));
+                }
+                (Binop::LT, VariableType::Int) => {
+                    output.push(format!("  %{} = icmp slt i32 %{}, %{}", res_var, left_var, right_var));
+                }
+                (Binop::LT, VariableType::Float) => {
+                    output.push(format!("  %{} = fcmp olt i1 %{}, %{}", res_var, left_var, right_var));
+                }
+                (Binop::LTE, VariableType::Bool) => {
+                    output.push(format!("  %{} = icmp sle i1 %{}, %{}", res_var, left_var, right_var));
+                }
+                (Binop::LTE, VariableType::Int) => {
+                    output.push(format!("  %{} = icmp sle i32 %{}, %{}", res_var, left_var, right_var));
+                }
+                (Binop::LTE, VariableType::Float) => {
+                    output.push(format!("  %{} = fcmp ole i1 %{}, %{}", res_var, left_var, right_var));
+                }
+                (Binop::GT, VariableType::Bool) => {
+                    output.push(format!("  %{} = icmp sgt i1 %{}, %{}", res_var, left_var, right_var));
+                }
+                (Binop::GT, VariableType::Int) => {
+                    output.push(format!("  %{} = icmp sgt i32 %{}, %{}", res_var, left_var, right_var));
+                }
+                (Binop::GT, VariableType::Float) => {
+                    output.push(format!("  %{} = fcmp ogt i1 %{}, %{}", res_var, left_var, right_var));
+                }
+                (Binop::GTE, VariableType::Bool) => {
+                    output.push(format!("  %{} = icmp sge i1 %{}, %{}", res_var, left_var, right_var));
+                }
+                (Binop::GTE, VariableType::Int) => {
+                    output.push(format!("  %{} = icmp sge i32 %{}, %{}", res_var, left_var, right_var));
+                }
+                (Binop::GTE, VariableType::Float) => {
+                    output.push(format!("  %{} = fcmp oge i1 %{}, %{}", res_var, left_var, right_var));
                 }
                 (_, _) => panic!("Unexpected numeric operation"),
             }
-            result_var
+            res_var
         }
-        Expression::BinopExpr(
-            op @ (Binop::LT | Binop::LTE | Binop::GT | Binop::GTE | Binop::EQ | Binop::NEQ),
-            expr1,
-            expr2,
-        ) => 1000,
     };
 
     (var_num, output)
