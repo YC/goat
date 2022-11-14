@@ -644,7 +644,6 @@ fn generate_write(
     output
 }
 
-#[allow(dead_code, unused_variables, unused_mut)]
 fn generate_expression(
     temp_var: &mut usize,
     procedure_symbols: &ProcedureSymbols,
@@ -929,7 +928,7 @@ fn generate_expression(
             let right_type = eval_expression_scalar(procedure_symbols, right)
                 .expect("generate_expression failed to evaluate scalar");
 
-            let mut operand_type = if left_type == VariableType::Float || right_type == VariableType::Float {
+            let operand_type = if left_type == VariableType::Float || right_type == VariableType::Float {
                 VariableType::Float
             } else {
                 left_type
