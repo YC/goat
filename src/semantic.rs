@@ -278,6 +278,20 @@ fn analyse_statement(
                 let passing_indicator = *formal_param
                     .pass_indicator
                     .expect("formal parameter to have passing indicator");
+
+                let can_pass_by_ref = match argument.node {
+                    Expression::IdentifierShape(_) => true,
+                    _ => false,
+                };
+                if passing_indicator == ParameterPassIndicator::Ref && !can_pass_by_ref {
+                    return Err(format!(
+                        "Expected argument {} \"{}\" to call at {:?} to be able to call by reference",
+                        i + 1,
+                        argument.node,
+                        argument.location
+                    ))?;
+                }
+
                 if formal_param.r#type != argument_type
                     && (formal_param.r#type != VariableType::Float
                         || argument_type != VariableType::Int
