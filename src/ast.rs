@@ -148,8 +148,8 @@ impl Display for VariableDeclaration {
 #[derive(Debug)]
 pub enum IdentifierShapeDeclaration {
     Identifier(Node<Identifier>),
-    IdentifierArray(Node<Identifier>, i32),
-    IdentifierArray2D(Node<Identifier>, i32, i32),
+    IdentifierArray(Node<Identifier>, u32),
+    IdentifierArray2D(Node<Identifier>, u32, u32),
 }
 
 impl Display for IdentifierShapeDeclaration {

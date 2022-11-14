@@ -197,6 +197,12 @@ fn parse_identifier_shape_declaration(
     // The int constant m
     *index += 1;
 
+    // Convert from i32 to u32
+    let left = u32::try_from(left);
+    let Ok(left) = left else {
+        return Err(format!("Expecting u32 for shape m, but found {:?} at {:?}", next_token.0, next_token.1))?;
+    };
+
     if peek_next(tokens, *index)?.0 != Token::COMMA {
         // Right bracket
         match_next(tokens, Token::RBRACKET, index)?;
@@ -216,6 +222,12 @@ fn parse_identifier_shape_declaration(
     };
     // The int constant n
     *index += 1;
+
+    // Convert from i32 to u32
+    let right = u32::try_from(right);
+    let Ok(right) = right else {
+        return Err(format!("Expecting u32 for shape m, but found {:?} at {:?}", next_token.0, next_token.1))?;
+    };
 
     // Right bracket
     match_next(tokens, Token::RBRACKET, index)?;

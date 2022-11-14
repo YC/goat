@@ -11,7 +11,9 @@
     clippy::wildcard_enum_match_arm,
     clippy::std_instead_of_core,
     clippy::pattern_type_mismatch,
-    clippy::too_many_lines
+    clippy::too_many_lines,
+    clippy::panic,
+    clippy::string_add
 )]
 
 use std::{
@@ -134,8 +136,12 @@ fn main() -> process::ExitCode {
             .output()
             .expect("failed to execute llvm");
         if !command_output.status.success() {
-            io::stdout().write_all(&command_output.stdout).unwrap();
-            io::stderr().write_all(&command_output.stderr).unwrap();
+            if let Err(e) = io::stdout().write_all(&command_output.stdout) {
+                eprintln!("Failed to write LLVM stdout: {}", e);
+            }
+            if let Err(e) = io::stderr().write_all(&command_output.stdout) {
+                eprintln!("Failed to write LLVM stderr: {}", e);
+            }
             return ExitCode::from(5);
         }
     }

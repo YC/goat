@@ -76,7 +76,7 @@ pub fn analyse(program: &GoatProgram) -> Result<SymbolTable, Box<dyn Error>> {
             let identifier = match &variable_declaration.identifier_declaration {
                 IdentifierShapeDeclaration::Identifier(identifier) => identifier,
                 IdentifierShapeDeclaration::IdentifierArray(identifier, m) => {
-                    if *m <= 0 {
+                    if *m == 0 {
                         return Err(format!(
                             "The array {} at {:?} cannot be initialised with [0] elements: {}[{}]",
                             identifier.node, identifier.location, identifier.node, m
@@ -85,13 +85,13 @@ pub fn analyse(program: &GoatProgram) -> Result<SymbolTable, Box<dyn Error>> {
                     identifier
                 }
                 IdentifierShapeDeclaration::IdentifierArray2D(identifier, m, n) => {
-                    if *m <= 0 {
+                    if *m == 0 {
                         return Err(format!(
                             "The array {} at {:?} cannot be initialised with [0, {}] elements: {}[{}, {}]",
                             identifier.node, identifier.location, n, identifier.node, m, n
                         ))?;
                     }
-                    if *n <= 0 {
+                    if *n == 0 {
                         return Err(format!(
                             "The array {} at {:?} cannot be initialised with [{}, 0] elements: {}[{}, {}]",
                             identifier.node, identifier.location, m, identifier.node, m, n
@@ -279,10 +279,7 @@ fn analyse_statement(
                     .pass_indicator
                     .expect("formal parameter to have passing indicator");
 
-                let can_pass_by_ref = match argument.node {
-                    Expression::IdentifierShape(_) => true,
-                    _ => false,
-                };
+                let can_pass_by_ref = matches!(argument.node, Expression::IdentifierShape(_));
                 if passing_indicator == ParameterPassIndicator::Ref && !can_pass_by_ref {
                     return Err(format!(
                         "Expected argument {} \"{}\" to call at {:?} to be able to call by reference",

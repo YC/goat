@@ -476,7 +476,7 @@ fn generate_assign_var(
             output.append(&mut m_expr_code);
 
             // Get the array dimension
-            let variable_shape = variable_info.shape.unwrap();
+            let variable_shape = variable_info.shape.expect("expectd array to have dimension in table");
             let IdentifierShapeDeclaration::IdentifierArray(_, m) = variable_shape else {
                 panic!("Expected array");
             };
@@ -508,7 +508,7 @@ fn generate_assign_var(
             output.append(&mut n_expr_code);
 
             // Get the matrix dimension
-            let variable_shape = variable_info.shape.unwrap();
+            let variable_shape = variable_info.shape.expect("expectd matrix to have dimension in table");
             let IdentifierShapeDeclaration::IdentifierArray2D(_, m, n) = variable_shape else {
                 panic!("Expected matrix");
             };
@@ -733,7 +733,7 @@ fn generate_expression(
                     output.append(&mut expr_code);
 
                     // Get the array dimension
-                    let variable_shape = variable_info.shape.unwrap();
+                    let variable_shape = variable_info.shape.expect("expected array to have dimension in table");
                     let IdentifierShapeDeclaration::IdentifierArray(_, m) = variable_shape else {
                         panic!("Expected array");
                     };
@@ -767,8 +767,8 @@ fn generate_expression(
                     let (n_expr_var, mut n_expr_code) = generate_expression(temp_var, procedure_symbols, &expr_n.node);
                     output.append(&mut n_expr_code);
 
-                    // Get the array dimension
-                    let variable_shape = variable_info.shape.unwrap();
+                    // Get the matrix dimension
+                    let variable_shape = variable_info.shape.expect("expectd matrix to have dimension in table");
                     let IdentifierShapeDeclaration::IdentifierArray2D(_, m, n) = variable_shape else {
                         panic!("Expected matrix");
                     };
@@ -1164,10 +1164,10 @@ fn generate_formal_parameters(temp_var: &mut usize, parameters: &Vec<Parameter>)
     (declarations.join(", "), stores)
 }
 
-fn determine_shape_info<'a>(
-    procedure_symbols: &'a ProcedureSymbols,
-    shape: &'a IdentifierShape,
-) -> (&'a str, &'a VariableInfo<'a>) {
+fn determine_shape_info<'fromparent>(
+    procedure_symbols: &'fromparent ProcedureSymbols,
+    shape: &'fromparent IdentifierShape,
+) -> (&'fromparent str, &'fromparent VariableInfo<'fromparent>) {
     // Find identifier
     let identifier = match shape {
         IdentifierShape::Identifier(identifier)
