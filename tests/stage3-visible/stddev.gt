@@ -8,7 +8,7 @@ proc main ()
     int count;
     bool done;
 begin
-    write "Type a list of real numbers, ending with a negative number\n";
+    write "Type a list of floating point numbers, ending with a negative number\n";
                               
     read x;  
     done := x < 0;

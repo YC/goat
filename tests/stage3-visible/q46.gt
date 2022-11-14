@@ -5,11 +5,11 @@ begin
     write "\n";
 end
 
-proc main()
-    int n;
+proc main ()
+    float n;
 begin
     n := 41;
-    call f(n); 
+    call f(n);
     write n;
     write "\n";
 end

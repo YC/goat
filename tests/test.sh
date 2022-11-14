@@ -8,7 +8,12 @@ if [ ! -f "$goat" ]; then
     exit 1
 fi
 
-for f in "$(dirname "$0")"/stage1-visible/*.gt "$(dirname "$0")"/fortytwo/*.gt "$(dirname "$0")"/new/*.gt; do
+for f in "$(dirname "$0")"/stage1-visible/*.gt \
+         "$(dirname "$0")"/fortytwo/*.gt \
+         "$(dirname "$0")"/new/*.gt \
+         "$(dirname "$0")"/stage3-miles/*.gt \
+         "$(dirname "$0")"/stage3-visible/*.gt
+do
     eval "$goat" -p "$f" &> /dev/null
 
     rv=$?

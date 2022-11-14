@@ -8,7 +8,7 @@ proc main()
 
 begin
  
-    # Intitialise m and n
+    # Give m and n some values
     k := 0;
     i := 0;
     while i < 6 do
