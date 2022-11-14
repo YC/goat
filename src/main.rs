@@ -117,7 +117,9 @@ fn main() -> process::ExitCode {
     };
 
     let output = codegen_llvm::generate_code(&ast, &symbol_table);
-    println!("{}", output);
+    if verbose {
+        eprintln!("{}", output);
+    }
 
     if let Some(outfile) = outfile {
         let ll_path = filename.clone() + ".ll";

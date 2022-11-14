@@ -28,7 +28,7 @@ Execute:
 $ ./goat [-p] source.gt -o <executable-name>
 ```
 - If `-p` is specified, pretty printing of the source will be performed per stage 1 specification.
-- If `-v` is specified, information determined by the lexer/parser will be printed.
+- If `-v` is specified, information determined by the lexer/parser/codegen will be printed.
 - If `-o <executable-name>`, `goat` will use `clang` to compile `<source>.gt` into `<executable-name>`.
 
 Note that this implementation currently does not support compilation to Oz,
