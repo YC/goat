@@ -7,3 +7,11 @@ repository = "https://github.com/YC/goat"
 description = "Compiler for Goat (COMP90045)"
 keywords = ["comp90045", "goat", "compiler"]
 categories = ["parser-implementations"]
+
+[profile.release]
+opt-level = 3
+debug = false
+panic = 'unwind'
+codegen-units = 1
+strip = true
+overflow-checks = true
