@@ -19,8 +19,7 @@
 extern crate core;
 use std::{
     env, fs,
-    io::{self, Write},
-    process::{self, Command, ExitCode, Stdio},
+    process::{self, Command, ExitCode},
 };
 
 mod ast;
@@ -134,17 +133,11 @@ fn main() -> process::ExitCode {
             .arg("-o")
             .arg(outfile)
             .arg(&ll_path)
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
             .output()
             .expect("failed to execute llvm");
         if !command_output.status.success() {
-            if let Err(e) = io::stdout().write_all(&command_output.stdout) {
-                eprintln!("Failed to write LLVM stdout: {}", e);
-            }
-            if let Err(e) = io::stderr().write_all(&command_output.stdout) {
-                eprintln!("Failed to write LLVM stderr: {}", e);
-            }
+            println!("{}", String::from_utf8_lossy(&command_output.stdout));
+            println!("{}", String::from_utf8_lossy(&command_output.stderr));
             return ExitCode::from(5);
         }
     }
