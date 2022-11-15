@@ -1,1 +1,2 @@
 * text=auto
+tests/stage3-peer/* !text=auto
