@@ -212,6 +212,7 @@ fn generate_statement(
             // br label %conditional, !llvm.loop !while_body
             // while_end:
             let conditional_label = increment_temp_var(temp_var);
+            let (conditional_var, mut expr_code) = generate_expression(temp_var, procedure_symbols, &expr.node);
             let body_label = increment_temp_var(temp_var);
             let mut while_body_code = generate_statements(strings, temp_var, symbol_table, procedure, statements);
             let endwhile_label = increment_temp_var(temp_var);
@@ -221,7 +222,6 @@ fn generate_statement(
 
             // Evaluate boolean expression
             output.push(format!("{}:\t\t\t\t; start while conditional", conditional_label));
-            let (conditional_var, mut expr_code) = generate_expression(temp_var, procedure_symbols, &expr.node);
             output.append(&mut expr_code);
 
             // Jump on conditional
@@ -234,7 +234,7 @@ fn generate_statement(
             output.push(format!("{}:\t\t\t\t; body of while", body_label));
             output.append(&mut while_body_code);
             // Back to conditional
-            output.push(format!("  br label %{}, !llvm.loop !{}", conditional_label, body_label));
+            output.push(format!("  br label %{}", conditional_label));
 
             // After end of while
             output.push(format!("{}:\t\t\t\t; end while", endwhile_label));
