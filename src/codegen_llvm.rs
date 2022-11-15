@@ -47,7 +47,7 @@ fn generate_proc(strings: &mut Vec<ConvertedStringConst>, procedure: &Procedure,
     let is_main = procedure.identifier.node == "main";
     let return_type = if is_main { "i32" } else { "void" };
 
-    let mut temp_var = 1;
+    let mut temp_var = 0;
 
     // Parameters
     let (parameters_declaration, mut parameters_store) =
@@ -413,15 +413,15 @@ fn generate_statement(
 
             let mut declarations = vec![];
             for (parameter, argument) in callee_parameters.zip(expressions.iter()) {
-                let (passing_indicator, var_num) = match parameter.pass_indicator {
+                let (passing_indicator, var) = match parameter.pass_indicator {
                     Some(ParameterPassIndicator::Val) => {
                         // Evaluate expression
                         let (expr_var, mut expr_code) =
                             generate_expression(temp_var, procedure_symbols, &argument.node);
                         output.append(&mut expr_code);
-                        (ParameterPassIndicator::Val, expr_var)
+                        (ParameterPassIndicator::Val, format!("{}", expr_var))
                     }
-                    Some(ParameterPassIndicator::Ref) => (ParameterPassIndicator::Ref, 3000),
+                    Some(ParameterPassIndicator::Ref) => (ParameterPassIndicator::Ref, "10000".into()),
                     None => {
                         panic!("parameter should have passing indicator")
                     }
@@ -430,7 +430,7 @@ fn generate_statement(
                 declarations.push(generate_parameter_declaration(
                     parameter.r#type,
                     passing_indicator,
-                    var_num,
+                    &var,
                 ));
             }
 
@@ -439,7 +439,7 @@ fn generate_statement(
                 "  call void @{}({})",
                 print_identifier_name(&identifier.node),
                 declarations.join(", ")
-            ))
+            ));
         }
     }
 
@@ -1164,20 +1164,27 @@ fn generate_formal_parameters(temp_var: &mut usize, parameters: &Vec<Parameter>)
     let mut declarations: Vec<String> = vec![];
     let mut stores = vec![];
 
+    // Parameter declaration
     for parameter in parameters {
+        let var_num = increment_temp_var(temp_var);
+        declarations.push(generate_parameter_declaration(
+            parameter.r#type,
+            parameter.passing_indicator,
+            &var_num.to_string(),
+        ));
+    }
+
+    // For the implicit entry
+    *temp_var += 1;
+
+    // Copy to identifier
+    for (index, parameter) in parameters.iter().enumerate() {
         let r#type = convert_type(parameter.r#type);
         let passing_indicator = match parameter.passing_indicator {
             ParameterPassIndicator::Ref => "*",
             ParameterPassIndicator::Val => "",
         };
         let identifier_escaped = print_identifier_name(&parameter.identifier.node);
-
-        let var_num = increment_temp_var(temp_var);
-        declarations.push(generate_parameter_declaration(
-            parameter.r#type,
-            parameter.passing_indicator,
-            var_num,
-        ));
 
         // %name1 = alloca i32 (val)
         // %name2 = alloca i32* (ref)
@@ -1188,10 +1195,9 @@ fn generate_formal_parameters(temp_var: &mut usize, parameters: &Vec<Parameter>)
 
         // store i32 %1, i32* %name1 (val)
         // store i32* %2, i32** %name2 (ref)
-        let store_var = increment_temp_var(temp_var);
         stores.push(format!(
             "  store {}{} %{}, {}*{} %{}",
-            r#type, passing_indicator, store_var, r#type, passing_indicator, identifier_escaped
+            r#type, passing_indicator, index, r#type, passing_indicator, identifier_escaped
         ));
     }
 
@@ -1201,7 +1207,7 @@ fn generate_formal_parameters(temp_var: &mut usize, parameters: &Vec<Parameter>)
 fn generate_parameter_declaration(
     r#type: VariableType,
     passing_indicator: ParameterPassIndicator,
-    var_num: usize,
+    var: &str,
 ) -> String {
     // i32 noundef %1 (val)
     // i32* noundef %2 (ref)
@@ -1220,7 +1226,7 @@ fn generate_parameter_declaration(
         } else {
             ""
         },
-        var_num
+        var
     )
 }
 
