@@ -426,7 +426,7 @@ fn generate_statement(
                             Expression::IdentifierShape(identifier_shape) => {
                                 // Get pointer to variable declaration, and code for generating pointer variable
                                 let (ptr_var, mut ptr_code) =
-                                    get_identifier_ptr(temp_var, procedure_symbols, &identifier_shape);
+                                    get_identifier_ptr(temp_var, procedure_symbols, identifier_shape);
                                 output.append(&mut ptr_code);
 
                                 (ParameterPassIndicator::Ref, ptr_var.to_string())
@@ -575,25 +575,24 @@ fn generate_assign_var(
         expr_value_var
     };
 
-    match (variable_pass_indicator, identifier_shape) {
-        (ParameterPassIndicator::Val, IdentifierShape::Identifier(identifier)) => {
-            // store i32 %value_source, i32* %decl_dest
-            let identifier_escaped = print_identifier_name(&identifier.node);
-            output.push(format!(
-                "  store {} %{}, {}* %{}",
-                variable_type, expr_value_var, variable_type, identifier_escaped
-            ));
-        }
-        _ => {
-            // Get pointer to variable, and code for generating pointer variable
-            let (address_var, mut ptr_code) = get_identifier_ptr(temp_var, procedure_symbols, identifier_shape);
-            output.append(&mut ptr_code);
+    if let (ParameterPassIndicator::Val, IdentifierShape::Identifier(identifier)) =
+        (variable_pass_indicator, identifier_shape)
+    {
+        // store i32 %value_source, i32* %decl_dest
+        let identifier_escaped = print_identifier_name(&identifier.node);
+        output.push(format!(
+            "  store {} %{}, {}* %{}",
+            variable_type, expr_value_var, variable_type, identifier_escaped
+        ));
+    } else {
+        // Get pointer to variable, and code for generating pointer variable
+        let (address_var, mut ptr_code) = get_identifier_ptr(temp_var, procedure_symbols, identifier_shape);
+        output.append(&mut ptr_code);
 
-            output.push(format!(
-                "  store {} %{}, {}* %{}",
-                variable_type, expr_value_var, variable_type, address_var
-            ));
-        }
+        output.push(format!(
+            "  store {} %{}, {}* %{}",
+            variable_type, expr_value_var, variable_type, address_var
+        ));
     }
 
     output
@@ -748,29 +747,28 @@ fn generate_expression(
             let variable_type = convert_type(variable_info.r#type);
             let variable_pass_indicator = *variable_info.pass_indicator.unwrap_or(&ParameterPassIndicator::Val);
 
-            match (variable_pass_indicator, identifier_shape) {
-                (ParameterPassIndicator::Val, IdentifierShape::Identifier(identifier)) => {
-                    // %8 = load i32, i32* %identifier      ; load value of identifier (ptr) into temp var
-                    let load_var = increment_temp_var(temp_var);
-                    let identifier_escaped = print_identifier_name(&identifier.node);
-                    output.push(format!(
-                        "  %{} = load {}, {}* %{}",
-                        load_var, variable_type, variable_type, identifier_escaped
-                    ));
-                    load_var
-                }
-                _ => {
-                    // Get pointer to variable, and code for generating pointer variable
-                    let (address_var, mut ptr_code) = get_identifier_ptr(temp_var, procedure_symbols, identifier_shape);
-                    output.append(&mut ptr_code);
+            if let (ParameterPassIndicator::Val, IdentifierShape::Identifier(identifier)) =
+                (variable_pass_indicator, identifier_shape)
+            {
+                // %8 = load i32, i32* %identifier      ; load value of identifier (ptr) into temp var
+                let load_var = increment_temp_var(temp_var);
+                let identifier_escaped = print_identifier_name(&identifier.node);
+                output.push(format!(
+                    "  %{} = load {}, {}* %{}",
+                    load_var, variable_type, variable_type, identifier_escaped
+                ));
+                load_var
+            } else {
+                // Get pointer to variable, and code for generating pointer variable
+                let (address_var, mut ptr_code) = get_identifier_ptr(temp_var, procedure_symbols, identifier_shape);
+                output.append(&mut ptr_code);
 
-                    let load_var = increment_temp_var(temp_var);
-                    output.push(format!(
-                        "  %{} = load {}, {}* %{}",
-                        load_var, variable_type, variable_type, address_var
-                    ));
-                    load_var
-                }
+                let load_var = increment_temp_var(temp_var);
+                output.push(format!(
+                    "  %{} = load {}, {}* %{}",
+                    load_var, variable_type, variable_type, address_var
+                ));
+                load_var
             }
         }
         Expression::UnopExpr(Unop::Minus, expr) => {
