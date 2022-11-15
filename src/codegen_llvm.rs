@@ -146,9 +146,7 @@ fn generate_statement(
             // br label %endif
             // endif:
             let if_label = increment_temp_var(temp_var);
-
             let mut if_statements_code = generate_statements(strings, temp_var, symbol_table, procedure, statements);
-
             let endif_label = increment_temp_var(temp_var);
 
             // Jump
