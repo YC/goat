@@ -419,9 +419,23 @@ fn generate_statement(
                         let (expr_var, mut expr_code) =
                             generate_expression(temp_var, procedure_symbols, &argument.node);
                         output.append(&mut expr_code);
-                        (ParameterPassIndicator::Val, format!("{}", expr_var))
+                        (ParameterPassIndicator::Val, expr_var.to_string())
                     }
-                    Some(ParameterPassIndicator::Ref) => (ParameterPassIndicator::Ref, "10000".into()),
+                    Some(ParameterPassIndicator::Ref) => {
+                        match &argument.node {
+                            Expression::IdentifierShape(identifier_shape) => {
+                                // Get pointer to variable declaration, and code for generating pointer variable
+                                let (ptr_var, mut ptr_code) =
+                                    get_identifier_ptr(temp_var, procedure_symbols, &identifier_shape);
+                                output.append(&mut ptr_code);
+
+                                (ParameterPassIndicator::Ref, ptr_var.to_string())
+                            }
+                            _ => {
+                                panic!("By ref must always be formal parameter or variable");
+                            }
+                        }
+                    }
                     None => {
                         panic!("parameter should have passing indicator")
                     }
@@ -446,65 +460,32 @@ fn generate_statement(
     output
 }
 
-fn generate_assign_var(
+fn get_identifier_ptr(
     temp_var: &mut usize,
     procedure_symbols: &ProcedureSymbols,
     identifier_shape: &IdentifierShape,
-    expr_value_type: VariableType,
-    expr_value_var: usize,
-) -> Vec<String> {
+) -> (usize, Vec<String>) {
     let mut output = vec![];
 
     // Get variable information
     let (_, variable_info) = determine_shape_info(procedure_symbols, identifier_shape);
     let variable_type = convert_type(variable_info.r#type);
-    let variable_pass_indicator = *variable_info.pass_indicator.unwrap_or(&ParameterPassIndicator::Val);
 
-    // Int to float conversion
-    let expr_value_var = if expr_value_type == VariableType::Int && variable_info.r#type == VariableType::Float {
-        // %4 = sitofp i32 %3 to float
-        let new_converted_var = increment_temp_var(temp_var);
-
-        output.push(format!(
-            "  %{} = sitofp i32 %{} to float",
-            new_converted_var, expr_value_var
-        ));
-
-        new_converted_var
-    } else {
-        expr_value_var
-    };
-
-    match identifier_shape {
+    let ptr_var = match identifier_shape {
         IdentifierShape::Identifier(identifier) => {
+            // %9 = load i32*, i32** %identifier    ; load identifier** into ptr
+            // store i32 %9, i32* %decl_dest        ; store value to ptr
+            let load_var1 = increment_temp_var(temp_var);
+
             let identifier_escaped = print_identifier_name(&identifier.node);
-
-            match variable_pass_indicator {
-                ParameterPassIndicator::Val => {
-                    // store i32 %value_source, i32* %decl_dest
-                    output.push(format!(
-                        "  store {} %{}, {}* %{}",
-                        variable_type, expr_value_var, variable_type, identifier_escaped
-                    ));
-                }
-                ParameterPassIndicator::Ref => {
-                    // %9 = load i32*, i32** %identifier    ; load identifier** into ptr
-                    // store i32 %9, i32* %decl_dest        ; store value to ptr
-                    let load_var1 = increment_temp_var(temp_var);
-
-                    output.push(format!(
-                        "  %{} = load {}*, {}** %{}",
-                        load_var1, variable_type, variable_type, identifier_escaped
-                    ));
-                    output.push(format!(
-                        "  store {} %{}, {}* %{}",
-                        variable_type, expr_value_var, variable_type, load_var1
-                    ));
-                }
-            }
+            output.push(format!(
+                "  %{} = load {}*, {}** %{}",
+                load_var1, variable_type, variable_type, identifier_escaped
+            ));
+            load_var1
         }
-        IdentifierShape::IdentifierArray(identifier, expr) => {
-            let (m_expr_var, mut m_expr_code) = generate_expression(temp_var, procedure_symbols, &expr.node);
+        IdentifierShape::IdentifierArray(identifier, m_expr) => {
+            let (m_expr_var, mut m_expr_code) = generate_expression(temp_var, procedure_symbols, &m_expr.node);
             output.append(&mut m_expr_code);
 
             // Get the array dimension
@@ -524,15 +505,9 @@ fn generate_assign_var(
                 "  %{} = getelementptr inbounds [{} x {}], [{} x {}]* %{}, i64 0, i64 %{}",
                 address_var, m, variable_type, m, variable_type, identifier_escaped, convert_var
             ));
-
-            // store i32 %<expr-value>, i32* %5, align 4                                            ; store
-            output.push(format!(
-                "  store {} %{}, {}* %{}",
-                variable_type, expr_value_var, variable_type, address_var
-            ));
+            address_var
         }
         IdentifierShape::IdentifierArray2D(identifier, expr_m, expr_n) => {
-            // Evaluate index expressions
             let (m_expr_var, mut m_expr_code) = generate_expression(temp_var, procedure_symbols, &expr_m.node);
             output.append(&mut m_expr_code);
 
@@ -566,14 +541,61 @@ fn generate_assign_var(
                 "  %{} = getelementptr inbounds [{} x {}], [{} x {}]* %{}, i64 0, i64 %{}",
                 address_var_2, n, variable_type, n, variable_type, address_var_1, convert_var_n
             ));
+            address_var_2
+        }
+    };
 
-            // store i32 %<expr-value>, i32* %8, align 4                               ; store
+    (ptr_var, output)
+}
+
+fn generate_assign_var(
+    temp_var: &mut usize,
+    procedure_symbols: &ProcedureSymbols,
+    identifier_shape: &IdentifierShape,
+    expr_value_type: VariableType,
+    expr_value_var: usize,
+) -> Vec<String> {
+    let mut output = vec![];
+
+    // Get variable information
+    let (_, variable_info) = determine_shape_info(procedure_symbols, identifier_shape);
+    let variable_type = convert_type(variable_info.r#type);
+    let variable_pass_indicator = *variable_info.pass_indicator.unwrap_or(&ParameterPassIndicator::Val);
+
+    // Int to float conversion
+    let expr_value_var = if expr_value_type == VariableType::Int && variable_info.r#type == VariableType::Float {
+        // %4 = sitofp i32 %3 to float
+        let new_converted_var = increment_temp_var(temp_var);
+        output.push(format!(
+            "  %{} = sitofp i32 %{} to float",
+            new_converted_var, expr_value_var
+        ));
+        new_converted_var
+    } else {
+        expr_value_var
+    };
+
+    match (variable_pass_indicator, identifier_shape) {
+        (ParameterPassIndicator::Val, IdentifierShape::Identifier(identifier)) => {
+            // store i32 %value_source, i32* %decl_dest
+            let identifier_escaped = print_identifier_name(&identifier.node);
             output.push(format!(
                 "  store {} %{}, {}* %{}",
-                variable_type, expr_value_var, variable_type, address_var_2
+                variable_type, expr_value_var, variable_type, identifier_escaped
+            ));
+        }
+        _ => {
+            // Get pointer to variable, and code for generating pointer variable
+            let (address_var, mut ptr_code) = get_identifier_ptr(temp_var, procedure_symbols, identifier_shape);
+            output.append(&mut ptr_code);
+
+            output.push(format!(
+                "  store {} %{}, {}* %{}",
+                variable_type, expr_value_var, variable_type, address_var
             ));
         }
     }
+
     output
 }
 
@@ -720,117 +742,32 @@ fn generate_expression(
             load_var
         }
         Expression::StringConst(_) => panic!("StringConst is not supported by generate_expression"),
-        Expression::IdentifierShape(shape) => {
+        Expression::IdentifierShape(identifier_shape) => {
             // Get variable information
-            let (_, variable_info) = determine_shape_info(procedure_symbols, shape);
+            let (_, variable_info) = determine_shape_info(procedure_symbols, identifier_shape);
             let variable_type = convert_type(variable_info.r#type);
             let variable_pass_indicator = *variable_info.pass_indicator.unwrap_or(&ParameterPassIndicator::Val);
 
-            match shape {
-                IdentifierShape::Identifier(identifier) => {
-                    let identifier_escaped = print_identifier_name(&identifier.node);
-
-                    match variable_pass_indicator {
-                        ParameterPassIndicator::Val => {
-                            // %8 = load i32, i32* %identifier      ; load value of identifier (ptr) into temp var
-                            let load_var = increment_temp_var(temp_var);
-
-                            output.push(format!(
-                                "  %{} = load {}, {}* %{}",
-                                load_var, variable_type, variable_type, identifier_escaped
-                            ));
-                            load_var
-                        }
-                        ParameterPassIndicator::Ref => {
-                            // %9 = load i32*, i32** %identifier    ; load identifier** into ptr
-                            // %10 = load i32, i32* %9              ; load value of ptr
-                            let load_var1 = increment_temp_var(temp_var);
-                            let load_var2 = increment_temp_var(temp_var);
-
-                            output.push(format!(
-                                "  %{} = load {}*, {}** %{}",
-                                load_var1, variable_type, variable_type, identifier_escaped
-                            ));
-                            output.push(format!(
-                                "  %{} = load {}, {}* %{}",
-                                load_var2, variable_type, variable_type, load_var1
-                            ));
-                            load_var2
-                        }
-                    }
-                }
-                IdentifierShape::IdentifierArray(identifier, expr) => {
-                    // First evaluate the expression
-                    let (expr_var, mut expr_code) = generate_expression(temp_var, procedure_symbols, &expr.node);
-                    output.append(&mut expr_code);
-
-                    // Get the array dimension
-                    let variable_shape = variable_info.shape.expect("expected array to have dimension in table");
-                    let IdentifierShapeDeclaration::IdentifierArray(_, m) = variable_shape else {
-                        panic!("Expected array");
-                    };
-
-                    // %1 = alloca [2 x i32]                                                ; allocate array
-                    // %v = sext i32 %<expr> to i64
-                    // %3 = getelementptr inbounds [2 x i32], [2 x i32]* %1, i64 0, i64 %v  ; calculate address
-                    // %4 = load i32, i32* %3                                               ; load value
-                    let convert_var = increment_temp_var(temp_var);
-                    let address_var = increment_temp_var(temp_var);
+            match (variable_pass_indicator, identifier_shape) {
+                (ParameterPassIndicator::Val, IdentifierShape::Identifier(identifier)) => {
+                    // %8 = load i32, i32* %identifier      ; load value of identifier (ptr) into temp var
                     let load_var = increment_temp_var(temp_var);
-
                     let identifier_escaped = print_identifier_name(&identifier.node);
-                    output.push(format!("  %{} = sext i32 %{} to i64", convert_var, expr_var));
-                    output.push(format!(
-                        "  %{} = getelementptr inbounds [{} x {}], [{} x {}]* %{}, i64 0, i64 %{}",
-                        address_var, m, variable_type, m, variable_type, identifier_escaped, convert_var
-                    ));
                     output.push(format!(
                         "  %{} = load {}, {}* %{}",
-                        load_var, variable_type, variable_type, address_var
+                        load_var, variable_type, variable_type, identifier_escaped
                     ));
                     load_var
                 }
-                // TODO(later): Reduce duplication with store
-                IdentifierShape::IdentifierArray2D(identifier, expr_m, expr_n) => {
-                    // Evaluate index expressions
-                    let (m_expr_var, mut m_expr_code) = generate_expression(temp_var, procedure_symbols, &expr_m.node);
-                    output.append(&mut m_expr_code);
+                _ => {
+                    // Get pointer to variable, and code for generating pointer variable
+                    let (address_var, mut ptr_code) = get_identifier_ptr(temp_var, procedure_symbols, identifier_shape);
+                    output.append(&mut ptr_code);
 
-                    let (n_expr_var, mut n_expr_code) = generate_expression(temp_var, procedure_symbols, &expr_n.node);
-                    output.append(&mut n_expr_code);
-
-                    // Get the matrix dimension
-                    let variable_shape = variable_info.shape.expect("expectd matrix to have dimension in table");
-                    let IdentifierShapeDeclaration::IdentifierArray2D(_, m, n) = variable_shape else {
-                        panic!("Expected matrix");
-                    };
-
-                    // %m = sext i32 %<expr-m> to i64                                   ; m conversion to i64
-                    // %n = sext i32 %<expr-n> to i64                                   ; n conversion to i64
-                    let convert_var_m = increment_temp_var(temp_var);
-                    output.push(format!("  %{} = sext i32 %{} to i64", convert_var_m, m_expr_var));
-                    let convert_var_n = increment_temp_var(temp_var);
-                    output.push(format!("  %{} = sext i32 %{} to i64", convert_var_n, n_expr_var));
-
-                    // %7 = getelementptr inbounds [30 x [30 x i32]], [30 x [30 x i32]]* %1, i64 0, i64 %m
-                    // %8 = getelementptr inbounds [30 x i32], [30 x i32]* %7, i64 0, i64 %n
-                    let identifier_escaped = print_identifier_name(&identifier.node);
-                    let address_var_1 = increment_temp_var(temp_var);
-                    let address_var_2 = increment_temp_var(temp_var);
-                    output.push(format!(
-                        "  %{} = getelementptr inbounds [{} x [{} x {}]], [{} x [{} x {}]]* %{}, i64 0, i64 %{}",
-                        address_var_1, m, n, variable_type, m, n, variable_type, identifier_escaped, convert_var_m
-                    ));
-                    output.push(format!(
-                        "  %{} = getelementptr inbounds [{} x {}], [{} x {}]* %{}, i64 0, i64 %{}",
-                        address_var_2, n, variable_type, n, variable_type, address_var_1, convert_var_n
-                    ));
-
-                    // %9 = load i32, i32* %8                                           ; load value
                     let load_var = increment_temp_var(temp_var);
                     output.push(format!(
                         "  %{} = load {}, {}* %{}",
-                        load_var, variable_type, variable_type, address_var_2
+                        load_var, variable_type, variable_type, address_var
                     ));
                     load_var
                 }

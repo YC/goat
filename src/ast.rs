@@ -18,7 +18,7 @@ impl Display for GoatProgram {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub struct Node<N> {
     pub location: TokenLocation,
     pub node: N,
@@ -323,6 +323,32 @@ pub enum IdentifierShape {
     Identifier(Node<Identifier>),
     IdentifierArray(Node<Identifier>, Box<Node<Expression>>),
     IdentifierArray2D(Node<Identifier>, Box<Node<Expression>>, Box<Node<Expression>>),
+}
+
+impl IdentifierShapeDeclaration {
+    pub fn to_shape_expression<'a>(&'a self) -> IdentifierShape {
+        match self {
+            IdentifierShapeDeclaration::Identifier(ident) => IdentifierShape::Identifier(ident.clone()),
+            IdentifierShapeDeclaration::IdentifierArray(ident, m) => IdentifierShape::IdentifierArray(
+                ident.clone(),
+                Box::new(Node {
+                    location: (0, 0),
+                    node: Expression::IntConst(i32::try_from(*m).unwrap()),
+                }),
+            ),
+            IdentifierShapeDeclaration::IdentifierArray2D(ident, m, n) => IdentifierShape::IdentifierArray2D(
+                ident.clone(),
+                Box::new(Node {
+                    location: (0, 0),
+                    node: Expression::IntConst(i32::try_from(*m).unwrap()),
+                }),
+                Box::new(Node {
+                    location: (0, 0),
+                    node: Expression::IntConst(i32::try_from(*n).unwrap()),
+                }),
+            ),
+        }
+    }
 }
 
 impl Display for IdentifierShape {
