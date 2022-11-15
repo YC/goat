@@ -38,7 +38,7 @@ fn main() -> process::ExitCode {
     let mut outfile = None;
 
     let arguments: Vec<String> = env::args().collect();
-    let command = arguments.first().expect("cannot get command name");
+    let command = arguments.first().expect("command name");
     for (i, argument) in arguments.iter().enumerate() {
         if i == 0 {
             continue;
@@ -81,7 +81,13 @@ fn main() -> process::ExitCode {
         eprintln!("{} invoked with source file: {}, pretty: {}", command, filename, pretty);
     }
 
-    let contents = fs::read_to_string(filename).expect("cannot read from file");
+    let contents = match fs::read_to_string(filename) {
+        Ok(contents) => contents,
+        Err(e) => {
+            eprintln!("Failed to read file: {}", e);
+            return ExitCode::from(1);
+        }
+    };
 
     let tokens = match lex::lex(&contents) {
         Ok(tokens) => tokens,
@@ -128,13 +134,21 @@ fn main() -> process::ExitCode {
             return ExitCode::from(1);
         }
 
-        let command_output = Command::new("clang")
+        let command = Command::new("clang")
             .arg("-O3")
             .arg("-o")
             .arg(outfile)
             .arg(&ll_path)
-            .output()
-            .expect("failed to execute llvm");
+            .output();
+
+        let command_output = match command {
+            Ok(c) => c,
+            Err(e) => {
+                eprintln!("Failed to execute clang: {}", e);
+                return ExitCode::from(5);
+            }
+        };
+
         if !command_output.status.success() {
             println!("{}", String::from_utf8_lossy(&command_output.stdout));
             println!("{}", String::from_utf8_lossy(&command_output.stderr));
