@@ -257,151 +257,7 @@ fn generate_statement(
             output.append(&mut generate_write(strings, temp_var, procedure_symbols, expr));
         }
         Statement::Read(shape) => {
-            let (_, variable_info) = determine_shape_info(procedure_symbols, shape);
-
-            match variable_info.r#type {
-                VariableType::Int => {
-                    let alloca_var = increment_temp_var(temp_var);
-                    let assign_ret_var = increment_temp_var(temp_var);
-                    let load_var = increment_temp_var(temp_var);
-
-                    // %1 = alloca i32, align 4
-                    output.push(format!("  %{} = alloca i32", alloca_var));
-                    // %2 = call i32 (i8*, ...) @__isoc99_scanf(i8* noundef getelementptr inbounds
-                    //      ([3 x i8], [3 x i8]* @.str, i64 0, i64 0), i32* noundef %1)
-                    output.push(format!(
-                        "  %{} = call i32 (i8*, ...) @__isoc99_scanf(i8* noundef getelementptr inbounds \
-                            ([3 x i8], [3 x i8]* @format.int, i64 0, i64 0), i32* noundef %{})",
-                        assign_ret_var, alloca_var
-                    ));
-                    // %3 = load i32, i32* %2
-                    output.push(format!("  %{} = load i32, i32* %{}", load_var, alloca_var));
-
-                    // Assign
-                    let mut code_assign_code =
-                        generate_assign_var(temp_var, procedure_symbols, shape, VariableType::Int, load_var);
-                    output.append(&mut code_assign_code);
-                }
-                VariableType::Float => {
-                    let alloca_var = increment_temp_var(temp_var);
-                    let assign_ret_var = increment_temp_var(temp_var);
-                    let load_var = increment_temp_var(temp_var);
-
-                    // %1 = alloca float, align 4
-                    output.push(format!("  %{} = alloca float", alloca_var));
-                    // %2 = call i32 (i8*, ...) @__isoc99_scanf(i8* noundef getelementptr inbounds
-                    //      ([3 x i8], [3 x i8]* @.str, i64 0, i64 0), float* noundef %1)
-                    output.push(format!(
-                        "  %{} = call i32 (i8*, ...) @__isoc99_scanf(i8* noundef getelementptr inbounds \
-                            ([3 x i8], [3 x i8]* @format.float, i64 0, i64 0), float* noundef %{})",
-                        assign_ret_var, alloca_var
-                    ));
-                    // %3 = load float, float* %2
-                    output.push(format!("  %{} = load float, float* %{}", load_var, alloca_var));
-
-                    // Assign
-                    let mut code_assign_code =
-                        generate_assign_var(temp_var, procedure_symbols, shape, VariableType::Float, load_var);
-                    output.append(&mut code_assign_code);
-                }
-                VariableType::Bool => {
-                    let alloca_var = increment_temp_var(temp_var);
-                    let read_buf_var = increment_temp_var(temp_var);
-                    let read_buf_ptr_var = increment_temp_var(temp_var);
-                    let scanf_ret_var = increment_temp_var(temp_var);
-
-                    // %1 = alloca i1                                                       ; var 'read'
-                    output.push(format!("  %{} = alloca i1", alloca_var));
-                    // %2 = alloca [6 x i8]                                                 ; char*
-                    output.push(format!("  %{} = alloca [6 x i8]", read_buf_var));
-                    // %3 = getelementptr inbounds [6 x i8], [6 x i8]* %2, i64 0, i64 0
-                    output.push(format!(
-                        "  %{} = getelementptr inbounds [6 x i8], [6 x i8]* %{}, i64 0, i64 0",
-                        read_buf_ptr_var, read_buf_var
-                    ));
-                    // %4 = call i32 (i8*, ...) @__isoc99_scanf(i8* noundef getelementptr inbounds
-                    //      ([4 x i8], [4 x i8]* @format.bool, i64 0, i64 0), i8* noundef %3)
-                    output.push(format!(
-                        "  %{} = call i32 (i8*, ...) @__isoc99_scanf(i8* noundef getelementptr inbounds \
-                            ([4 x i8], [4 x i8]* @format.bool, i64 0, i64 0), i8* noundef %{})",
-                        scanf_ret_var, read_buf_ptr_var
-                    ));
-
-                    // if <scanf-value> == "true" (with strncmp)
-                    // %6 = call i32 @strncmp(i8* noundef %5, i8* noundef getelementptr inbounds
-                    //      ([5 x i8], [5 x i8]* @.str.1, i64 0, i64 0), i64 noundef 4) #3
-                    // %7 = icmp eq i32 %6, 0
-                    let strncmp_true_var = increment_temp_var(temp_var);
-                    output.push(format!(
-                        "  %{} = call i32 @strncmp(i8* noundef %{}, i8* noundef getelementptr inbounds \
-                            ([5 x i8], [5 x i8]* @format.true, i64 0, i64 0), i64 noundef 4)",
-                        strncmp_true_var, read_buf_ptr_var
-                    ));
-                    let strncmp_true_compare_var = increment_temp_var(temp_var);
-                    output.push(format!(
-                        "  %{} = icmp eq i32 %{}, 0",
-                        strncmp_true_compare_var, strncmp_true_var
-                    ));
-
-                    let if_true_label = increment_temp_var(temp_var);
-                    let compare_false_label = increment_temp_var(temp_var);
-                    let strncmp_false_var = increment_temp_var(temp_var);
-                    let strncmp_false_compare_var = increment_temp_var(temp_var);
-                    let if_false_label = increment_temp_var(temp_var);
-                    let else_label = increment_temp_var(temp_var);
-                    let endif_label = increment_temp_var(temp_var);
-
-                    // Branch
-                    // br i1 %7, label %8, label %9
-                    output.push(format!(
-                        "  br i1 %{}, label %{}, label %{}",
-                        strncmp_true_compare_var, if_true_label, compare_false_label
-                    ));
-
-                    // if branch - compare "true" succeeded, set 1
-                    output.push(format!("{}:", if_true_label));
-                    output.push(format!("  store i1 1, i1* %{}", alloca_var));
-                    output.push(format!("  br label %{}", endif_label));
-
-                    // Compare "false"
-                    output.push(format!("{}:", compare_false_label));
-                    output.push(format!(
-                        "  %{} = call i32 @strncmp(i8* noundef %{}, i8* noundef getelementptr inbounds \
-                                ([6 x i8], [6 x i8]* @format.false, i64 0, i64 0), i64 noundef 5)",
-                        strncmp_false_var, read_buf_ptr_var
-                    ));
-                    output.push(format!(
-                        "  %{} = icmp eq i32 %{}, 0",
-                        strncmp_false_compare_var, strncmp_false_var
-                    ));
-                    output.push(format!(
-                        "  br i1 %{}, label %{}, label %{}",
-                        strncmp_false_compare_var, if_false_label, else_label
-                    ));
-
-                    // elseif branch - compare "false" succeeded, set 0
-                    output.push(format!("{}:", if_false_label));
-                    output.push(format!("  store i1 0, i1* %{}", alloca_var));
-                    output.push(format!("  br label %{}", endif_label));
-
-                    // else branch
-                    output.push(format!("{}:", else_label));
-                    output.push("  call void @exit(i32 noundef 1)".into());
-                    output.push("  unreachable".into());
-
-                    // endif
-                    output.push(format!("{}:", endif_label));
-
-                    // Load stored variable
-                    let load_var = increment_temp_var(temp_var);
-                    output.push(format!("  %{} = load i1, i1* %{}", load_var, alloca_var));
-
-                    // Assign
-                    let mut code_assign_code =
-                        generate_assign_var(temp_var, procedure_symbols, shape, VariableType::Bool, load_var);
-                    output.append(&mut code_assign_code);
-                }
-            }
+            output.append(&mut generate_read(temp_var, procedure_symbols, shape));
         }
         Statement::Call(identifier, expressions) => {
             let callee_symbol_table = symbol_table.get(&identifier.node).expect("no symbols for procedure");
@@ -409,6 +265,7 @@ fn generate_statement(
                 .iter()
                 .filter(|a| a.variable_location == VariableLocation::FormalParameter);
 
+            // TODO: fix
             let mut declarations = vec![];
             for (parameter, argument) in callee_parameters.zip(expressions.iter()) {
                 let (passing_indicator, var) = match parameter.pass_indicator {
@@ -573,6 +430,7 @@ fn generate_assign_var(
         expr_value_var
     };
 
+    // TODO: fix
     if let (ParameterPassIndicator::Val, IdentifierShape::Identifier(identifier)) =
         (variable_pass_indicator, identifier_shape)
     {
@@ -596,6 +454,160 @@ fn generate_assign_var(
     output
 }
 
+/// Generates code for read (including assignment of value)
+fn generate_read(temp_var: &mut usize, procedure_symbols: &ProcedureSymbols, shape: &IdentifierShape) -> Vec<String> {
+    let mut output = vec![];
+
+    let (_, variable_info) = determine_shape_info(procedure_symbols, shape);
+
+    match variable_info.r#type {
+        VariableType::Int => {
+            let alloca_var = increment_temp_var(temp_var);
+            let assign_ret_var = increment_temp_var(temp_var);
+            let load_var = increment_temp_var(temp_var);
+
+            // %1 = alloca i32, align 4
+            output.push(format!("  %{} = alloca i32", alloca_var));
+            // %2 = call i32 (i8*, ...) @__isoc99_scanf(i8* noundef getelementptr inbounds
+            //      ([3 x i8], [3 x i8]* @.str, i64 0, i64 0), i32* noundef %1)
+            output.push(format!(
+                "  %{} = call i32 (i8*, ...) @__isoc99_scanf(i8* noundef getelementptr inbounds \
+                            ([3 x i8], [3 x i8]* @format.int, i64 0, i64 0), i32* noundef %{})",
+                assign_ret_var, alloca_var
+            ));
+            // %3 = load i32, i32* %2
+            output.push(format!("  %{} = load i32, i32* %{}", load_var, alloca_var));
+
+            // Assign
+            let mut code_assign_code =
+                generate_assign_var(temp_var, procedure_symbols, shape, VariableType::Int, load_var);
+            output.append(&mut code_assign_code);
+        }
+        VariableType::Float => {
+            let alloca_var = increment_temp_var(temp_var);
+            let assign_ret_var = increment_temp_var(temp_var);
+            let load_var = increment_temp_var(temp_var);
+
+            // %1 = alloca float, align 4
+            output.push(format!("  %{} = alloca float", alloca_var));
+            // %2 = call i32 (i8*, ...) @__isoc99_scanf(i8* noundef getelementptr inbounds
+            //      ([3 x i8], [3 x i8]* @.str, i64 0, i64 0), float* noundef %1)
+            output.push(format!(
+                "  %{} = call i32 (i8*, ...) @__isoc99_scanf(i8* noundef getelementptr inbounds \
+                            ([3 x i8], [3 x i8]* @format.float, i64 0, i64 0), float* noundef %{})",
+                assign_ret_var, alloca_var
+            ));
+            // %3 = load float, float* %2
+            output.push(format!("  %{} = load float, float* %{}", load_var, alloca_var));
+
+            // Assign
+            let mut code_assign_code =
+                generate_assign_var(temp_var, procedure_symbols, shape, VariableType::Float, load_var);
+            output.append(&mut code_assign_code);
+        }
+        VariableType::Bool => {
+            let alloca_var = increment_temp_var(temp_var);
+            let read_buf_var = increment_temp_var(temp_var);
+            let read_buf_ptr_var = increment_temp_var(temp_var);
+            let scanf_ret_var = increment_temp_var(temp_var);
+
+            // %1 = alloca i1                                                       ; var 'read'
+            output.push(format!("  %{} = alloca i1", alloca_var));
+            // %2 = alloca [6 x i8]                                                 ; char*
+            output.push(format!("  %{} = alloca [6 x i8]", read_buf_var));
+            // %3 = getelementptr inbounds [6 x i8], [6 x i8]* %2, i64 0, i64 0
+            output.push(format!(
+                "  %{} = getelementptr inbounds [6 x i8], [6 x i8]* %{}, i64 0, i64 0",
+                read_buf_ptr_var, read_buf_var
+            ));
+            // %4 = call i32 (i8*, ...) @__isoc99_scanf(i8* noundef getelementptr inbounds
+            //      ([4 x i8], [4 x i8]* @format.bool, i64 0, i64 0), i8* noundef %3)
+            output.push(format!(
+                "  %{} = call i32 (i8*, ...) @__isoc99_scanf(i8* noundef getelementptr inbounds \
+                            ([4 x i8], [4 x i8]* @format.bool, i64 0, i64 0), i8* noundef %{})",
+                scanf_ret_var, read_buf_ptr_var
+            ));
+
+            // if <scanf-value> == "true" (with strncmp)
+            // %6 = call i32 @strncmp(i8* noundef %5, i8* noundef getelementptr inbounds
+            //      ([5 x i8], [5 x i8]* @.str.1, i64 0, i64 0), i64 noundef 4) #3
+            // %7 = icmp eq i32 %6, 0
+            let strncmp_true_var = increment_temp_var(temp_var);
+            output.push(format!(
+                "  %{} = call i32 @strncmp(i8* noundef %{}, i8* noundef getelementptr inbounds \
+                            ([5 x i8], [5 x i8]* @format.true, i64 0, i64 0), i64 noundef 4)",
+                strncmp_true_var, read_buf_ptr_var
+            ));
+            let strncmp_true_compare_var = increment_temp_var(temp_var);
+            output.push(format!(
+                "  %{} = icmp eq i32 %{}, 0",
+                strncmp_true_compare_var, strncmp_true_var
+            ));
+
+            let if_true_label = increment_temp_var(temp_var);
+            let compare_false_label = increment_temp_var(temp_var);
+            let strncmp_false_var = increment_temp_var(temp_var);
+            let strncmp_false_compare_var = increment_temp_var(temp_var);
+            let if_false_label = increment_temp_var(temp_var);
+            let else_label = increment_temp_var(temp_var);
+            let endif_label = increment_temp_var(temp_var);
+
+            // Branch
+            // br i1 %7, label %8, label %9
+            output.push(format!(
+                "  br i1 %{}, label %{}, label %{}",
+                strncmp_true_compare_var, if_true_label, compare_false_label
+            ));
+
+            // if branch - compare "true" succeeded, set 1
+            output.push(format!("{}:", if_true_label));
+            output.push(format!("  store i1 1, i1* %{}", alloca_var));
+            output.push(format!("  br label %{}", endif_label));
+
+            // Compare "false"
+            output.push(format!("{}:", compare_false_label));
+            output.push(format!(
+                "  %{} = call i32 @strncmp(i8* noundef %{}, i8* noundef getelementptr inbounds \
+                                ([6 x i8], [6 x i8]* @format.false, i64 0, i64 0), i64 noundef 5)",
+                strncmp_false_var, read_buf_ptr_var
+            ));
+            output.push(format!(
+                "  %{} = icmp eq i32 %{}, 0",
+                strncmp_false_compare_var, strncmp_false_var
+            ));
+            output.push(format!(
+                "  br i1 %{}, label %{}, label %{}",
+                strncmp_false_compare_var, if_false_label, else_label
+            ));
+
+            // elseif branch - compare "false" succeeded, set 0
+            output.push(format!("{}:", if_false_label));
+            output.push(format!("  store i1 0, i1* %{}", alloca_var));
+            output.push(format!("  br label %{}", endif_label));
+
+            // else branch
+            output.push(format!("{}:", else_label));
+            output.push("  call void @exit(i32 noundef 1)".into());
+            output.push("  unreachable".into());
+
+            // endif
+            output.push(format!("{}:", endif_label));
+
+            // Load stored variable
+            let load_var = increment_temp_var(temp_var);
+            output.push(format!("  %{} = load i1, i1* %{}", load_var, alloca_var));
+
+            // Assign
+            let mut code_assign_code =
+                generate_assign_var(temp_var, procedure_symbols, shape, VariableType::Bool, load_var);
+            output.append(&mut code_assign_code);
+        }
+    }
+
+    output
+}
+
+/// Generates code for write from a string constant or expression
 fn generate_write(
     strings: &mut Vec<ConvertedStringConst>,
     temp_var: &mut usize,
@@ -745,6 +757,7 @@ fn generate_expression(
             let variable_type = convert_type(variable_info.r#type);
             let variable_pass_indicator = *variable_info.pass_indicator.unwrap_or(&ParameterPassIndicator::Val);
 
+            // TODO: fix
             if let (ParameterPassIndicator::Val, IdentifierShape::Identifier(identifier)) =
                 (variable_pass_indicator, identifier_shape)
             {
