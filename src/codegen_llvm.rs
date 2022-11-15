@@ -2,7 +2,7 @@ use crate::ast::{
     Binop, Expression, GoatProgram, IdentifierShape, IdentifierShapeDeclaration, Node, Parameter,
     ParameterPassIndicator, Procedure, Statement, Unop, VariableDeclaration, VariableType,
 };
-use crate::semantic::{eval_expression_scalar, ProcedureSymbols, SymbolTable, VariableInfo};
+use crate::semantic::{eval_expression_scalar, ProcedureSymbols, SymbolTable, VariableInfo, VariableLocation};
 
 const SPACE_2: &str = "  ";
 type ConvertedStringConst = (usize, String);
@@ -405,9 +405,41 @@ fn generate_statement(
                 }
             }
         }
-        // TODO: calls
-        Statement::Call(_, _) => {
-            output.push("    ; a call statement".to_owned());
+        Statement::Call(identifier, expressions) => {
+            let callee_symbol_table = symbol_table.get(&identifier.node).expect("no symbols for procedure");
+            let callee_parameters = callee_symbol_table
+                .iter()
+                .filter(|a| a.variable_location == VariableLocation::FormalParameter);
+
+            let mut declarations = vec![];
+            for (parameter, argument) in callee_parameters.zip(expressions.iter()) {
+                let (passing_indicator, var_num) = match parameter.pass_indicator {
+                    Some(ParameterPassIndicator::Val) => {
+                        // Evaluate expression
+                        let (expr_var, mut expr_code) =
+                            generate_expression(temp_var, procedure_symbols, &argument.node);
+                        output.append(&mut expr_code);
+                        (ParameterPassIndicator::Val, expr_var)
+                    }
+                    Some(ParameterPassIndicator::Ref) => (ParameterPassIndicator::Ref, 3000),
+                    None => {
+                        panic!("parameter should have passing indicator")
+                    }
+                };
+
+                declarations.push(generate_parameter_declaration(
+                    parameter.r#type,
+                    passing_indicator,
+                    var_num,
+                ));
+            }
+
+            // call void @"ident"(i1 noundef zeroext %6, i8* noundef %2, i32 noundef %7, i32* noundef %3, ...)
+            output.push(format!(
+                "  call void @{}({})",
+                print_identifier_name(&identifier.node),
+                declarations.join(", ")
+            ))
         }
     }
 
@@ -1141,10 +1173,11 @@ fn generate_formal_parameters(temp_var: &mut usize, parameters: &Vec<Parameter>)
         let identifier_escaped = print_identifier_name(&parameter.identifier.node);
 
         let var_num = increment_temp_var(temp_var);
-
-        // i32 noundef %1 (val)
-        // i32* noundef %2 (ref)
-        declarations.push(format!("{}{} noundef %{}", r#type, passing_indicator, var_num));
+        declarations.push(generate_parameter_declaration(
+            parameter.r#type,
+            parameter.passing_indicator,
+            var_num,
+        ));
 
         // %name1 = alloca i32 (val)
         // %name2 = alloca i32* (ref)
@@ -1155,13 +1188,40 @@ fn generate_formal_parameters(temp_var: &mut usize, parameters: &Vec<Parameter>)
 
         // store i32 %1, i32* %name1 (val)
         // store i32* %2, i32** %name2 (ref)
+        let store_var = increment_temp_var(temp_var);
         stores.push(format!(
             "  store {}{} %{}, {}*{} %{}",
-            r#type, passing_indicator, temp_var, r#type, passing_indicator, identifier_escaped
+            r#type, passing_indicator, store_var, r#type, passing_indicator, identifier_escaped
         ));
     }
 
     (declarations.join(", "), stores)
+}
+
+fn generate_parameter_declaration(
+    r#type: VariableType,
+    passing_indicator: ParameterPassIndicator,
+    var_num: usize,
+) -> String {
+    // i32 noundef %1 (val)
+    // i32* noundef %2 (ref)
+    let r#type_str = convert_type(r#type);
+    let passing_indicator_str = match passing_indicator {
+        ParameterPassIndicator::Ref => "*",
+        ParameterPassIndicator::Val => "",
+    };
+
+    format!(
+        "{}{} {}noundef %{}",
+        r#type_str,
+        passing_indicator_str,
+        if passing_indicator == ParameterPassIndicator::Val && r#type == VariableType::Bool {
+            "zeroext "
+        } else {
+            ""
+        },
+        var_num
+    )
 }
 
 fn determine_shape_info<'fromparent>(
