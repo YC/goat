@@ -52,7 +52,7 @@ for f in "$(dirname "$0")"/stage3-peer/*.gt; do
 
     rv=$?
     if [ $rv -eq 0 ]; then
-        echo "$f passesd diff"
+        echo "$f passed diff"
     elif [ $rv -ne 0 ]; then
         echo "*** $f failed diff"
         bad=$((bad + 1))
