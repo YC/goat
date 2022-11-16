@@ -134,7 +134,7 @@ fn generate_statements(
         output.append(&mut generate_statement(
             strings,
             temp_var,
-            &vars,
+            vars,
             symbol_table,
             procedure,
             &statement.node,
@@ -361,7 +361,7 @@ fn get_identifier_ptr(
         | IdentifierShape::IdentifierArray(identifier, _)
         | IdentifierShape::IdentifierArray2D(identifier, _, _) => identifier,
     };
-    let var_info = vars.get(&identifier.node).unwrap();
+    let var_info = vars.get(&identifier.node).expect("expected var_info to be present");
 
     let ptr_var = match identifier_shape {
         IdentifierShape::Identifier(_) => {
