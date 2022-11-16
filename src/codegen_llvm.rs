@@ -11,7 +11,6 @@ type ConvertedStringConst = (usize, String);
 
 struct VarInfo {
     var_num: usize,
-    is_param: bool,
     pointer: bool,
 }
 type VarInfoDict = HashMap<String, VarInfo>;
@@ -377,30 +376,17 @@ fn get_identifier_ptr(
                 // store i32 %0, i32* %2, align 4
                 // %3 = getelementptr inbounds i32, i32* %2, i64 1
 
-                if var_info.is_param {
-                    // let alloca_var = increment_temp_var(temp_var);
-                    // output.push(format!("  %{} = alloca {}", alloca_var, variable_type));
+                // Allocate pointer
+                let alloca_var = increment_temp_var(temp_var);
+                output.push(format!("  %{} = alloca {}", alloca_var, variable_type));
 
-                    // output.push(format!(
-                    //     "  store {} %{}, {}* %{}",
-                    //     variable_type, var_info.var_num, variable_type, alloca_var
-                    // ));
+                // Store value of param var into pointer
+                output.push(format!(
+                    "  store {} %{}, {}* %{}",
+                    variable_type, var_info.var_num, variable_type, alloca_var
+                ));
 
-                    // let address_var = increment_temp_var(temp_var);
-                    // output.push(format!(
-                    //     "  %{} = getelementptr inbounds {}, {}* %{}, i64 1",
-                    //     address_var, variable_type, variable_type, var_info.var_num
-                    // ));
-                    // address_var
-                    var_info.var_num
-                } else {
-                    // let address_var = increment_temp_var(temp_var);
-                    // output.push(format!(
-                    //     "  %{} = getelementptr inbounds {}, {}* %{}, i64 1",
-                    //     address_var, variable_type, variable_type, var_info.var_num
-                    // ));
-                    var_info.var_num
-                }
+                alloca_var
             }
         }
         IdentifierShape::IdentifierArray(_, m_expr) => {
@@ -1076,14 +1062,7 @@ fn generate_var_declarations(
 
         match &declaration.identifier_declaration {
             IdentifierShapeDeclaration::Identifier(identifier) => {
-                vars.insert(
-                    identifier.node.clone(),
-                    VarInfo {
-                        var_num,
-                        pointer: false,
-                        is_param: false,
-                    },
-                );
+                vars.insert(identifier.node.clone(), VarInfo { var_num, pointer: true });
 
                 // %1 = alloca i32          ; allocate
                 output.push(format!("  %{} = alloca {}", var_num, var_type));
@@ -1101,14 +1080,7 @@ fn generate_var_declarations(
                 ));
             }
             IdentifierShapeDeclaration::IdentifierArray(identifier, n) => {
-                vars.insert(
-                    identifier.node.clone(),
-                    VarInfo {
-                        var_num,
-                        pointer: true,
-                        is_param: false,
-                    },
-                );
+                vars.insert(identifier.node.clone(), VarInfo { var_num, pointer: true });
 
                 // %1 = alloca [n x i32]
                 output.push(format!("  %{} = alloca [{} x {}]", var_num, n, var_type));
@@ -1133,14 +1105,7 @@ fn generate_var_declarations(
                 ));
             }
             IdentifierShapeDeclaration::IdentifierArray2D(identifier, m, n) => {
-                vars.insert(
-                    identifier.node.clone(),
-                    VarInfo {
-                        var_num,
-                        pointer: true,
-                        is_param: false,
-                    },
-                );
+                vars.insert(identifier.node.clone(), VarInfo { var_num, pointer: true });
 
                 // %1 = alloca [m x [n x i32]]
                 output.push(format!("  %{} = alloca [{} x [{} x {}]]", var_num, m, n, var_type));
@@ -1186,7 +1151,6 @@ fn generate_formal_parameters(temp_var: &mut usize, vars: &mut VarInfoDict, para
             VarInfo {
                 var_num,
                 pointer: parameter.passing_indicator == ParameterPassIndicator::Ref,
-                is_param: true,
             },
         );
         declarations.push(generate_parameter_declaration(
