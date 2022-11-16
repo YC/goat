@@ -6,7 +6,6 @@ use crate::ast::{
 };
 use crate::semantic::{eval_expression_scalar, ProcedureSymbols, SymbolTable, VariableInfo, VariableLocation};
 
-const SPACE_2: &str = "  ";
 type ConvertedStringConst = (usize, String);
 
 struct VarInfo {
@@ -31,7 +30,6 @@ pub fn generate_code(program: &GoatProgram, symbol_table: &SymbolTable) -> Strin
     ];
 
     let mut string_constants: Vec<ConvertedStringConst> = vec![];
-
     let mut procedure_outputs = vec![];
     for procedure in &program.procedures {
         procedure_outputs.push(generate_proc(&mut string_constants, procedure, symbol_table));
@@ -51,13 +49,11 @@ pub fn generate_code(program: &GoatProgram, symbol_table: &SymbolTable) -> Strin
 
 fn generate_proc(strings: &mut Vec<ConvertedStringConst>, procedure: &Procedure, symbol_table: &SymbolTable) -> String {
     let mut output = vec![];
+    let mut temp_var = 0;
+    let mut vars: VarInfoDict = HashMap::new();
 
     let is_main = procedure.identifier.node == "main";
     let return_type = if is_main { "i32" } else { "void" };
-
-    let mut temp_var = 0;
-
-    let mut vars: VarInfoDict = HashMap::new();
 
     // Parameters
     let parameters_declaration = generate_formal_parameters(&mut temp_var, &mut vars, &procedure.parameters);
@@ -79,11 +75,14 @@ fn generate_proc(strings: &mut Vec<ConvertedStringConst>, procedure: &Procedure,
     // For the implicit entry
     temp_var += 1;
 
+    // Variable declarations
     output.append(&mut generate_var_declarations(
         &mut temp_var,
         &mut vars,
         &procedure.variable_declarations,
     ));
+
+    // Body
     output.append(&mut generate_body(
         &mut temp_var,
         strings,
@@ -92,6 +91,7 @@ fn generate_proc(strings: &mut Vec<ConvertedStringConst>, procedure: &Procedure,
         procedure,
     ));
 
+    // Return
     if is_main {
         output.push("  ret i32 0".to_owned());
     } else {
@@ -160,20 +160,16 @@ fn generate_statement(
 
     match statement {
         Statement::If(expr, statements) => {
-            // Evaluate boolean expression
-            let (conditional_var, generated) = generate_expression(temp_var, vars, procedure_symbols, &expr.node);
-            output.append(
-                &mut generated
-                    .iter()
-                    .map(|g| SPACE_2.to_owned() + g)
-                    .collect::<Vec<String>>(),
-            );
-
             // %1 = <expr-result>
             // br i1 %1, label %if, label %endif
             // if: ...
             // br label %endif
             // endif:
+
+            // Evaluate boolean expression
+            let (conditional_var, mut generated) = generate_expression(temp_var, vars, procedure_symbols, &expr.node);
+            output.append(&mut generated);
+
             let if_label = increment_temp_var(temp_var);
             let mut if_statements_code =
                 generate_statements(strings, temp_var, vars, symbol_table, procedure, statements);
@@ -194,10 +190,6 @@ fn generate_statement(
             output.push(format!("{}:\t\t\t\t; end of if statement", endif_label));
         }
         Statement::IfElse(expr, statements1, statements2) => {
-            // Evaluate boolean expression
-            let (conditional_var, mut expr_code) = generate_expression(temp_var, vars, procedure_symbols, &expr.node);
-            output.append(&mut expr_code);
-
             // %1 = <expr-result>
             // br i1 %1, label %if, label %else
             // if: ...
@@ -205,6 +197,11 @@ fn generate_statement(
             // else: ...
             // br label %endif
             // endif:
+
+            // Evaluate boolean expression
+            let (conditional_var, mut expr_code) = generate_expression(temp_var, vars, procedure_symbols, &expr.node);
+            output.append(&mut expr_code);
+
             let if_label = increment_temp_var(temp_var);
             let mut if_statements_code =
                 generate_statements(strings, temp_var, vars, symbol_table, procedure, statements1);
@@ -299,30 +296,29 @@ fn generate_statement(
                 .iter()
                 .filter(|a| a.variable_location == VariableLocation::FormalParameter);
 
+            // Generate the arguments within the bracket
             let mut declarations = vec![];
             for (parameter, argument) in callee_parameters.zip(expressions.iter()) {
-                let (passing_indicator, var) = match parameter.pass_indicator {
+                let (passing_indicator, pass_var) = match parameter.pass_indicator {
                     Some(ParameterPassIndicator::Val) => {
                         // Evaluate expression
                         let (expr_var, mut expr_code) =
                             generate_expression(temp_var, vars, procedure_symbols, &argument.node);
                         output.append(&mut expr_code);
+
                         (ParameterPassIndicator::Val, expr_var.to_string())
                     }
                     Some(ParameterPassIndicator::Ref) => {
-                        match &argument.node {
-                            Expression::IdentifierShape(identifier_shape) => {
-                                // Get pointer to variable declaration, and code for generating pointer variable
-                                let (ptr_var, mut ptr_code) =
-                                    get_identifier_ptr(temp_var, &vars, procedure_symbols, identifier_shape);
-                                output.append(&mut ptr_code);
+                        let Expression::IdentifierShape(identifier_shape) = &argument.node else {
+                            panic!("By ref must always be formal parameter or variable");
+                        };
 
-                                (ParameterPassIndicator::Ref, ptr_var.to_string())
-                            }
-                            _ => {
-                                panic!("By ref must always be formal parameter or variable");
-                            }
-                        }
+                        // Get pointer to variable declaration, and code for generating pointer variable
+                        let (ptr_var, mut ptr_code) =
+                            get_identifier_ptr(temp_var, vars, procedure_symbols, identifier_shape);
+                        output.append(&mut ptr_code);
+
+                        (ParameterPassIndicator::Ref, ptr_var.to_string())
                     }
                     None => {
                         panic!("parameter should have passing indicator")
@@ -332,7 +328,7 @@ fn generate_statement(
                 declarations.push(generate_parameter_declaration(
                     parameter.r#type,
                     passing_indicator,
-                    &var,
+                    &pass_var,
                 ));
             }
 
@@ -372,15 +368,13 @@ fn get_identifier_ptr(
             if var_info.pointer {
                 var_info.var_num
             } else {
-                // %2 = alloca i32, align 4
-                // store i32 %0, i32* %2, align 4
-                // %3 = getelementptr inbounds i32, i32* %2, i64 1
-
                 // Allocate pointer
+                // %2 = alloca i32, align 4
                 let alloca_var = increment_temp_var(temp_var);
                 output.push(format!("  %{} = alloca {}", alloca_var, variable_type));
 
-                // Store value of param var into pointer
+                // Store value of var in pointer
+                // store i32 %0, i32* %2, align 4
                 output.push(format!(
                     "  store {} %{}, {}* %{}",
                     variable_type, var_info.var_num, variable_type, alloca_var
@@ -424,8 +418,8 @@ fn get_identifier_ptr(
                 panic!("Expected matrix");
             };
 
-            // %m = sext i32 %<expr-m> to i64                                   ; m conversion to i64
-            // %n = sext i32 %<expr-n> to i64                                   ; n conversion to i64
+            // %m = sext i32 %<expr-m> to i64                                           ; m conversion to i64
+            // %n = sext i32 %<expr-n> to i64                                           ; n conversion to i64
             let convert_var_m = increment_temp_var(temp_var);
             output.push(format!("  %{} = sext i32 %{} to i64", convert_var_m, m_expr_var));
 
@@ -451,6 +445,7 @@ fn get_identifier_ptr(
     (ptr_var, output)
 }
 
+/// Assignment of value from expression to variable through pointer
 fn generate_assign_var(
     temp_var: &mut usize,
     vars: &VarInfoDict,
@@ -658,6 +653,7 @@ fn generate_write(
 ) -> Vec<String> {
     let mut output = vec![];
 
+    // String constant
     if let Expression::StringConst(str_const) = &expr.node {
         let print_return_num = increment_temp_var(temp_var);
 
@@ -683,6 +679,7 @@ fn generate_write(
         return output;
     }
 
+    // Int, Float, Bool value
     let (expr_var, mut expr_code) = generate_expression(temp_var, vars, procedure_symbols, &expr.node);
     output.append(&mut expr_code);
 
@@ -1057,7 +1054,6 @@ fn generate_var_declarations(
 
     for declaration in declarations {
         let var_type = convert_type(declaration.r#type);
-
         let var_num = increment_temp_var(temp_var);
 
         match &declaration.identifier_declaration {
