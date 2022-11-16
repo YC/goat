@@ -816,19 +816,14 @@ fn generate_expression(
             output.append(&mut expr_code);
 
             // %4 = sub nsw i32 0, %3 (0 subtract number)
+            // %4 = fneg float %3
             let variable_type = convert_type(expr_value_type);
             let sub_var = increment_temp_var(temp_var);
-            output.push(format!(
-                "  %{} = sub nsw {} {}, %{}",
-                sub_var,
-                variable_type,
-                if expr_value_type == VariableType::Int {
-                    "0"
-                } else {
-                    "0.0"
-                },
-                expr_var
-            ));
+            if expr_value_type == VariableType::Int {
+                output.push(format!("  %{} = sub nsw {} 0, %{}", sub_var, variable_type, expr_var));
+            } else {
+                output.push(format!("  %{} = fneg {} %{}", sub_var, variable_type, expr_var));
+            }
             sub_var
         }
         Expression::UnopExpr(Unop::NOT, expr) => {
