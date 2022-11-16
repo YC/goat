@@ -1,0 +1,149 @@
+proc b1(val int b)
+begin
+    write b;
+    write "\n";
+end
+
+proc b2()
+    int b;
+begin
+    b := 3;
+    write b;
+    write "\n";
+end
+
+proc main_helper(val int a)
+    int b;
+begin
+    # from formal params
+    call b1(a);
+    # from decl
+    b := 1;
+    call b1(b);
+    # direct value
+    call b1(2);
+end
+
+proc main()
+    int x;
+    # float y;
+    # bool z;
+    int y[2];
+    float aa[2];
+    int xx[10, 20];
+    float yy[10, 20];
+    bool zz[10, 20];
+    float y';
+    bool z;
+    # int x;
+
+    # int b;
+begin
+    call main_helper(1);
+
+    x := 20;
+    write x;
+    write "\n";
+
+    y[0] := 500;
+    call b1(y[0]);
+    write y[0];
+    write " ";
+
+    # call b1(y[0]);
+    # write y[0];
+    # write "\n";
+
+    call b1(20);
+    call b1(x);
+
+    write 0.1 + 0.2;
+    write 1 < 2;
+    write 2 > 4;
+    write 1 = 1;
+    write 1 + 2 + 3 * 4 / 2;
+    write "\n";
+
+    write 0.1 + 0.2;
+    write "\n";
+
+    write false && true;
+    write false && false;
+    write true && true;
+    write true && false;
+    write "\n";
+
+    write false || true;
+    write false || false;
+    write true  || true;
+    write true  || false;
+    write "\n";
+
+    x := 1;
+    x := 2;
+    write x;
+
+    # read z;
+    # write z;
+    # write "\n";
+    # read x;
+    # write x;
+    # write "\n";
+
+    y' := -3;
+    write "\n";
+
+    write z;
+    write !z;
+    write "\n";
+
+    y' := x;
+    write y';
+    write "\n";
+
+    zz[9, 19] := true;
+    write zz[0, 0];
+    write "\n";
+    write zz[9, 18];
+    write "\n";
+    write zz[9, 19];
+    write "\n";
+
+    yy[9, 19] := 300;
+    write yy[0, 0];
+    write "\n";
+    write yy[9, 18];
+    write "\n";
+    write yy[9, 19];
+    write "\n";
+
+    xx[9, 19] := 300;
+    write xx[0, 0];
+    write "\n";
+    write xx[9, 18];
+    write "\n";
+    write xx[9, 19];
+    write "\n";
+
+    x := 5;
+    write x;
+
+    y[0] := 5;
+    write y[0];
+    write "\n";
+    write y[1];
+    write "\n";
+
+    write aa[1];
+    write "\n";
+
+    write 5;
+    write "\n";
+    write "hello 😃\\n";
+    write true;
+    write false;
+    if true then
+        write false;
+    fi
+    write "\n";
+end
