@@ -1,0 +1,30 @@
+proc main()
+	bool t;
+	bool f;
+begin
+    t := true;
+
+    write f < f;
+    write f < t;
+    write t < f;
+    write t < t;
+    write "\n";
+
+    write f <= f;
+    write f <= t;
+    write t <= f;
+    write t <= t;
+    write "\n";
+
+    write f > f;
+    write f > t;
+    write t > f;
+    write t > t;
+    write "\n";
+
+    write f >= f;
+    write f >= t;
+    write t >= f;
+    write t >= t;
+    write "\n";
+end
