@@ -1042,12 +1042,12 @@ fn generate_index_check(temp_var: &mut usize, index_var: usize, bound: u32) -> V
     let mut output = vec![];
 
     // Ensure that the dimension is not exceeded
-    // index < 0 || index > m
+    // index < 0 || index >= m
     let comparison_var1 = increment_temp_var(temp_var);
     output.push(format!("  %{} = icmp slt i32 %{}, 0", comparison_var1, index_var));
     let comparison_var2 = increment_temp_var(temp_var);
     output.push(format!(
-        "  %{} = icmp sgt i32 %{}, {}",
+        "  %{} = icmp sge i32 %{}, {}",
         comparison_var2, index_var, bound
     ));
     let or_var = increment_temp_var(temp_var);
