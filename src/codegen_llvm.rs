@@ -299,6 +299,9 @@ fn generate_statement(
             // Generate the arguments within the bracket
             let mut declarations = vec![];
             for (parameter, argument) in callee_parameters.zip(expressions.iter()) {
+                let argument_type =
+                    eval_expression_scalar(procedure_symbols, argument).expect("cannot evaluate expression type");
+
                 let (passing_indicator, pass_var) = match parameter.pass_indicator {
                     Some(ParameterPassIndicator::Val) => {
                         // Evaluate expression
@@ -306,7 +309,17 @@ fn generate_statement(
                             generate_expression(temp_var, vars, procedure_symbols, &argument.node);
                         output.append(&mut expr_code);
 
-                        (ParameterPassIndicator::Val, expr_var.to_string())
+                        // Int to float conversion
+                        let expr_var = if parameter.r#type == VariableType::Float && argument_type == VariableType::Int
+                        {
+                            let (converted_var, conversion_code) = generate_int_to_float(temp_var, expr_var);
+                            output.push(conversion_code);
+                            converted_var
+                        } else {
+                            expr_var
+                        };
+
+                        (ParameterPassIndicator::Val, expr_var)
                     }
                     Some(ParameterPassIndicator::Ref) => {
                         let Expression::IdentifierShape(identifier_shape) = &argument.node else {
@@ -318,7 +331,7 @@ fn generate_statement(
                             get_identifier_ptr(temp_var, vars, procedure_symbols, identifier_shape);
                         output.append(&mut ptr_code);
 
-                        (ParameterPassIndicator::Ref, ptr_var.to_string())
+                        (ParameterPassIndicator::Ref, ptr_var)
                     }
                     None => {
                         panic!("parameter should have passing indicator")
@@ -328,7 +341,7 @@ fn generate_statement(
                 declarations.push(generate_parameter_declaration(
                     parameter.r#type,
                     passing_indicator,
-                    &pass_var,
+                    &pass_var.to_string(),
                 ));
             }
 
@@ -455,13 +468,9 @@ fn generate_assign_var(
 
     // Int to float conversion
     let expr_value_var = if expr_value_type == VariableType::Int && variable_info.r#type == VariableType::Float {
-        // %4 = sitofp i32 %3 to float
-        let new_converted_var = increment_temp_var(temp_var);
-        output.push(format!(
-            "  %{} = sitofp i32 %{} to float",
-            new_converted_var, expr_value_var
-        ));
-        new_converted_var
+        let (converted_var, conversion_code) = generate_int_to_float(temp_var, expr_value_var);
+        output.push(conversion_code);
+        converted_var
     } else {
         expr_value_var
     };
@@ -935,12 +944,12 @@ fn generate_expression(
             output.append(&mut right_code);
 
             let (left_var, right_var) = if left_type == VariableType::Float && right_type == VariableType::Int {
-                let new_right_var = increment_temp_var(temp_var);
-                output.push(format!("  %{} = sitofp i32 %{} to float", new_right_var, right_var));
+                let (new_right_var, conversion_code) = generate_int_to_float(temp_var, right_var);
+                output.push(conversion_code);
                 (left_var, new_right_var)
             } else if left_type == VariableType::Int && right_type == VariableType::Float {
-                let new_left_var = increment_temp_var(temp_var);
-                output.push(format!("  %{} = sitofp i32 %{} to float", new_left_var, left_var));
+                let (new_left_var, conversion_code) = generate_int_to_float(temp_var, left_var);
+                output.push(conversion_code);
                 (new_left_var, right_var)
             } else {
                 (left_var, right_var)
@@ -1036,6 +1045,15 @@ fn generate_expression(
     };
 
     (var_num, output)
+}
+
+fn generate_int_to_float(temp_var: &mut usize, int_var: usize) -> (usize, String) {
+    // %4 = sitofp i32 %3 to float
+    let new_converted_var = increment_temp_var(temp_var);
+    (
+        new_converted_var,
+        format!("  %{} = sitofp i32 %{} to float", new_converted_var, int_var),
+    )
 }
 
 fn generate_var_declarations(
