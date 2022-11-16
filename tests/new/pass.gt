@@ -1,0 +1,45 @@
+proc by_val(val int b)
+begin
+    write b;
+    write "\n";
+end
+
+proc main_helper_val(val int a)
+    int b;
+begin
+    # from formal params
+    call by_val(a);
+
+    # from decl
+    b := 2;
+    call by_val(b);
+
+    # direct value
+    call by_val(3);
+end
+
+proc by_ref(ref int b)
+begin
+    write b;
+    write "\n";
+end
+
+proc main_helper_ref(ref int a)
+    int b;
+begin
+    # from formal params
+    call by_ref(a);
+
+    # from decl
+    b := 5;
+    call by_ref(b);
+end
+
+proc main()
+    int x;
+    int xx[1];
+begin
+    call main_helper_val(1);
+    x := 4;
+    call main_helper_ref(x);
+end
