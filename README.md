@@ -12,8 +12,9 @@ This is my implementation in Rust, to relearn some compiler concepts.
 - [x] Parser
   - [x] Recursive Descent
 - [x] Semantic Analysis
-- [ ] Code generation
-  - [ ] LLVM IR
+- [x] Code generation
+  - [-] LLVM IR
+  - [ ] Oz
 
 ## Usage
 Install `clang` (optional, to compile executable).

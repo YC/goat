@@ -27,6 +27,38 @@ do
     fi
 done
 
+for f in "$(dirname "$0")"/stage3-peer/*.gt; do
+    bin="$f.o"
+    eval "$goat" "$f" -o "$bin" &> /dev/null
+
+    rv=$?
+    if [ $rv -eq 0 ] && [[ "$f" != *".bad."* ]]; then
+        echo "$f compiled with exit code 0"
+    elif [ "$rv" -ne 0 ] && [[ "$f" == *".bad."* ]]; then
+        echo "$f passed with exit code $rv"
+        continue
+    else
+        echo "*** $f failed with exit code $rv"
+        bad=$((bad + 1))
+    fi
+
+    in="${f/.gt/.in}"
+    out="${f/.gt/.out}"
+    if [ ! -f "$in" ]; then
+        eval timeout 2 "$bin" | diff - "$out"
+    else
+        cat "$in" | eval timeout 2 "$bin" | diff - "$out"
+    fi
+
+    rv=$?
+    if [ $rv -eq 0 ]; then
+        echo "$f passesd diff"
+    elif [ $rv -ne 0 ]; then
+        echo "*** $f failed diff"
+        bad=$((bad + 1))
+    fi
+done
+
 if [ "$bad" -ne 0 ]; then
     echo "$bad tests failed"
     exit 1
