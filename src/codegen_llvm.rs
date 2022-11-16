@@ -353,15 +353,8 @@ fn get_identifier_ptr(
     let mut output = vec![];
 
     // Get variable information
-    let (_, shape_info) = determine_shape_info(procedure_symbols, identifier_shape);
+    let (_, shape_info, var_info) = determine_shape_info(procedure_symbols, identifier_shape, vars);
     let variable_type = convert_type(shape_info.r#type);
-
-    let identifier = match identifier_shape {
-        IdentifierShape::Identifier(identifier)
-        | IdentifierShape::IdentifierArray(identifier, _)
-        | IdentifierShape::IdentifierArray2D(identifier, _, _) => identifier,
-    };
-    let var_info = vars.get(&identifier.node).expect("expected var_info to be present");
 
     let ptr_var = match identifier_shape {
         IdentifierShape::Identifier(_) => {
@@ -457,7 +450,7 @@ fn generate_assign_var(
     let mut output = vec![];
 
     // Get variable information
-    let (_, variable_info) = determine_shape_info(procedure_symbols, identifier_shape);
+    let (_, variable_info, _) = determine_shape_info(procedure_symbols, identifier_shape, vars);
     let variable_type = convert_type(variable_info.r#type);
 
     // Int to float conversion
@@ -494,7 +487,7 @@ fn generate_read(
 ) -> Vec<String> {
     let mut output = vec![];
 
-    let (_, variable_info) = determine_shape_info(procedure_symbols, shape);
+    let (_, variable_info, _) = determine_shape_info(procedure_symbols, shape, vars);
 
     match variable_info.r#type {
         VariableType::Int => {
@@ -793,7 +786,7 @@ fn generate_expression(
         Expression::StringConst(_) => panic!("StringConst is not supported by generate_expression"),
         Expression::IdentifierShape(identifier_shape) => {
             // Get variable information
-            let (_, variable_info) = determine_shape_info(procedure_symbols, identifier_shape);
+            let (_, variable_info, _) = determine_shape_info(procedure_symbols, identifier_shape, vars);
             let variable_type = convert_type(variable_info.r#type);
 
             // Get pointer to variable, and code for generating pointer variable
@@ -1188,21 +1181,23 @@ fn generate_parameter_declaration(
 fn determine_shape_info<'fromparent>(
     procedure_symbols: &'fromparent ProcedureSymbols,
     shape: &'fromparent IdentifierShape,
-) -> (&'fromparent str, &'fromparent VariableInfo<'fromparent>) {
+    vars: &'fromparent VarInfoDict,
+) -> (
+    &'fromparent str,
+    &'fromparent VariableInfo<'fromparent>,
+    &'fromparent VarInfo,
+) {
     // Find identifier
-    let identifier = match shape {
-        IdentifierShape::Identifier(identifier)
-        | IdentifierShape::IdentifierArray(identifier, _)
-        | IdentifierShape::IdentifierArray2D(identifier, _, _) => identifier,
-    };
+    let identifier = shape.get_identifier();
 
     // Get information about variable
     let variable_info = procedure_symbols
         .iter()
-        .find(|v| v.identifier == &identifier.node)
+        .find(|v| v.identifier == identifier)
         .expect("Failed to retrieve variable_info");
+    let var_info = vars.get(identifier).expect("expected var_info to be present");
 
-    (&identifier.node, variable_info)
+    (identifier, variable_info, var_info)
 }
 
 fn convert_type(r#type: VariableType) -> String {

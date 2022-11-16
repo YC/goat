@@ -325,6 +325,16 @@ pub enum IdentifierShape {
     IdentifierArray2D(Node<Identifier>, Box<Node<Expression>>, Box<Node<Expression>>),
 }
 
+impl IdentifierShape {
+    pub fn get_identifier(&self) -> &String {
+        match self {
+            IdentifierShape::Identifier(identifier)
+            | IdentifierShape::IdentifierArray(identifier, _)
+            | IdentifierShape::IdentifierArray2D(identifier, _, _) => &identifier.node,
+        }
+    }
+}
+
 impl Display for IdentifierShape {
     fn fmt(&self, f: &mut Formatter) -> Result {
         let s = match self {
