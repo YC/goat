@@ -326,11 +326,11 @@ pub enum IdentifierShape {
 }
 
 impl IdentifierShape {
-    pub fn get_identifier(&self) -> &String {
+    pub const fn get_identifier(&self) -> &String {
         match self {
-            IdentifierShape::Identifier(identifier)
-            | IdentifierShape::IdentifierArray(identifier, _)
-            | IdentifierShape::IdentifierArray2D(identifier, _, _) => &identifier.node,
+            Self::Identifier(identifier)
+            | Self::IdentifierArray(identifier, _)
+            | Self::IdentifierArray2D(identifier, _, _) => &identifier.node,
         }
     }
 }

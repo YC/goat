@@ -10,7 +10,6 @@ type ConvertedStringConst = (usize, String);
 
 struct VarInfo {
     var_num: usize,
-    pointer: bool,
 }
 type VarInfoDict = HashMap<String, VarInfo>;
 
@@ -56,7 +55,8 @@ fn generate_proc(strings: &mut Vec<ConvertedStringConst>, procedure: &Procedure,
     let return_type = if is_main { "i32" } else { "void" };
 
     // Parameters
-    let parameters_declaration = generate_formal_parameters(&mut temp_var, &mut vars, &procedure.parameters);
+    let (parameters_declaration, mut ptr_code) =
+        generate_formal_parameters(&mut temp_var, &mut vars, &procedure.parameters);
     output.push(format!(
         "define dso_local {} @{}({}) {{ ; proc {}({})",
         return_type,
@@ -71,9 +71,7 @@ fn generate_proc(strings: &mut Vec<ConvertedStringConst>, procedure: &Procedure,
             .collect::<Vec<String>>()
             .join(", ")
     ));
-
-    // For the implicit entry
-    temp_var += 1;
+    output.append(&mut ptr_code);
 
     // Variable declarations
     output.append(&mut generate_var_declarations(
@@ -370,25 +368,7 @@ fn get_identifier_ptr(
     let variable_type = convert_type(shape_info.r#type);
 
     let ptr_var = match identifier_shape {
-        IdentifierShape::Identifier(_) => {
-            if var_info.pointer {
-                var_info.var_num
-            } else {
-                // Allocate pointer
-                // %2 = alloca i32, align 4
-                let alloca_var = increment_temp_var(temp_var);
-                output.push(format!("  %{} = alloca {}", alloca_var, variable_type));
-
-                // Store value of var in pointer
-                // store i32 %0, i32* %2, align 4
-                output.push(format!(
-                    "  store {} %{}, {}* %{}",
-                    variable_type, var_info.var_num, variable_type, alloca_var
-                ));
-
-                alloca_var
-            }
-        }
+        IdentifierShape::Identifier(_) => var_info.var_num,
         IdentifierShape::IdentifierArray(_, m_expr) => {
             let (m_expr_var, mut m_expr_code) = generate_expression(temp_var, vars, procedure_symbols, &m_expr.node);
             output.append(&mut m_expr_code);
@@ -1064,7 +1044,7 @@ fn generate_var_declarations(
 
         match &declaration.identifier_declaration {
             IdentifierShapeDeclaration::Identifier(identifier) => {
-                vars.insert(identifier.node.clone(), VarInfo { var_num, pointer: true });
+                vars.insert(identifier.node.clone(), VarInfo { var_num });
 
                 // %1 = alloca i32          ; allocate
                 output.push(format!("  %{} = alloca {}", var_num, var_type));
@@ -1082,7 +1062,7 @@ fn generate_var_declarations(
                 ));
             }
             IdentifierShapeDeclaration::IdentifierArray(identifier, n) => {
-                vars.insert(identifier.node.clone(), VarInfo { var_num, pointer: true });
+                vars.insert(identifier.node.clone(), VarInfo { var_num });
 
                 // %1 = alloca [n x i32]
                 output.push(format!("  %{} = alloca [{} x {}]", var_num, n, var_type));
@@ -1107,7 +1087,7 @@ fn generate_var_declarations(
                 ));
             }
             IdentifierShapeDeclaration::IdentifierArray2D(identifier, m, n) => {
-                vars.insert(identifier.node.clone(), VarInfo { var_num, pointer: true });
+                vars.insert(identifier.node.clone(), VarInfo { var_num });
 
                 // %1 = alloca [m x [n x i32]]
                 output.push(format!("  %{} = alloca [{} x [{} x {}]]", var_num, m, n, var_type));
@@ -1142,27 +1122,49 @@ fn increment_temp_var(temp_var: &mut usize) -> usize {
     *temp_var - 1
 }
 
-fn generate_formal_parameters(temp_var: &mut usize, vars: &mut VarInfoDict, parameters: &Vec<Parameter>) -> String {
+fn generate_formal_parameters(
+    temp_var: &mut usize,
+    vars: &mut VarInfoDict,
+    parameters: &Vec<Parameter>,
+) -> (String, Vec<String>) {
     let mut declarations: Vec<String> = vec![];
+    let mut ptr_code: Vec<String> = vec![];
+
+    // Variable number for body (since the entry of function takes 1)
+    let mut temp_var_body = *temp_var + parameters.len() + 1;
 
     // Parameter declaration
     for parameter in parameters {
         let var_num = increment_temp_var(temp_var);
-        vars.insert(
-            parameter.identifier.node.clone(),
-            VarInfo {
-                var_num,
-                pointer: parameter.passing_indicator == ParameterPassIndicator::Ref,
-            },
-        );
+
         declarations.push(generate_parameter_declaration(
             parameter.r#type,
             parameter.passing_indicator,
             &var_num.to_string(),
         ));
+
+        if parameter.passing_indicator == ParameterPassIndicator::Val {
+            // Need a pointer for the value
+            let var_type = convert_type(parameter.r#type);
+            let alloca_var = temp_var_body;
+            temp_var_body += 1;
+
+            // Pointer
+            ptr_code.push(format!("  %{} = alloca {}", alloca_var, var_type));
+            // Copy over value
+            ptr_code.push(format!(
+                "  store {} %{}, {}* %{}",
+                var_type, var_num, var_type, alloca_var
+            ));
+
+            vars.insert(parameter.identifier.node.clone(), VarInfo { var_num: alloca_var });
+        } else {
+            vars.insert(parameter.identifier.node.clone(), VarInfo { var_num });
+        }
     }
 
-    declarations.join(", ")
+    *temp_var = temp_var_body;
+    (declarations.join(", "), ptr_code)
 }
 
 fn generate_parameter_declaration(
