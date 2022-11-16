@@ -379,6 +379,9 @@ fn get_identifier_ptr(
                 panic!("Expected array");
             };
 
+            // Index check
+            output.append(&mut generate_index_check(temp_var, m_expr_var, *m));
+
             // %1 = alloca [2 x i32], align 4                                           ; allocation (previous)
             // %v = sext i32 %<expr> to i64                                             ; index expression value to i64
             // %5 = getelementptr inbounds [2 x i32], [2 x i32]* %1, i64 0, i64 %v      ; addressing
@@ -403,6 +406,10 @@ fn get_identifier_ptr(
             let IdentifierShapeDeclaration::IdentifierArray2D(_, m, n) = variable_shape else {
                 panic!("Expected matrix");
             };
+
+            // Index check
+            output.append(&mut generate_index_check(temp_var, m_expr_var, *m));
+            output.append(&mut generate_index_check(temp_var, n_expr_var, *n));
 
             // %m = sext i32 %<expr-m> to i64                                           ; m conversion to i64
             // %n = sext i32 %<expr-n> to i64                                           ; n conversion to i64
@@ -1029,6 +1036,44 @@ fn generate_int_to_float(temp_var: &mut usize, int_var: usize) -> (usize, String
         new_converted_var,
         format!("  %{} = sitofp i32 %{} to float", new_converted_var, int_var),
     )
+}
+
+fn generate_index_check(temp_var: &mut usize, index_var: usize, bound: u32) -> Vec<String> {
+    let mut output = vec![];
+
+    // Ensure that the dimension is not exceeded
+    // index < 0 || index > m
+    let comparison_var1 = increment_temp_var(temp_var);
+    output.push(format!("  %{} = icmp slt i32 %{}, 0", comparison_var1, index_var));
+    let comparison_var2 = increment_temp_var(temp_var);
+    output.push(format!(
+        "  %{} = icmp sgt i32 %{}, {}",
+        comparison_var2, index_var, bound
+    ));
+    let or_var = increment_temp_var(temp_var);
+    output.push(format!(
+        "  %{} = or i1 %{}, %{}",
+        or_var, comparison_var1, comparison_var2
+    ));
+
+    // Branch from conditional
+    let bad_label = increment_temp_var(temp_var);
+    let endif_label = increment_temp_var(temp_var);
+    output.push(format!(
+        "  br i1 %{}, label %{}, label %{}",
+        or_var, bad_label, endif_label
+    ));
+
+    // Bad, exit program
+    // TODO: print stderr message
+    output.push(format!("{}:", bad_label));
+    output.push("  call void @exit(i32 noundef 1)".into());
+    output.push("  unreachable".into());
+
+    // endif
+    output.push(format!("{}:", endif_label));
+
+    output
 }
 
 fn generate_var_declarations(
