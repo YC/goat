@@ -1009,7 +1009,7 @@ fn generate_expression(
                     output.push(format!("  %{} = icmp slt i32 %{}, %{}", res_var, left_var, right_var));
                 }
                 (Binop::LT, VariableType::Float) => {
-                    output.push(format!("  %{} = fcmp olt i1 %{}, %{}", res_var, left_var, right_var));
+                    output.push(format!("  %{} = fcmp olt float %{}, %{}", res_var, left_var, right_var));
                 }
                 (Binop::LTE, VariableType::Bool) => {
                     output.push(format!("  %{} = icmp sle i1 %{}, %{}", res_var, left_var, right_var));
@@ -1018,7 +1018,7 @@ fn generate_expression(
                     output.push(format!("  %{} = icmp sle i32 %{}, %{}", res_var, left_var, right_var));
                 }
                 (Binop::LTE, VariableType::Float) => {
-                    output.push(format!("  %{} = fcmp ole i1 %{}, %{}", res_var, left_var, right_var));
+                    output.push(format!("  %{} = fcmp ole float %{}, %{}", res_var, left_var, right_var));
                 }
                 (Binop::GT, VariableType::Bool) => {
                     output.push(format!("  %{} = icmp sgt i1 %{}, %{}", res_var, left_var, right_var));
@@ -1027,7 +1027,7 @@ fn generate_expression(
                     output.push(format!("  %{} = icmp sgt i32 %{}, %{}", res_var, left_var, right_var));
                 }
                 (Binop::GT, VariableType::Float) => {
-                    output.push(format!("  %{} = fcmp ogt i1 %{}, %{}", res_var, left_var, right_var));
+                    output.push(format!("  %{} = fcmp ogt float %{}, %{}", res_var, left_var, right_var));
                 }
                 (Binop::GTE, VariableType::Bool) => {
                     output.push(format!("  %{} = icmp sge i1 %{}, %{}", res_var, left_var, right_var));
@@ -1036,7 +1036,7 @@ fn generate_expression(
                     output.push(format!("  %{} = icmp sge i32 %{}, %{}", res_var, left_var, right_var));
                 }
                 (Binop::GTE, VariableType::Float) => {
-                    output.push(format!("  %{} = fcmp oge i1 %{}, %{}", res_var, left_var, right_var));
+                    output.push(format!("  %{} = fcmp oge float %{}, %{}", res_var, left_var, right_var));
                 }
                 (_, _) => panic!("Unexpected numeric operation"),
             }
