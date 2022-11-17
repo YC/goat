@@ -13,7 +13,7 @@ This is my implementation in Rust, to relearn some compiler concepts.
   - [x] Recursive Descent
 - [x] Semantic Analysis
 - [x] Code generation
-  - [-] LLVM IR
+  - [x] LLVM IR
   - [ ] Oz
 
 ## Usage

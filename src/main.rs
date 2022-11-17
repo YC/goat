@@ -54,6 +54,7 @@ fn main() -> process::ExitCode {
         }
         if argument == "--disable-bounds-check" {
             bounds_check = false;
+            continue;
         }
         if argument == "-p" || argument == "--pretty-print" {
             pretty = true;
