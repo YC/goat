@@ -33,6 +33,7 @@ mod tokens;
 fn main() -> process::ExitCode {
     let mut pretty = false;
     let mut verbose = false;
+    let mut bounds_check = true;
     let mut filename = None;
     let mut out = false;
     let mut outfile = None;
@@ -50,6 +51,9 @@ fn main() -> process::ExitCode {
             println!("  -o <outfile>: Use llvm to create executable");
             println!("  -v: Verbose printing of internals");
             return ExitCode::from(0);
+        }
+        if argument == "--disable-bounds-check" {
+            bounds_check = false;
         }
         if argument == "-p" || argument == "--pretty-print" {
             pretty = true;
@@ -122,7 +126,7 @@ fn main() -> process::ExitCode {
         }
     };
 
-    let output = codegen_llvm::generate_code(&ast, &symbol_table);
+    let output = codegen_llvm::generate_code(&ast, &symbol_table, bounds_check);
     if verbose {
         eprintln!("{}", output);
     }

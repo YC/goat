@@ -13,7 +13,13 @@ struct VarInfo {
 }
 type VarInfoDict = HashMap<String, VarInfo>;
 
-pub fn generate_code(program: &GoatProgram, symbol_table: &SymbolTable) -> String {
+struct LlvmInfo<'a> {
+    symbol_table: &'a SymbolTable<'a>,
+    var_info: VarInfoDict,
+    bounds_check: bool,
+}
+
+pub fn generate_code(program: &GoatProgram, symbol_table: &SymbolTable, bounds_check: bool) -> String {
     let mut output = vec![
         "@format.int = private unnamed_addr constant [3 x i8] c\"%d\\00\"".to_owned(),
         "@format.float = private unnamed_addr constant [3 x i8] c\"%f\\00\"".to_owned(),
@@ -31,7 +37,12 @@ pub fn generate_code(program: &GoatProgram, symbol_table: &SymbolTable) -> Strin
     let mut string_constants: Vec<ConvertedStringConst> = vec![];
     let mut procedure_outputs = vec![];
     for procedure in &program.procedures {
-        procedure_outputs.push(generate_proc(&mut string_constants, procedure, symbol_table));
+        procedure_outputs.push(generate_proc(
+            &mut string_constants,
+            procedure,
+            symbol_table,
+            bounds_check,
+        ));
     }
     output.push(procedure_outputs.join("\n\n"));
     output.push(String::new());
@@ -46,7 +57,12 @@ pub fn generate_code(program: &GoatProgram, symbol_table: &SymbolTable) -> Strin
     output.join("\n")
 }
 
-fn generate_proc(strings: &mut Vec<ConvertedStringConst>, procedure: &Procedure, symbol_table: &SymbolTable) -> String {
+fn generate_proc(
+    strings: &mut Vec<ConvertedStringConst>,
+    procedure: &Procedure,
+    symbol_table: &SymbolTable,
+    bounds_check: bool,
+) -> String {
     let mut output = vec![];
     let mut temp_var = 0;
     let mut vars: VarInfoDict = HashMap::new();
@@ -80,14 +96,14 @@ fn generate_proc(strings: &mut Vec<ConvertedStringConst>, procedure: &Procedure,
         &procedure.variable_declarations,
     ));
 
-    // Body
-    output.append(&mut generate_body(
-        &mut temp_var,
-        strings,
-        &vars,
+    let llvm_info = LlvmInfo {
+        bounds_check,
         symbol_table,
-        procedure,
-    ));
+        var_info: vars,
+    };
+
+    // Body
+    output.append(&mut generate_body(&mut temp_var, strings, &llvm_info, procedure));
 
     // Return
     if is_main {
@@ -104,25 +120,16 @@ fn generate_proc(strings: &mut Vec<ConvertedStringConst>, procedure: &Procedure,
 fn generate_body(
     temp_var: &mut usize,
     strings: &mut Vec<ConvertedStringConst>,
-    vars: &VarInfoDict,
-    symbol_table: &SymbolTable,
+    llvm_info: &LlvmInfo,
     procedure: &Procedure,
 ) -> Vec<String> {
-    generate_statements(
-        strings,
-        temp_var,
-        vars,
-        symbol_table,
-        procedure,
-        &procedure.body.statements,
-    )
+    generate_statements(strings, temp_var, llvm_info, procedure, &procedure.body.statements)
 }
 
 fn generate_statements(
     strings: &mut Vec<ConvertedStringConst>,
     temp_var: &mut usize,
-    vars: &VarInfoDict,
-    symbol_table: &SymbolTable,
+    llvm_info: &LlvmInfo,
     procedure: &Procedure,
     statements: &Vec<Node<Statement>>,
 ) -> Vec<String> {
@@ -132,8 +139,7 @@ fn generate_statements(
         output.append(&mut generate_statement(
             strings,
             temp_var,
-            vars,
-            symbol_table,
+            llvm_info,
             procedure,
             &statement.node,
         ));
@@ -145,12 +151,12 @@ fn generate_statements(
 fn generate_statement(
     strings: &mut Vec<ConvertedStringConst>,
     temp_var: &mut usize,
-    vars: &VarInfoDict,
-    symbol_table: &SymbolTable,
+    llvm_info: &LlvmInfo,
     procedure: &Procedure,
     statement: &Statement,
 ) -> Vec<String> {
-    let procedure_symbols = symbol_table
+    let procedure_symbols = llvm_info
+        .symbol_table
         .get(&procedure.identifier.node)
         .expect("no symbols for procedure");
 
@@ -165,12 +171,12 @@ fn generate_statement(
             // endif:
 
             // Evaluate boolean expression
-            let (conditional_var, mut generated) = generate_expression(temp_var, vars, procedure_symbols, &expr.node);
+            let (conditional_var, mut generated) =
+                generate_expression(temp_var, llvm_info, procedure_symbols, &expr.node);
             output.append(&mut generated);
 
             let if_label = increment_temp_var(temp_var);
-            let mut if_statements_code =
-                generate_statements(strings, temp_var, vars, symbol_table, procedure, statements);
+            let mut if_statements_code = generate_statements(strings, temp_var, llvm_info, procedure, statements);
             let endif_label = increment_temp_var(temp_var);
 
             // Jump
@@ -197,15 +203,14 @@ fn generate_statement(
             // endif:
 
             // Evaluate boolean expression
-            let (conditional_var, mut expr_code) = generate_expression(temp_var, vars, procedure_symbols, &expr.node);
+            let (conditional_var, mut expr_code) =
+                generate_expression(temp_var, llvm_info, procedure_symbols, &expr.node);
             output.append(&mut expr_code);
 
             let if_label = increment_temp_var(temp_var);
-            let mut if_statements_code =
-                generate_statements(strings, temp_var, vars, symbol_table, procedure, statements1);
+            let mut if_statements_code = generate_statements(strings, temp_var, llvm_info, procedure, statements1);
             let else_label = increment_temp_var(temp_var);
-            let mut else_statements_code =
-                generate_statements(strings, temp_var, vars, symbol_table, procedure, statements2);
+            let mut else_statements_code = generate_statements(strings, temp_var, llvm_info, procedure, statements2);
             let endif_label = increment_temp_var(temp_var);
 
             // Jump
@@ -237,9 +242,10 @@ fn generate_statement(
             // br label %conditional, !llvm.loop !while_body
             // while_end:
             let conditional_label = increment_temp_var(temp_var);
-            let (conditional_var, mut expr_code) = generate_expression(temp_var, vars, procedure_symbols, &expr.node);
+            let (conditional_var, mut expr_code) =
+                generate_expression(temp_var, llvm_info, procedure_symbols, &expr.node);
             let body_label = increment_temp_var(temp_var);
-            let mut while_body_code = generate_statements(strings, temp_var, vars, symbol_table, procedure, statements);
+            let mut while_body_code = generate_statements(strings, temp_var, llvm_info, procedure, statements);
             let endwhile_label = increment_temp_var(temp_var);
 
             // Immediate jump to conditional
@@ -269,13 +275,13 @@ fn generate_statement(
             let expr_value_type = eval_expression_scalar(procedure_symbols, expr)
                 .expect("generate_assign failed to eval expression type");
             let (expr_value_var, mut expr_value_code) =
-                generate_expression(temp_var, vars, procedure_symbols, &expr.node);
+                generate_expression(temp_var, llvm_info, procedure_symbols, &expr.node);
             output.append(&mut expr_value_code);
 
             // Then generate the assign code
             output.append(&mut generate_assign_var(
                 temp_var,
-                vars,
+                llvm_info,
                 procedure_symbols,
                 identifier_shape,
                 expr_value_type,
@@ -283,13 +289,22 @@ fn generate_statement(
             ));
         }
         Statement::Write(expr) => {
-            output.append(&mut generate_write(strings, temp_var, vars, procedure_symbols, expr));
+            output.append(&mut generate_write(
+                strings,
+                temp_var,
+                llvm_info,
+                procedure_symbols,
+                expr,
+            ));
         }
         Statement::Read(shape) => {
-            output.append(&mut generate_read(temp_var, vars, procedure_symbols, shape));
+            output.append(&mut generate_read(temp_var, llvm_info, procedure_symbols, shape));
         }
         Statement::Call(identifier, expressions) => {
-            let callee_symbol_table = symbol_table.get(&identifier.node).expect("no symbols for procedure");
+            let callee_symbol_table = llvm_info
+                .symbol_table
+                .get(&identifier.node)
+                .expect("no symbols for procedure");
             let callee_parameters = callee_symbol_table
                 .iter()
                 .filter(|a| a.variable_location == VariableLocation::FormalParameter);
@@ -304,7 +319,7 @@ fn generate_statement(
                     Some(ParameterPassIndicator::Val) => {
                         // Evaluate expression
                         let (expr_var, mut expr_code) =
-                            generate_expression(temp_var, vars, procedure_symbols, &argument.node);
+                            generate_expression(temp_var, llvm_info, procedure_symbols, &argument.node);
                         output.append(&mut expr_code);
 
                         // Int to float conversion
@@ -326,7 +341,7 @@ fn generate_statement(
 
                         // Get pointer to variable declaration, and code for generating pointer variable
                         let (ptr_var, mut ptr_code) =
-                            get_identifier_ptr(temp_var, vars, procedure_symbols, identifier_shape);
+                            get_identifier_ptr(temp_var, llvm_info, procedure_symbols, identifier_shape);
                         output.append(&mut ptr_code);
 
                         (ParameterPassIndicator::Ref, ptr_var)
@@ -357,20 +372,21 @@ fn generate_statement(
 
 fn get_identifier_ptr(
     temp_var: &mut usize,
-    vars: &VarInfoDict,
+    llvm_info: &LlvmInfo,
     procedure_symbols: &ProcedureSymbols,
     identifier_shape: &IdentifierShape,
 ) -> (usize, Vec<String>) {
     let mut output = vec![];
 
     // Get variable information
-    let (_, shape_info, var_info) = determine_shape_info(procedure_symbols, identifier_shape, vars);
+    let (_, shape_info, var_info) = determine_shape_info(procedure_symbols, identifier_shape, llvm_info);
     let variable_type = convert_type(shape_info.r#type);
 
     let ptr_var = match identifier_shape {
         IdentifierShape::Identifier(_) => var_info.var_num,
         IdentifierShape::IdentifierArray(_, m_expr) => {
-            let (m_expr_var, mut m_expr_code) = generate_expression(temp_var, vars, procedure_symbols, &m_expr.node);
+            let (m_expr_var, mut m_expr_code) =
+                generate_expression(temp_var, llvm_info, procedure_symbols, &m_expr.node);
             output.append(&mut m_expr_code);
 
             // Get the array dimension
@@ -380,7 +396,9 @@ fn get_identifier_ptr(
             };
 
             // Index check
-            output.append(&mut generate_index_check(temp_var, m_expr_var, *m));
+            if llvm_info.bounds_check {
+                output.append(&mut generate_index_check(temp_var, m_expr_var, *m));
+            }
 
             // %1 = alloca [2 x i32], align 4                                           ; allocation (previous)
             // %v = sext i32 %<expr> to i64                                             ; index expression value to i64
@@ -395,10 +413,12 @@ fn get_identifier_ptr(
             address_var
         }
         IdentifierShape::IdentifierArray2D(_, expr_m, expr_n) => {
-            let (m_expr_var, mut m_expr_code) = generate_expression(temp_var, vars, procedure_symbols, &expr_m.node);
+            let (m_expr_var, mut m_expr_code) =
+                generate_expression(temp_var, llvm_info, procedure_symbols, &expr_m.node);
             output.append(&mut m_expr_code);
 
-            let (n_expr_var, mut n_expr_code) = generate_expression(temp_var, vars, procedure_symbols, &expr_n.node);
+            let (n_expr_var, mut n_expr_code) =
+                generate_expression(temp_var, llvm_info, procedure_symbols, &expr_n.node);
             output.append(&mut n_expr_code);
 
             // Get the matrix dimension
@@ -408,8 +428,10 @@ fn get_identifier_ptr(
             };
 
             // Index check
-            output.append(&mut generate_index_check(temp_var, m_expr_var, *m));
-            output.append(&mut generate_index_check(temp_var, n_expr_var, *n));
+            if llvm_info.bounds_check {
+                output.append(&mut generate_index_check(temp_var, m_expr_var, *m));
+                output.append(&mut generate_index_check(temp_var, n_expr_var, *n));
+            }
 
             // %m = sext i32 %<expr-m> to i64                                           ; m conversion to i64
             // %n = sext i32 %<expr-n> to i64                                           ; n conversion to i64
@@ -441,7 +463,7 @@ fn get_identifier_ptr(
 /// Assignment of value from expression to variable through pointer
 fn generate_assign_var(
     temp_var: &mut usize,
-    vars: &VarInfoDict,
+    llvm_info: &LlvmInfo,
     procedure_symbols: &ProcedureSymbols,
     identifier_shape: &IdentifierShape,
     expr_value_type: VariableType,
@@ -450,7 +472,7 @@ fn generate_assign_var(
     let mut output = vec![];
 
     // Get variable information
-    let (_, variable_info, _) = determine_shape_info(procedure_symbols, identifier_shape, vars);
+    let (_, variable_info, _) = determine_shape_info(procedure_symbols, identifier_shape, llvm_info);
     let variable_type = convert_type(variable_info.r#type);
 
     // Int to float conversion
@@ -463,7 +485,7 @@ fn generate_assign_var(
     };
 
     // Get pointer to variable, and code for generating pointer variable
-    let (address_var, mut ptr_code) = get_identifier_ptr(temp_var, vars, procedure_symbols, identifier_shape);
+    let (address_var, mut ptr_code) = get_identifier_ptr(temp_var, llvm_info, procedure_symbols, identifier_shape);
     output.append(&mut ptr_code);
 
     output.push(format!(
@@ -477,13 +499,13 @@ fn generate_assign_var(
 /// Generates code for read (including assignment of value)
 fn generate_read(
     temp_var: &mut usize,
-    vars: &VarInfoDict,
+    llvm_info: &LlvmInfo,
     procedure_symbols: &ProcedureSymbols,
     shape: &IdentifierShape,
 ) -> Vec<String> {
     let mut output = vec![];
 
-    let (_, variable_info, _) = determine_shape_info(procedure_symbols, shape, vars);
+    let (_, variable_info, _) = determine_shape_info(procedure_symbols, shape, llvm_info);
 
     match variable_info.r#type {
         VariableType::Int => {
@@ -504,8 +526,14 @@ fn generate_read(
             output.push(format!("  %{} = load i32, i32* %{}", load_var, alloca_var));
 
             // Assign
-            let mut code_assign_code =
-                generate_assign_var(temp_var, vars, procedure_symbols, shape, VariableType::Int, load_var);
+            let mut code_assign_code = generate_assign_var(
+                temp_var,
+                llvm_info,
+                procedure_symbols,
+                shape,
+                VariableType::Int,
+                load_var,
+            );
             output.append(&mut code_assign_code);
         }
         VariableType::Float => {
@@ -526,8 +554,14 @@ fn generate_read(
             output.push(format!("  %{} = load float, float* %{}", load_var, alloca_var));
 
             // Assign
-            let mut code_assign_code =
-                generate_assign_var(temp_var, vars, procedure_symbols, shape, VariableType::Float, load_var);
+            let mut code_assign_code = generate_assign_var(
+                temp_var,
+                llvm_info,
+                procedure_symbols,
+                shape,
+                VariableType::Float,
+                load_var,
+            );
             output.append(&mut code_assign_code);
         }
         VariableType::Bool => {
@@ -623,8 +657,14 @@ fn generate_read(
             output.push(format!("  %{} = load i1, i1* %{}", load_var, alloca_var));
 
             // Assign
-            let mut code_assign_code =
-                generate_assign_var(temp_var, vars, procedure_symbols, shape, VariableType::Bool, load_var);
+            let mut code_assign_code = generate_assign_var(
+                temp_var,
+                llvm_info,
+                procedure_symbols,
+                shape,
+                VariableType::Bool,
+                load_var,
+            );
             output.append(&mut code_assign_code);
         }
     }
@@ -636,7 +676,7 @@ fn generate_read(
 fn generate_write(
     strings: &mut Vec<ConvertedStringConst>,
     temp_var: &mut usize,
-    vars: &VarInfoDict,
+    llvm_info: &LlvmInfo,
     procedure_symbols: &ProcedureSymbols,
     expr: &Node<Expression>,
 ) -> Vec<String> {
@@ -669,7 +709,7 @@ fn generate_write(
     }
 
     // Int, Float, Bool value
-    let (expr_var, mut expr_code) = generate_expression(temp_var, vars, procedure_symbols, &expr.node);
+    let (expr_var, mut expr_code) = generate_expression(temp_var, llvm_info, procedure_symbols, &expr.node);
     output.append(&mut expr_code);
 
     let expr_type = eval_expression_scalar(procedure_symbols, expr).expect("type to be well-formed");
@@ -737,7 +777,7 @@ fn generate_write(
 
 fn generate_expression(
     temp_var: &mut usize,
-    vars: &VarInfoDict,
+    llvm_info: &LlvmInfo,
     procedure_symbols: &ProcedureSymbols,
     expression: &Expression,
 ) -> (usize, Vec<String>) {
@@ -782,11 +822,12 @@ fn generate_expression(
         Expression::StringConst(_) => panic!("StringConst is not supported by generate_expression"),
         Expression::IdentifierShape(identifier_shape) => {
             // Get variable information
-            let (_, variable_info, _) = determine_shape_info(procedure_symbols, identifier_shape, vars);
+            let (_, variable_info, _) = determine_shape_info(procedure_symbols, identifier_shape, llvm_info);
             let variable_type = convert_type(variable_info.r#type);
 
             // Get pointer to variable, and code for generating pointer variable
-            let (address_var, mut ptr_code) = get_identifier_ptr(temp_var, vars, procedure_symbols, identifier_shape);
+            let (address_var, mut ptr_code) =
+                get_identifier_ptr(temp_var, llvm_info, procedure_symbols, identifier_shape);
             output.append(&mut ptr_code);
 
             let load_var = increment_temp_var(temp_var);
@@ -799,7 +840,7 @@ fn generate_expression(
         Expression::UnopExpr(Unop::Minus, expr) => {
             let expr_value_type =
                 eval_expression_scalar(procedure_symbols, expr).expect("unop minus failed to eval expression type");
-            let (expr_var, mut expr_code) = generate_expression(temp_var, vars, procedure_symbols, &expr.node);
+            let (expr_var, mut expr_code) = generate_expression(temp_var, llvm_info, procedure_symbols, &expr.node);
             output.append(&mut expr_code);
 
             // %4 = sub nsw i32 0, %3 (0 subtract number)
@@ -814,7 +855,7 @@ fn generate_expression(
             sub_var
         }
         Expression::UnopExpr(Unop::NOT, expr) => {
-            let (expr_var, mut expr_code) = generate_expression(temp_var, vars, procedure_symbols, &expr.node);
+            let (expr_var, mut expr_code) = generate_expression(temp_var, llvm_info, procedure_symbols, &expr.node);
             output.append(&mut expr_code);
 
             // %5 = xor i1 %4, true (exclusive or with true)
@@ -828,12 +869,12 @@ fn generate_expression(
             output.push(format!("  %{} = alloca i1", alloca_var));
 
             // lhs
-            let (expr1_var, mut expr1_code) = generate_expression(temp_var, vars, procedure_symbols, &expr1.node);
+            let (expr1_var, mut expr1_code) = generate_expression(temp_var, llvm_info, procedure_symbols, &expr1.node);
             output.append(&mut expr1_code);
             let lhs_false_label = increment_temp_var(temp_var);
 
             let rhs_label = increment_temp_var(temp_var);
-            let (expr2_var, mut expr2_code) = generate_expression(temp_var, vars, procedure_symbols, &expr2.node);
+            let (expr2_var, mut expr2_code) = generate_expression(temp_var, llvm_info, procedure_symbols, &expr2.node);
             let end_label = increment_temp_var(temp_var);
 
             // If lhs is true, then need to check whether rhs is true
@@ -865,12 +906,12 @@ fn generate_expression(
             output.push(format!("  %{} = alloca i1", alloca_var));
 
             // lhs
-            let (expr1_var, mut expr1_code) = generate_expression(temp_var, vars, procedure_symbols, &expr1.node);
+            let (expr1_var, mut expr1_code) = generate_expression(temp_var, llvm_info, procedure_symbols, &expr1.node);
             output.append(&mut expr1_code);
             let lhs_true_label = increment_temp_var(temp_var);
 
             let rhs_label = increment_temp_var(temp_var);
-            let (expr2_var, mut expr2_code) = generate_expression(temp_var, vars, procedure_symbols, &expr2.node);
+            let (expr2_var, mut expr2_code) = generate_expression(temp_var, llvm_info, procedure_symbols, &expr2.node);
             let end_label = increment_temp_var(temp_var);
 
             // If lhs is true, can return true. Otherwise, need to check rhs.
@@ -920,8 +961,8 @@ fn generate_expression(
             } else {
                 left_type
             };
-            let (left_var, mut left_code) = generate_expression(temp_var, vars, procedure_symbols, &left.node);
-            let (right_var, mut right_code) = generate_expression(temp_var, vars, procedure_symbols, &right.node);
+            let (left_var, mut left_code) = generate_expression(temp_var, llvm_info, procedure_symbols, &left.node);
+            let (right_var, mut right_code) = generate_expression(temp_var, llvm_info, procedure_symbols, &right.node);
             output.append(&mut left_code);
             output.append(&mut right_code);
 
@@ -1241,7 +1282,7 @@ fn generate_parameter_declaration(
 fn determine_shape_info<'fromparent>(
     procedure_symbols: &'fromparent ProcedureSymbols,
     shape: &'fromparent IdentifierShape,
-    vars: &'fromparent VarInfoDict,
+    llvm_info: &'fromparent LlvmInfo,
 ) -> (
     &'fromparent str,
     &'fromparent VariableInfo<'fromparent>,
@@ -1255,7 +1296,10 @@ fn determine_shape_info<'fromparent>(
         .iter()
         .find(|v| v.identifier == identifier)
         .expect("Failed to retrieve variable_info");
-    let var_info = vars.get(identifier).expect("expected var_info to be present");
+    let var_info = llvm_info
+        .var_info
+        .get(identifier)
+        .expect("expected var_info to be present");
 
     (identifier, variable_info, var_info)
 }
