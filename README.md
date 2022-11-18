@@ -21,6 +21,7 @@ Install `clang` (optional, to compile executable).
 
 Compile the compiler:
 ```sh
+$ rustup default nightly
 $ rustc src/main.rs -o goat
 ```
 
