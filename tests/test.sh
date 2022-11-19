@@ -30,7 +30,6 @@ done
 for f in "$(dirname "$0")"/stage3-peer/*.gt; do
     bin="$f.o"
     if [[ "$f" == *"codya.gt" ]] || [[ "$f" == *"yiyue.gt" ]]; then
-        echo "$f"
         eval "$goat" "$f" -o "$bin" --disable-bounds-check &> /dev/null
     else
         eval "$goat" "$f" -o "$bin" &> /dev/null
