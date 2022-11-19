@@ -3,7 +3,7 @@ use crate::ast::{
     ParameterPassIndicator, ProcBody, Procedure, Statement, TokenLocation, Unop, VariableDeclaration, VariableType,
 };
 use crate::tokens::{Keyword, Token, TokenInfo};
-use std::{convert::TryFrom, error::Error};
+use std::error::Error;
 
 pub fn parse(tokens: &Vec<TokenInfo>) -> Result<GoatProgram, Box<dyn Error>> {
     let mut index = 0;
@@ -198,10 +198,14 @@ fn parse_identifier_shape_declaration(
     *index += 1;
 
     // Convert from i32 to u32
-    let left = u32::try_from(left);
-    let Ok(left) = left else {
-        return Err(format!("Expecting u32 for shape m, but found {:?} at {:?}", next_token.0, next_token.1))?;
-    };
+    if left < 0 {
+        return Err(format!(
+            "Expecting u32 for shape m, but found {:?} at {:?}",
+            next_token.0, next_token.1
+        ))?;
+    }
+    #[allow(clippy::cast_sign_loss)]
+    let left = left as u32;
 
     if peek_next(tokens, *index)?.0 != Token::COMMA {
         // Right bracket
@@ -224,11 +228,14 @@ fn parse_identifier_shape_declaration(
     *index += 1;
 
     // Convert from i32 to u32
-    let right = u32::try_from(right);
-    let Ok(right) = right else {
-        return Err(format!("Expecting u32 for shape m, but found {:?} at {:?}", next_token.0, next_token.1))?;
-    };
-
+    if right < 0 {
+        return Err(format!(
+            "Expecting u32 for shape n, but found {:?} at {:?}",
+            next_token.0, next_token.1
+        ))?;
+    }
+    #[allow(clippy::cast_sign_loss)]
+    let right = right as u32;
     // Right bracket
     match_next(tokens, Token::RBRACKET, index)?;
 

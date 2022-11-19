@@ -1,5 +1,5 @@
 use crate::tokens::{Keyword, Token, TokenInfo};
-use std::{convert::TryFrom, error::Error};
+use std::error::Error;
 
 #[derive(Debug)]
 enum RegEx {
@@ -100,9 +100,9 @@ fn execute_nfa(input: &str, nfa: &Nfa) -> Result<Vec<TokenInfo>, Box<dyn Error>>
         // chars consumed
         let mut chars: Vec<char> = vec![];
         // Offset from start of current input
-        let mut offset: usize = 0;
+        let mut offset: u64 = 0;
         // Number of characters, priority of accept, token
-        let mut accepted: Vec<(usize, u64, Token)> = vec![];
+        let mut accepted: Vec<(u64, u64, Token)> = vec![];
 
         while !current_states.is_empty() {
             // Perform all epsilon transitions
@@ -126,14 +126,20 @@ fn execute_nfa(input: &str, nfa: &Nfa) -> Result<Vec<TokenInfo>, Box<dyn Error>>
                 }
             }
 
+            if offset > usize::MAX as u64 {
+                return Err("Cannot cast offset to usize due to overflow".into());
+            }
+            #[allow(clippy::cast_possible_truncation)]
+            let offset_usize = offset as usize;
+
             // End of input
-            if input.len() <= offset {
+            if input.len() <= offset_usize {
                 break;
             }
 
             // Consume next character
             #[allow(clippy::indexing_slicing)]
-            let c = input[offset];
+            let c = input[offset_usize];
             chars.push(c);
             offset += 1;
 
@@ -175,7 +181,7 @@ fn execute_nfa(input: &str, nfa: &Nfa) -> Result<Vec<TokenInfo>, Box<dyn Error>>
             lineno += 1;
             linecol = 1;
         } else {
-            linecol += u64::try_from(token.0).expect("cannot convert column number to u64");
+            linecol += token.0 as u64;
         }
 
         tokens.push((token.2, pos));
