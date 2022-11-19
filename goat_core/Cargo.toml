@@ -1,0 +1,9 @@
+[package]
+name = "goat_core"
+version = "0.1.0"
+edition = "2021"
+license-file = "../LICENSE"
+repository = "https://github.com/YC/goat"
+description = "Goat compiler core"
+keywords = ["comp90045", "goat", "compiler"]
+categories = ["parser-implementations"]

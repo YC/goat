@@ -1,20 +1,5 @@
-#![warn(clippy::pedantic, clippy::nursery, clippy::cargo)]
-#![allow(
-    clippy::integer_arithmetic,
-    clippy::arithmetic_side_effects,
-    clippy::shadow_reuse,
-    clippy::shadow_unrelated,
-    clippy::implicit_return,
-    clippy::try_err,
-    clippy::expect_used,
-    clippy::missing_docs_in_private_items,
-    clippy::wildcard_enum_match_arm,
-    clippy::std_instead_of_core,
-    clippy::pattern_type_mismatch,
-    clippy::too_many_lines,
-    clippy::panic,
-    clippy::string_add
-)]
+#![warn(clippy::pedantic, clippy::cargo)]
+#![allow(clippy::too_many_lines)]
 
 extern crate core;
 use std::{
@@ -22,12 +7,8 @@ use std::{
     process::{self, Command, ExitCode},
 };
 
-mod ast;
-mod codegen_llvm;
-mod lex;
-mod parse;
-mod semantic;
-mod tokens;
+extern crate goat_core;
+use goat_core::{codegen_llvm, lex, parse, semantic};
 
 #[allow(clippy::print_stderr, clippy::print_stdout, clippy::use_debug)]
 fn main() -> process::ExitCode {

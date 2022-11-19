@@ -3,4 +3,5 @@ goat
 *.ll
 *.s
 *.o
+*.rlib
 /test.gt

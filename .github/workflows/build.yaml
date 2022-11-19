@@ -38,5 +38,4 @@ jobs:
           args: --release
 
       - name: Run tests
-        run: ./test.sh ../target/release/goat
-        working-directory: tests
+        run: ./tests/test.sh ./target/release/goat

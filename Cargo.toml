@@ -15,3 +15,8 @@ panic = 'unwind'
 codegen-units = 1
 strip = true
 overflow-checks = true
+
+[lib]
+name = "goat_core"
+crate-type = ["lib"]
+path = "goat_core/src/lib.rs"

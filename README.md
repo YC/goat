@@ -21,7 +21,7 @@ Install `clang` (optional, to compile executable).
 
 Compile the compiler:
 ```sh
-$ rustc src/main.rs -o goat
+$ cargo build --release
 ```
 
 Execute:
@@ -34,3 +34,10 @@ $ ./goat [-p] source.gt -o <executable-name>
 
 Note that this implementation currently does not support compilation to Oz,
 the target language from stage 3 of the specification.
+
+## Tests
+1. Build the compiler.
+2. Run the test script.
+```sh
+$ ./tests/test.sh target/release/goat
+```
