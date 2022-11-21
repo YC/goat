@@ -27,6 +27,13 @@ do
     fi
 done
 
+eval "$goat" -p "$(dirname "$0")"/fortytwo/a1.gt | diff - "$(dirname "$0")"/fortytwo/a1.pp.gt
+rv=$?
+if [ "$rv" -ne 0 ]; then
+    echo "*** pretty print failed with exit code $rv"
+    bad=$((bad + 1))
+fi
+
 for f in "$(dirname "$0")"/stage3-peer/*.gt; do
     bin="$f.o"
     if [[ "$f" == *"codya.gt" ]] || [[ "$f" == *"yiyue.gt" ]]; then
