@@ -11,7 +11,7 @@ impl Display for GoatProgram {
         let s = self
             .procedures
             .iter()
-            .map(|p| format!("{}", p))
+            .map(|p| p.to_string())
             .collect::<Vec<String>>()
             .join("\n\n");
         write!(f, "{}", s)
@@ -49,12 +49,12 @@ impl Display for Procedure {
             self.identifier.node,
             self.parameters
                 .iter()
-                .map(|p| format!("{}", p))
+                .map(|p| p.to_string())
                 .collect::<Vec<String>>()
                 .join(", "),
             self.variable_declarations
                 .iter()
-                .map(|v| format!("{}", v))
+                .map(|v| v.to_string())
                 .collect::<Vec<String>>()
                 .join("\n"),
             if self.variable_declarations.is_empty() {
@@ -126,7 +126,7 @@ impl Display for ProcBody {
         let s = self
             .statements
             .iter()
-            .map(|s| format!("{}", s.node))
+            .map(|s| s.node.to_string())
             .collect::<Vec<String>>()
             .join("\n");
         write!(f, "{}", s)
@@ -208,7 +208,7 @@ impl Statement {
                     ident.node,
                     expr_list
                         .iter()
-                        .map(|s| format!("{}", s.node))
+                        .map(|s| s.node.to_string())
                         .collect::<Vec<String>>()
                         .join(", ")
                 )
@@ -219,7 +219,7 @@ impl Statement {
                     expr.node,
                     stmt_list
                         .iter()
-                        .map(|s| format!("{}", s.node))
+                        .map(|s| s.node.to_string())
                         .collect::<Vec<String>>()
                         .join("\n"),
                     if stmt_list.is_empty() { "" } else { "\n" },
@@ -231,7 +231,7 @@ impl Statement {
                     expr.node,
                     stmt_list
                         .iter()
-                        .map(|s| format!("{}", s.node))
+                        .map(|s| s.node.to_string())
                         .collect::<Vec<String>>()
                         .join("\n"),
                     if stmt_list.is_empty() { "" } else { "\n" },
@@ -243,13 +243,13 @@ impl Statement {
                     expr.node,
                     stmt_if
                         .iter()
-                        .map(|s| format!("{}", s.node))
+                        .map(|s| s.node.to_string())
                         .collect::<Vec<String>>()
                         .join("\n"),
                     if stmt_if.is_empty() { "" } else { "\n" },
                     stmt_else
                         .iter()
-                        .map(|s| format!("{}", s.node))
+                        .map(|s| s.node.to_string())
                         .collect::<Vec<String>>()
                         .join("\n"),
                     if stmt_else.is_empty() { "" } else { "\n" },

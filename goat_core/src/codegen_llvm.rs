@@ -83,7 +83,7 @@ fn generate_proc(
         procedure
             .parameters
             .iter()
-            .map(|p| format!("{}", p))
+            .map(|p| p.to_string())
             .collect::<Vec<String>>()
             .join(", ")
     ));
