@@ -257,18 +257,15 @@ fn regex_to_nfa(regex: &RegEx, f: Option<NfaAcceptFunction>) -> Nfa {
                 transitions.push((transition.0 + 1, transition.1 + 1, transition.2));
             }
 
-            assert!(
-                nfa.accept.len() == 1,
-                "cannot currently support star nfa with multiple accept"
-            );
+            for old_accept in nfa.accept {
+                // From accept to start
+                #[allow(clippy::indexing_slicing)]
+                transitions.push((old_accept.0 + 1, nfa.start + 1, NfaTransition::Empty));
 
-            // From accept to start
-            #[allow(clippy::indexing_slicing)]
-            transitions.push((nfa.accept[0].0 + 1, nfa.start + 1, NfaTransition::Empty));
-
-            // Transition from accept to new accept
-            #[allow(clippy::indexing_slicing)]
-            transitions.push((nfa.accept[0].0 + 1, accept, NfaTransition::Empty));
+                // Transition from accept to new accept
+                #[allow(clippy::indexing_slicing)]
+                transitions.push((old_accept.0 + 1, accept, NfaTransition::Empty));
+            }
 
             Nfa {
                 start: 0,
