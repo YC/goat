@@ -65,25 +65,22 @@ type TokenFunction = dyn Fn(&str) -> Result<Token, Box<dyn Error>>;
 
 pub fn lex(input: &str) -> Result<Vec<TokenInfo>, Box<dyn Error>> {
     let regexes = construct_regex();
+    let nfa = generate_nfa(regexes)?;
 
-    let mut nfas: Vec<Nfa> = vec![];
-    for regex in regexes {
-        let nfa = regex_to_nfa(&regex.0, Some(regex.1));
-        for accept in &nfa.accept {
-            if accept.1.is_none() {
-                return Err("NFA missing accept function")?;
-            }
-        }
-        nfas.push(nfa);
-    }
-
-    let nfa = nfa_combine(nfas, false, None);
     let tokens = execute_nfa(input, &nfa)?;
     let filtered = tokens
         .into_iter()
         .filter(|t| !matches!(t.0, Token::Whitespace(_) | Token::NewLine | Token::Comment(_)))
         .collect::<Vec<TokenInfo>>();
     Ok(filtered)
+}
+
+fn generate_nfa(regexes: Vec<(RegEx, (u64, Box<TokenFunction>))>) -> Result<Nfa, Box<dyn Error>> {
+    let nfas: Vec<Nfa> = regexes
+        .into_iter()
+        .map(|regex| regex_to_nfa(&regex.0, Some(regex.1)))
+        .collect();
+    Ok(nfa_combine(nfas, false, None))
 }
 
 /// Executes nfa based on input, and get list of tokens.
@@ -621,6 +618,20 @@ impl Keyword {
     fn as_regex(self) -> RegEx {
         RegEx::Literal(self.to_string())
     }
+}
+
+#[test]
+fn test_execute_nfa_int_float() {
+    let regexes = construct_regex();
+    let nfa = generate_nfa(regexes).unwrap();
+
+    let tokens_int = execute_nfa("42", &nfa).unwrap();
+    assert_eq!(1, tokens_int.len());
+    assert_eq!(Token::IntConst(42), tokens_int[0].0);
+
+    let tokens_float = execute_nfa("42.42", &nfa).unwrap();
+    assert_eq!(1, tokens_float.len());
+    assert_eq!(Token::FloatConst("42.42".to_owned()), tokens_float[0].0);
 }
 
 #[test]
