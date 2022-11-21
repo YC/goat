@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::string::ToString;
 
 use crate::ast::{
     Binop, Expression, GoatProgram, IdentifierShape, IdentifierShapeDeclaration, Node, Parameter,
@@ -83,7 +84,7 @@ fn generate_proc(
         procedure
             .parameters
             .iter()
-            .map(|p| p.to_string())
+            .map(ToString::to_string)
             .collect::<Vec<String>>()
             .join(", ")
     ));

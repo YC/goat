@@ -1,4 +1,5 @@
 use core::fmt::{Display, Formatter, Result};
+use std::string::ToString;
 
 /// Program consists of 1 or more procedure definitions
 #[derive(Debug)]
@@ -11,7 +12,7 @@ impl Display for GoatProgram {
         let s = self
             .procedures
             .iter()
-            .map(|p| p.to_string())
+            .map(ToString::to_string)
             .collect::<Vec<String>>()
             .join("\n\n");
         write!(f, "{}", s)
@@ -49,12 +50,12 @@ impl Display for Procedure {
             self.identifier.node,
             self.parameters
                 .iter()
-                .map(|p| p.to_string())
+                .map(ToString::to_string)
                 .collect::<Vec<String>>()
                 .join(", "),
             self.variable_declarations
                 .iter()
-                .map(|v| v.to_string())
+                .map(ToString::to_string)
                 .collect::<Vec<String>>()
                 .join("\n"),
             if self.variable_declarations.is_empty() {
