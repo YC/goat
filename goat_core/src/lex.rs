@@ -290,7 +290,7 @@ fn execute_dfa(input: &str, dfa: &Dfa) -> Result<Vec<TokenInfo>, Box<dyn Error>>
                             accepted.push((offset, accept.0, token));
                         }
                         Err(e) => {
-                            return Err(format!("Cannot parse token \"{}\": {}", chars_str, e).into());
+                            return Err(format!("Cannot parse token \"{chars_str}\": {e}").into());
                         }
                     }
                 }
@@ -355,7 +355,7 @@ fn execute_dfa(input: &str, dfa: &Dfa) -> Result<Vec<TokenInfo>, Box<dyn Error>>
             lineno += 1;
             linecol = 1;
         } else {
-            linecol += token.0 as u64;
+            linecol += token.0;
         }
 
         tokens.push((token.2, pos));
@@ -367,7 +367,7 @@ fn execute_dfa(input: &str, dfa: &Dfa) -> Result<Vec<TokenInfo>, Box<dyn Error>>
     }
 
     if !input.is_empty() {
-        return Err(format!("unconsumed input, at line {} col {}", lineno, linecol))?;
+        return Err(format!("unconsumed input, at line {lineno} col {linecol}"))?;
     }
 
     Ok(tokens)
@@ -416,7 +416,7 @@ fn execute_nfa(input: &str, nfa: &Nfa) -> Result<Vec<TokenInfo>, Box<dyn Error>>
                             accepted.push((offset, nfa_accept.0, token));
                         }
                         Err(e) => {
-                            return Err(format!("Cannot parse token \"{}\": {}", chars_str, e).into());
+                            return Err(format!("Cannot parse token \"{chars_str}\": {e}").into());
                         }
                     }
                 }
@@ -477,7 +477,7 @@ fn execute_nfa(input: &str, nfa: &Nfa) -> Result<Vec<TokenInfo>, Box<dyn Error>>
             lineno += 1;
             linecol = 1;
         } else {
-            linecol += token.0 as u64;
+            linecol += token.0;
         }
 
         tokens.push((token.2, pos));
@@ -489,7 +489,7 @@ fn execute_nfa(input: &str, nfa: &Nfa) -> Result<Vec<TokenInfo>, Box<dyn Error>>
     }
 
     if !input.is_empty() {
-        return Err(format!("unconsumed input, at line {} col {}", lineno, linecol))?;
+        return Err(format!("unconsumed input, at line {lineno} col {linecol}"))?;
     }
 
     Ok(tokens)

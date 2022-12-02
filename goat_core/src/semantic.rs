@@ -78,8 +78,8 @@ pub fn analyse(program: &GoatProgram) -> Result<SymbolTable, Box<dyn Error>> {
                 IdentifierShapeDeclaration::IdentifierArray(identifier, m) => {
                     if *m == 0 {
                         return Err(format!(
-                            "The array {} at {:?} cannot be initialised with [0] elements: {}[{}]",
-                            identifier.node, identifier.location, identifier.node, m
+                            "The array {} at {:?} cannot be initialised with [0] elements: {}[{m}]",
+                            identifier.node, identifier.location, identifier.node
                         ))?;
                     }
                     identifier
@@ -87,14 +87,14 @@ pub fn analyse(program: &GoatProgram) -> Result<SymbolTable, Box<dyn Error>> {
                 IdentifierShapeDeclaration::IdentifierArray2D(identifier, m, n) => {
                     if *m == 0 {
                         return Err(format!(
-                            "The array {} at {:?} cannot be initialised with [0, {}] elements: {}[{}, {}]",
-                            identifier.node, identifier.location, n, identifier.node, m, n
+                            "The array {} at {:?} cannot be initialised with [0, {n}] elements: {}[{m}, {n}]",
+                            identifier.node, identifier.location, identifier.node
                         ))?;
                     }
                     if *n == 0 {
                         return Err(format!(
-                            "The array {} at {:?} cannot be initialised with [{}, 0] elements: {}[{}, {}]",
-                            identifier.node, identifier.location, m, identifier.node, m, n
+                            "The array {} at {:?} cannot be initialised with [{m}, 0] elements: {}[{m}, {n}]",
+                            identifier.node, identifier.location, identifier.node
                         ))?;
                     }
                     identifier
@@ -153,8 +153,8 @@ fn analyse_statement(
             let expr_type = eval_expression_scalar(procedure_symbols, expr)?;
             if expr_type != VariableType::Bool {
                 return Err(format!(
-                    "Expression for If statement \"{}\" at {:?} must be bool, but is {}",
-                    expr.node, expr.location, expr_type
+                    "Expression for If statement \"{}\" at {:?} must be bool, but is {expr_type}",
+                    expr.node, expr.location
                 ))?;
             }
 
@@ -174,8 +174,8 @@ fn analyse_statement(
             let expr_type = eval_expression_scalar(procedure_symbols, expr)?;
             if expr_type != VariableType::Bool {
                 return Err(format!(
-                    "Expression for IfElse statement \"{}\" at {:?} must be bool, but is {}",
-                    expr.node, expr.location, expr_type
+                    "Expression for IfElse statement \"{}\" at {:?} must be bool, but is {expr_type}",
+                    expr.node, expr.location
                 ))?;
             }
 
@@ -204,8 +204,8 @@ fn analyse_statement(
             let expr_type = eval_expression_scalar(procedure_symbols, expr)?;
             if expr_type != VariableType::Bool {
                 return Err(format!(
-                    "Expression for While statement \"{}\" at {:?} must be bool, but is {}",
-                    expr.node, expr.location, expr_type
+                    "Expression for While statement \"{}\" at {:?} must be bool, but is {expr_type}",
+                    expr.node, expr.location
                 ))?;
             }
 
@@ -229,8 +229,8 @@ fn analyse_statement(
 
             if left_type != right_type && (left_type != VariableType::Float && right_type != VariableType::Int) {
                 return Err(format!(
-                    "Cannot assign \"{}\" (of type {}) to \"{}\" (of type {}) at {:?}",
-                    expr.node, right_type, shape, left_type, statement.location
+                    "Cannot assign \"{}\" (of type {right_type}) to \"{shape}\" (of type {left_type}) at {:?}",
+                    expr.node, statement.location
                 ))?;
             }
         }
@@ -461,8 +461,8 @@ fn eval_shape_type(
             let index_type = eval_expression_scalar(procedure_symbols, expr)?;
             if index_type != VariableType::Int {
                 return Err(format!(
-                    "Array index \"{}\" at {:?} is expected to be int, but is of type {}",
-                    expr.node, expr.location, index_type
+                    "Array index \"{}\" at {:?} is expected to be int, but is of type {index_type}",
+                    expr.node, expr.location
                 ))?;
             }
 
@@ -495,15 +495,15 @@ fn eval_shape_type(
             let index_type_m = eval_expression_scalar(procedure_symbols, expr1)?;
             if index_type_m != VariableType::Int {
                 return Err(format!(
-                    "Matrix index \"{}[{}, _]\" at {:?} is expected to be int, but found {}",
-                    identifier.node, expr1.node, expr1.location, index_type_m
+                    "Matrix index \"{}[{}, _]\" at {:?} is expected to be int, but found {index_type_m}",
+                    identifier.node, expr1.node, expr1.location
                 ))?;
             }
             let index_type_n = eval_expression_scalar(procedure_symbols, expr1)?;
             if eval_expression_scalar(procedure_symbols, expr2)? != VariableType::Int {
                 return Err(format!(
-                    "Matrix index \"{}[_, {}]\" at {:?} is expected to be int, but found {}",
-                    identifier.node, expr2.node, expr2.location, index_type_n
+                    "Matrix index \"{}[_, {}]\" at {:?} is expected to be int, but found {index_type_n}",
+                    identifier.node, expr2.node, expr2.location
                 ))?;
             }
 

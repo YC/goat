@@ -27,7 +27,7 @@ fn main() -> process::ExitCode {
         }
 
         if argument == "--help" || argument == "-h" {
-            println!("usage: {} [-p] [-o <outfile>] source.gt", command);
+            println!("usage: {command} [-p] [-o <outfile>] source.gt");
             println!("  -p: Pretty prints Goat code");
             println!("  -o <outfile>: Use llvm to create executable");
             println!("  -v: Verbose printing of internals");
@@ -64,13 +64,13 @@ fn main() -> process::ExitCode {
     };
 
     if verbose {
-        eprintln!("{} invoked with source file: {}, pretty: {}", command, filename, pretty);
+        eprintln!("{command} invoked with source file: {filename}, pretty: {pretty}");
     }
 
     let contents = match fs::read_to_string(filename) {
         Ok(contents) => contents,
         Err(e) => {
-            eprintln!("Failed to read file: {}", e);
+            eprintln!("Failed to read file: {e}");
             return ExitCode::from(1);
         }
     };
@@ -78,45 +78,45 @@ fn main() -> process::ExitCode {
     let tokens = match lex::lex(&contents) {
         Ok(tokens) => tokens,
         Err(e) => {
-            eprintln!("Lexer error: {}", e);
+            eprintln!("Lexer error: {e}");
             return ExitCode::from(2);
         }
     };
     if verbose {
-        eprintln!("{:?}", tokens);
+        eprintln!("{tokens:?}");
     }
 
     let ast = match parse::parse(&tokens) {
         Ok(ast) => ast,
         Err(e) => {
-            eprintln!("Parser error: {}", e);
+            eprintln!("Parser error: {e}");
             return ExitCode::from(3);
         }
     };
     if verbose {
-        eprintln!("{:?}", ast);
+        eprintln!("{ast:?}");
     }
     if pretty {
-        println!("{}", ast);
+        println!("{ast}");
     }
 
     let symbol_table = match semantic::analyse(&ast) {
         Ok(table) => table,
         Err(e) => {
-            eprintln!("Semantic analysis error: {}", e);
+            eprintln!("Semantic analysis error: {e}");
             return ExitCode::from(4);
         }
     };
 
     let output = codegen_llvm::generate_code(&ast, &symbol_table, bounds_check);
     if verbose {
-        eprintln!("{}", output);
+        eprintln!("{output}");
     }
 
     if let Some(outfile) = outfile {
         let ll_path = filename.clone() + ".ll";
         if let Err(e) = fs::write(&ll_path, output) {
-            eprintln!("Cannot save {}: {}", ll_path, e);
+            eprintln!("Cannot save {ll_path}: {e}");
             return ExitCode::from(1);
         }
 
@@ -130,7 +130,7 @@ fn main() -> process::ExitCode {
         let command_output = match command {
             Ok(c) => c,
             Err(e) => {
-                eprintln!("Failed to execute clang: {}", e);
+                eprintln!("Failed to execute clang: {e}");
                 return ExitCode::from(5);
             }
         };

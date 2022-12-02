@@ -15,7 +15,7 @@ impl Display for GoatProgram {
             .map(ToString::to_string)
             .collect::<Vec<String>>()
             .join("\n\n");
-        write!(f, "{}", s)
+        write!(f, "{s}")
     }
 }
 
@@ -94,7 +94,7 @@ impl Display for ParameterPassIndicator {
             Self::Ref => "ref",
             Self::Val => "val",
         };
-        write!(f, "{}", s)
+        write!(f, "{s}")
     }
 }
 
@@ -112,7 +112,7 @@ impl Display for VariableType {
             Self::Float => "float",
             Self::Int => "int",
         };
-        write!(f, "{}", s)
+        write!(f, "{s}")
     }
 }
 
@@ -130,7 +130,7 @@ impl Display for ProcBody {
             .map(|s| s.node.to_string())
             .collect::<Vec<String>>()
             .join("\n");
-        write!(f, "{}", s)
+        write!(f, "{s}")
     }
 }
 
@@ -157,10 +157,10 @@ impl Display for IdentifierShapeDeclaration {
     fn fmt(&self, f: &mut Formatter) -> Result {
         let s = match self {
             Self::Identifier(ident) => ident.node.clone(),
-            Self::IdentifierArray(ident, m) => format!("{}[{}]", ident.node, m),
-            Self::IdentifierArray2D(ident, m, n) => format!("{}[{}, {}]", ident.node, m, n),
+            Self::IdentifierArray(ident, m) => format!("{}[{m}]", ident.node),
+            Self::IdentifierArray2D(ident, m, n) => format!("{}[{m}, {n}]", ident.node),
         };
-        write!(f, "{}", s)
+        write!(f, "{s}")
     }
 }
 
@@ -195,10 +195,10 @@ impl Statement {
     fn pretty_print(&self) -> String {
         match self {
             Self::Assign(ident, expr) => {
-                format!("{} := {};", ident, expr.node)
+                format!("{ident} := {};", expr.node)
             }
             Self::Read(ident) => {
-                format!("read {};", ident)
+                format!("read {ident};")
             }
             Self::Write(expr) => {
                 format!("write {};", expr.node)
@@ -288,7 +288,7 @@ impl Display for Expression {
             Self::FloatConst(n) => n.to_string(),
             Self::BoolConst(true) => "true".to_owned(),
             Self::BoolConst(false) => "false".to_owned(),
-            Self::StringConst(s) => format!("\"{}\"", s),
+            Self::StringConst(s) => format!("\"{s}\""),
             Self::BinopExpr(op, expr_left, expr_right) => {
                 format!(
                     "{} {} {}",
@@ -298,16 +298,16 @@ impl Display for Expression {
                 )
             }
             Self::UnopExpr(op, expr) => {
-                format!("{}{}", op, wrap_bracket(expr.node.is_binop(), expr.node.to_string()))
+                format!("{op}{}", wrap_bracket(expr.node.is_binop(), expr.node.to_string()))
             }
         };
-        write!(f, "{}", s)
+        write!(f, "{s}")
     }
 }
 
 fn wrap_bracket(wrap: bool, input: String) -> String {
     if wrap {
-        format!("({})", input)
+        format!("({input})")
     } else {
         input
     }
@@ -343,7 +343,7 @@ impl Display for IdentifierShape {
             Self::IdentifierArray(ident, m) => format!("{}[{}]", ident.node, m.node),
             Self::IdentifierArray2D(ident, m, n) => format!("{}[{}, {}]", ident.node, m.node, n.node),
         };
-        write!(f, "{}", s)
+        write!(f, "{s}")
     }
 }
 
@@ -385,7 +385,7 @@ impl Display for Binop {
             Self::GT => ">",
             Self::GTE => ">=",
         };
-        write!(f, "{}", s)
+        write!(f, "{s}")
     }
 }
 
@@ -402,6 +402,6 @@ impl Display for Unop {
             Self::NOT => "!",
             Self::Minus => "-",
         };
-        write!(f, "{}", s)
+        write!(f, "{s}")
     }
 }

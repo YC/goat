@@ -187,12 +187,12 @@ fn generate_statement(
             ));
 
             // If statements
-            output.push(format!("{}:\t\t\t\t; if statements", if_label));
+            output.push(format!("{if_label}:\t\t\t\t; if statements"));
             output.append(&mut if_statements_code);
-            output.push(format!("  br label %{}", endif_label));
+            output.push(format!("  br label %{endif_label}"));
 
             // After endif
-            output.push(format!("{}:\t\t\t\t; end of if statement", endif_label));
+            output.push(format!("{endif_label}:\t\t\t\t; end of if statement"));
         }
         Statement::IfElse(expr, statements1, statements2) => {
             // %1 = <expr-result>
@@ -221,17 +221,17 @@ fn generate_statement(
             ));
 
             // If statements
-            output.push(format!("{}:\t\t\t\t; if statements", if_label));
+            output.push(format!("{if_label}:\t\t\t\t; if statements"));
             output.append(&mut if_statements_code);
-            output.push(format!("  br label %{}", endif_label));
+            output.push(format!("  br label %{endif_label}"));
 
             // Else statements
-            output.push(format!("{}:\t\t\t\t; else statements", else_label));
+            output.push(format!("{else_label}:\t\t\t\t; else statements"));
             output.append(&mut else_statements_code);
-            output.push(format!("  br label %{}", endif_label));
+            output.push(format!("  br label %{endif_label}"));
 
             // After endif
-            output.push(format!("{}:\t\t\t\t; end ifelse", endif_label));
+            output.push(format!("{endif_label}:\t\t\t\t; end ifelse"));
         }
         Statement::While(expr, statements) => {
             // conditional:
@@ -250,10 +250,10 @@ fn generate_statement(
             let endwhile_label = increment_temp_var(temp_var);
 
             // Immediate jump to conditional
-            output.push(format!("  br label %{}", conditional_label));
+            output.push(format!("  br label %{conditional_label}"));
 
             // Evaluate boolean expression
-            output.push(format!("{}:\t\t\t\t; start while conditional", conditional_label));
+            output.push(format!("{conditional_label}:\t\t\t\t; start while conditional"));
             output.append(&mut expr_code);
 
             // Jump on conditional
@@ -263,13 +263,13 @@ fn generate_statement(
             ));
 
             // Body
-            output.push(format!("{}:\t\t\t\t; body of while", body_label));
+            output.push(format!("{body_label}:\t\t\t\t; body of while"));
             output.append(&mut while_body_code);
             // Back to conditional
-            output.push(format!("  br label %{}", conditional_label));
+            output.push(format!("  br label %{conditional_label}"));
 
             // After end of while
-            output.push(format!("{}:\t\t\t\t; end while", endwhile_label));
+            output.push(format!("{endwhile_label}:\t\t\t\t; end while"));
         }
         Statement::Assign(identifier_shape, expr) => {
             // First evaluate the expression
@@ -405,7 +405,7 @@ fn get_identifier_ptr(
             // %v = sext i32 %<expr> to i64                                             ; index expression value to i64
             // %5 = getelementptr inbounds [2 x i32], [2 x i32]* %1, i64 0, i64 %v      ; addressing
             let convert_var = increment_temp_var(temp_var);
-            output.push(format!("  %{} = sext i32 %{} to i64", convert_var, m_expr_var));
+            output.push(format!("  %{convert_var} = sext i32 %{m_expr_var} to i64"));
             let address_var = increment_temp_var(temp_var);
             output.push(format!(
                 "  %{} = getelementptr inbounds [{} x {}], [{} x {}]* %{}, i64 0, i64 %{}",
@@ -437,10 +437,10 @@ fn get_identifier_ptr(
             // %m = sext i32 %<expr-m> to i64                                           ; m conversion to i64
             // %n = sext i32 %<expr-n> to i64                                           ; n conversion to i64
             let convert_var_m = increment_temp_var(temp_var);
-            output.push(format!("  %{} = sext i32 %{} to i64", convert_var_m, m_expr_var));
+            output.push(format!("  %{convert_var_m} = sext i32 %{m_expr_var} to i64"));
 
             let convert_var_n = increment_temp_var(temp_var);
-            output.push(format!("  %{} = sext i32 %{} to i64", convert_var_n, n_expr_var));
+            output.push(format!("  %{convert_var_n} = sext i32 %{n_expr_var} to i64"));
 
             // %7 = getelementptr inbounds [30 x [30 x i32]], [30 x [30 x i32]]* %1, i64 0, i64 %m
             // %8 = getelementptr inbounds [30 x i32], [30 x i32]* %7, i64 0, i64 %n
@@ -515,7 +515,7 @@ fn generate_read(
             let load_var = increment_temp_var(temp_var);
 
             // %1 = alloca i32, align 4
-            output.push(format!("  %{} = alloca i32", alloca_var));
+            output.push(format!("  %{alloca_var} = alloca i32"));
             // %2 = call i32 (i8*, ...) @__isoc99_scanf(i8* noundef getelementptr inbounds
             //      ([3 x i8], [3 x i8]* @.str, i64 0, i64 0), i32* noundef %1)
             output.push(format!(
@@ -524,7 +524,7 @@ fn generate_read(
                 assign_ret_var, alloca_var
             ));
             // %3 = load i32, i32* %2
-            output.push(format!("  %{} = load i32, i32* %{}", load_var, alloca_var));
+            output.push(format!("  %{load_var} = load i32, i32* %{alloca_var}"));
 
             // Assign
             let mut code_assign_code = generate_assign_var(
@@ -543,7 +543,7 @@ fn generate_read(
             let load_var = increment_temp_var(temp_var);
 
             // %1 = alloca float, align 4
-            output.push(format!("  %{} = alloca float", alloca_var));
+            output.push(format!("  %{alloca_var} = alloca float"));
             // %2 = call i32 (i8*, ...) @__isoc99_scanf(i8* noundef getelementptr inbounds
             //      ([3 x i8], [3 x i8]* @.str, i64 0, i64 0), float* noundef %1)
             output.push(format!(
@@ -552,7 +552,7 @@ fn generate_read(
                 assign_ret_var, alloca_var
             ));
             // %3 = load float, float* %2
-            output.push(format!("  %{} = load float, float* %{}", load_var, alloca_var));
+            output.push(format!("  %{load_var} = load float, float* %{alloca_var}"));
 
             // Assign
             let mut code_assign_code = generate_assign_var(
@@ -572,9 +572,9 @@ fn generate_read(
             let scanf_ret_var = increment_temp_var(temp_var);
 
             // %1 = alloca i1                                                       ; var 'read'
-            output.push(format!("  %{} = alloca i1", alloca_var));
+            output.push(format!("  %{alloca_var} = alloca i1"));
             // %2 = alloca [6 x i8]                                                 ; char*
-            output.push(format!("  %{} = alloca [6 x i8]", read_buf_var));
+            output.push(format!("  %{read_buf_var} = alloca [6 x i8]"));
             // %3 = getelementptr inbounds [6 x i8], [6 x i8]* %2, i64 0, i64 0
             output.push(format!(
                 "  %{} = getelementptr inbounds [6 x i8], [6 x i8]* %{}, i64 0, i64 0",
@@ -620,12 +620,12 @@ fn generate_read(
             ));
 
             // if branch - compare "true" succeeded, set 1
-            output.push(format!("{}:", if_true_label));
-            output.push(format!("  store i1 1, i1* %{}", alloca_var));
-            output.push(format!("  br label %{}", endif_label));
+            output.push(format!("{if_true_label}:"));
+            output.push(format!("  store i1 1, i1* %{alloca_var}"));
+            output.push(format!("  br label %{endif_label}"));
 
             // Compare "false"
-            output.push(format!("{}:", compare_false_label));
+            output.push(format!("{compare_false_label}:"));
             output.push(format!(
                 "  %{} = call i32 @strncmp(i8* noundef %{}, i8* noundef getelementptr inbounds \
                                 ([6 x i8], [6 x i8]* @format.false, i64 0, i64 0), i64 noundef 5)",
@@ -641,21 +641,21 @@ fn generate_read(
             ));
 
             // elseif branch - compare "false" succeeded, set 0
-            output.push(format!("{}:", if_false_label));
-            output.push(format!("  store i1 0, i1* %{}", alloca_var));
-            output.push(format!("  br label %{}", endif_label));
+            output.push(format!("{if_false_label}:"));
+            output.push(format!("  store i1 0, i1* %{alloca_var}"));
+            output.push(format!("  br label %{endif_label}"));
 
             // else branch
-            output.push(format!("{}:", else_label));
+            output.push(format!("{else_label}:"));
             output.push("  call void @exit(i32 noundef 1)".into());
             output.push("  unreachable".into());
 
             // endif
-            output.push(format!("{}:", endif_label));
+            output.push(format!("{endif_label}:"));
 
             // Load stored variable
             let load_var = increment_temp_var(temp_var);
-            output.push(format!("  %{} = load i1, i1* %{}", load_var, alloca_var));
+            output.push(format!("  %{load_var} = load i1, i1* %{alloca_var}"));
 
             // Assign
             let mut code_assign_code = generate_assign_var(
@@ -729,25 +729,25 @@ fn generate_write(
             ));
 
             // If true
-            output.push(format!("{}:\t\t\t\t; if bool", if_label));
+            output.push(format!("{if_label}:\t\t\t\t; if bool"));
             output.push(format!(
                 "  %{} = call i32 (i8*, ...) @printf(i8* noundef getelementptr inbounds \
                     ([5 x i8], [5 x i8]* @format.true, i64 0, i64 0))",
                 print_return_num1
             ));
-            output.push(format!("  br label %{}", endif_label));
+            output.push(format!("  br label %{endif_label}"));
 
             // Else false
-            output.push(format!("{}:\t\t\t\t; else bool", else_label));
+            output.push(format!("{else_label}:\t\t\t\t; else bool"));
             output.push(format!(
                 "  %{} = call i32 (i8*, ...) @printf(i8* noundef getelementptr inbounds \
                     ([6 x i8], [6 x i8]* @format.false, i64 0, i64 0))",
                 print_return_num2
             ));
-            output.push(format!("  br label %{}", endif_label));
+            output.push(format!("  br label %{endif_label}"));
 
             // After endif
-            output.push(format!("{}:\t\t\t\t; end bool", endif_label));
+            output.push(format!("{endif_label}:\t\t\t\t; end bool"));
         }
         VariableType::Float => {
             // %6 = fpext float %5 to double
@@ -790,34 +790,34 @@ fn generate_expression(
             // store i32 <const>, i32* %3   ; store const to ptr
             // %4 = load i32, i32* %3       ; load value
             let store_var = increment_temp_var(temp_var);
-            output.push(format!("  %{} = alloca i32", store_var));
-            output.push(format!("  store i32 {}, i32* %{}", n, store_var));
+            output.push(format!("  %{store_var} = alloca i32"));
+            output.push(format!("  store i32 {n}, i32* %{store_var}"));
 
             let load_var = increment_temp_var(temp_var);
-            output.push(format!("  %{} = load i32, i32* %{}", load_var, store_var));
+            output.push(format!("  %{load_var} = load i32, i32* %{store_var}"));
             load_var
         }
         Expression::BoolConst(b) => {
             let store_var = increment_temp_var(temp_var);
-            output.push(format!("  %{} = alloca i1", store_var));
-            output.push(format!("  store i1 {}, i1* %{}", if *b { "1" } else { "0" }, store_var));
+            output.push(format!("  %{store_var} = alloca i1"));
+            output.push(format!("  store i1 {}, i1* %{store_var}", if *b { "1" } else { "0" }));
 
             let load_var = increment_temp_var(temp_var);
-            output.push(format!("  %{} = load i1, i1* %{}", load_var, store_var));
+            output.push(format!("  %{load_var} = load i1, i1* %{store_var}"));
             load_var
         }
         Expression::FloatConst(n) => {
             // To IEEE754 double
             let float_parsed: f32 = n.parse::<f32>().expect("failed to parse float");
             let float_double: f64 = float_parsed.into();
-            let float_double_str = float_double.to_be_bytes().map(|b| format!("{:02X}", b)).concat();
+            let float_double_str = float_double.to_be_bytes().map(|b| format!("{b:02X}")).concat();
 
             let store_var = increment_temp_var(temp_var);
-            output.push(format!("  %{} = alloca float", store_var));
-            output.push(format!("  store float 0x{}, float* %{}", float_double_str, store_var));
+            output.push(format!("  %{store_var} = alloca float"));
+            output.push(format!("  store float 0x{float_double_str}, float* %{store_var}"));
 
             let load_var = increment_temp_var(temp_var);
-            output.push(format!("  %{} = load float, float* %{}", load_var, store_var));
+            output.push(format!("  %{load_var} = load float, float* %{store_var}"));
             load_var
         }
         Expression::StringConst(_) => panic!("StringConst is not supported by generate_expression"),
@@ -849,9 +849,9 @@ fn generate_expression(
             let variable_type = convert_type(expr_value_type);
             let sub_var = increment_temp_var(temp_var);
             if expr_value_type == VariableType::Int {
-                output.push(format!("  %{} = sub nsw {} 0, %{}", sub_var, variable_type, expr_var));
+                output.push(format!("  %{sub_var} = sub nsw {variable_type} 0, %{expr_var}"));
             } else {
-                output.push(format!("  %{} = fneg {} %{}", sub_var, variable_type, expr_var));
+                output.push(format!("  %{sub_var} = fneg {variable_type} %{expr_var}"));
             }
             sub_var
         }
@@ -861,13 +861,13 @@ fn generate_expression(
 
             // %5 = xor i1 %4, true (exclusive or with true)
             let negate_var = increment_temp_var(temp_var);
-            output.push(format!("  %{} = xor i1 %{}, true", negate_var, expr_var));
+            output.push(format!("  %{negate_var} = xor i1 %{expr_var}, true"));
             negate_var
         }
         Expression::BinopExpr(Binop::AND, expr1, expr2) => {
             // alloca
             let alloca_var = increment_temp_var(temp_var);
-            output.push(format!("  %{} = alloca i1", alloca_var));
+            output.push(format!("  %{alloca_var} = alloca i1"));
 
             // lhs
             let (expr1_var, mut expr1_code) = generate_expression(temp_var, llvm_info, procedure_symbols, &expr1.node);
@@ -885,26 +885,26 @@ fn generate_expression(
             ));
 
             // lhs is false, whole condition is false
-            output.push(format!("{}:", lhs_false_label));
-            output.push(format!("  store i1 0, i1* %{}", alloca_var));
-            output.push(format!("  br label %{}", end_label));
+            output.push(format!("{lhs_false_label}:"));
+            output.push(format!("  store i1 0, i1* %{alloca_var}"));
+            output.push(format!("  br label %{end_label}"));
 
             // otherwise, keep value of rhs
-            output.push(format!("{}:", rhs_label));
+            output.push(format!("{rhs_label}:"));
             output.append(&mut expr2_code);
-            output.push(format!("  store i1 %{}, i1* %{}", expr2_var, alloca_var));
-            output.push(format!("  br label %{}", end_label));
+            output.push(format!("  store i1 %{expr2_var}, i1* %{alloca_var}"));
+            output.push(format!("  br label %{end_label}"));
 
             // end
-            output.push(format!("{}:", end_label));
+            output.push(format!("{end_label}:"));
             let final_var = increment_temp_var(temp_var);
-            output.push(format!("  %{} = load i1, i1* %{}", final_var, alloca_var));
+            output.push(format!("  %{final_var} = load i1, i1* %{alloca_var}"));
             final_var
         }
         Expression::BinopExpr(Binop::OR, expr1, expr2) => {
             // alloca
             let alloca_var = increment_temp_var(temp_var);
-            output.push(format!("  %{} = alloca i1", alloca_var));
+            output.push(format!("  %{alloca_var} = alloca i1"));
 
             // lhs
             let (expr1_var, mut expr1_code) = generate_expression(temp_var, llvm_info, procedure_symbols, &expr1.node);
@@ -922,20 +922,20 @@ fn generate_expression(
             ));
 
             // lhs is true, while condition is true
-            output.push(format!("{}:", lhs_true_label));
-            output.push(format!("  store i1 1, i1* %{}", alloca_var));
-            output.push(format!("  br label %{}", end_label));
+            output.push(format!("{lhs_true_label}:"));
+            output.push(format!("  store i1 1, i1* %{alloca_var}"));
+            output.push(format!("  br label %{end_label}"));
 
             // rhs
-            output.push(format!("{}:", rhs_label));
+            output.push(format!("{rhs_label}:"));
             output.append(&mut expr2_code);
-            output.push(format!("  store i1 %{}, i1* %{}", expr2_var, alloca_var));
-            output.push(format!("  br label %{}", end_label));
+            output.push(format!("  store i1 %{expr2_var}, i1* %{alloca_var}"));
+            output.push(format!("  br label %{end_label}"));
 
             // end
-            output.push(format!("{}:", end_label));
+            output.push(format!("{end_label}:"));
             let final_var = increment_temp_var(temp_var);
-            output.push(format!("  %{} = load i1, i1* %{}", final_var, alloca_var));
+            output.push(format!("  %{final_var} = load i1, i1* %{alloca_var}"));
             final_var
         }
         Expression::BinopExpr(
@@ -983,84 +983,84 @@ fn generate_expression(
             match (op, operand_type) {
                 // Numeric
                 (Binop::Add, VariableType::Int) => {
-                    output.push(format!("  %{} = add nsw i32 %{}, %{}", res_var, left_var, right_var));
+                    output.push(format!("  %{res_var} = add nsw i32 %{left_var}, %{right_var}"));
                 }
                 (Binop::Add, VariableType::Float) => {
-                    output.push(format!("  %{} = fadd float %{}, %{}", res_var, left_var, right_var));
+                    output.push(format!("  %{res_var} = fadd float %{left_var}, %{right_var}"));
                 }
                 (Binop::Minus, VariableType::Int) => {
-                    output.push(format!("  %{} = sub nsw i32 %{}, %{}", res_var, left_var, right_var));
+                    output.push(format!("  %{res_var} = sub nsw i32 %{left_var}, %{right_var}"));
                 }
                 (Binop::Minus, VariableType::Float) => {
-                    output.push(format!("  %{} = fsub float %{}, %{}", res_var, left_var, right_var));
+                    output.push(format!("  %{res_var} = fsub float %{left_var}, %{right_var}"));
                 }
                 (Binop::Multiply, VariableType::Int) => {
-                    output.push(format!("  %{} = mul nsw i32 %{}, %{}", res_var, left_var, right_var));
+                    output.push(format!("  %{res_var} = mul nsw i32 %{left_var}, %{right_var}"));
                 }
                 (Binop::Multiply, VariableType::Float) => {
-                    output.push(format!("  %{} = fmul float %{}, %{}", res_var, left_var, right_var));
+                    output.push(format!("  %{res_var} = fmul float %{left_var}, %{right_var}"));
                 }
                 (Binop::Divide, VariableType::Int) => {
-                    output.push(format!("  %{} = sdiv i32 %{}, %{}", res_var, left_var, right_var));
+                    output.push(format!("  %{res_var} = sdiv i32 %{left_var}, %{right_var}"));
                 }
                 (Binop::Divide, VariableType::Float) => {
-                    output.push(format!("  %{} = fdiv float %{}, %{}", res_var, left_var, right_var));
+                    output.push(format!("  %{res_var} = fdiv float %{left_var}, %{right_var}"));
                 }
                 // EQ, NEQ
                 (Binop::EQ, VariableType::Bool) => {
-                    output.push(format!("  %{} = icmp eq i1 %{}, %{}", res_var, left_var, right_var));
+                    output.push(format!("  %{res_var} = icmp eq i1 %{left_var}, %{right_var}"));
                 }
                 (Binop::EQ, VariableType::Int) => {
-                    output.push(format!("  %{} = icmp eq i32 %{}, %{}", res_var, left_var, right_var));
+                    output.push(format!("  %{res_var} = icmp eq i32 %{left_var}, %{right_var}"));
                 }
                 (Binop::EQ, VariableType::Float) => {
-                    output.push(format!("  %{} = fcmp oeq float %{}, %{}", res_var, left_var, right_var));
+                    output.push(format!("  %{res_var} = fcmp oeq float %{left_var}, %{right_var}"));
                 }
                 (Binop::NEQ, VariableType::Bool) => {
-                    output.push(format!("  %{} = icmp ne i1 %{}, %{}", res_var, left_var, right_var));
+                    output.push(format!("  %{res_var} = icmp ne i1 %{left_var}, %{right_var}"));
                 }
                 (Binop::NEQ, VariableType::Int) => {
-                    output.push(format!("  %{} = icmp ne i32 %{}, %{}", res_var, left_var, right_var));
+                    output.push(format!("  %{res_var} = icmp ne i32 %{left_var}, %{right_var}"));
                 }
                 (Binop::NEQ, VariableType::Float) => {
-                    output.push(format!("  %{} = fcmp une float %{}, %{}", res_var, left_var, right_var));
+                    output.push(format!("  %{res_var} = fcmp une float %{left_var}, %{right_var}"));
                 }
                 // Comparison
                 (Binop::LT, VariableType::Bool) => {
-                    output.push(format!("  %{} = icmp ult i1 %{}, %{}", res_var, left_var, right_var));
+                    output.push(format!("  %{res_var} = icmp ult i1 %{left_var}, %{right_var}"));
                 }
                 (Binop::LT, VariableType::Int) => {
-                    output.push(format!("  %{} = icmp slt i32 %{}, %{}", res_var, left_var, right_var));
+                    output.push(format!("  %{res_var} = icmp slt i32 %{left_var}, %{right_var}"));
                 }
                 (Binop::LT, VariableType::Float) => {
-                    output.push(format!("  %{} = fcmp olt float %{}, %{}", res_var, left_var, right_var));
+                    output.push(format!("  %{res_var} = fcmp olt float %{left_var}, %{right_var}"));
                 }
                 (Binop::LTE, VariableType::Bool) => {
-                    output.push(format!("  %{} = icmp ule i1 %{}, %{}", res_var, left_var, right_var));
+                    output.push(format!("  %{res_var} = icmp ule i1 %{left_var}, %{right_var}"));
                 }
                 (Binop::LTE, VariableType::Int) => {
-                    output.push(format!("  %{} = icmp sle i32 %{}, %{}", res_var, left_var, right_var));
+                    output.push(format!("  %{res_var} = icmp sle i32 %{left_var}, %{right_var}"));
                 }
                 (Binop::LTE, VariableType::Float) => {
-                    output.push(format!("  %{} = fcmp ole float %{}, %{}", res_var, left_var, right_var));
+                    output.push(format!("  %{res_var} = fcmp ole float %{left_var}, %{right_var}"));
                 }
                 (Binop::GT, VariableType::Bool) => {
-                    output.push(format!("  %{} = icmp ugt i1 %{}, %{}", res_var, left_var, right_var));
+                    output.push(format!("  %{res_var} = icmp ugt i1 %{left_var}, %{right_var}"));
                 }
                 (Binop::GT, VariableType::Int) => {
-                    output.push(format!("  %{} = icmp sgt i32 %{}, %{}", res_var, left_var, right_var));
+                    output.push(format!("  %{res_var} = icmp sgt i32 %{left_var}, %{right_var}"));
                 }
                 (Binop::GT, VariableType::Float) => {
-                    output.push(format!("  %{} = fcmp ogt float %{}, %{}", res_var, left_var, right_var));
+                    output.push(format!("  %{res_var} = fcmp ogt float %{left_var}, %{right_var}"));
                 }
                 (Binop::GTE, VariableType::Bool) => {
-                    output.push(format!("  %{} = icmp uge i1 %{}, %{}", res_var, left_var, right_var));
+                    output.push(format!("  %{res_var} = icmp uge i1 %{left_var}, %{right_var}"));
                 }
                 (Binop::GTE, VariableType::Int) => {
-                    output.push(format!("  %{} = icmp sge i32 %{}, %{}", res_var, left_var, right_var));
+                    output.push(format!("  %{res_var} = icmp sge i32 %{left_var}, %{right_var}"));
                 }
                 (Binop::GTE, VariableType::Float) => {
-                    output.push(format!("  %{} = fcmp oge float %{}, %{}", res_var, left_var, right_var));
+                    output.push(format!("  %{res_var} = fcmp oge float %{left_var}, %{right_var}"));
                 }
                 (_, _) => panic!("Unexpected numeric operation"),
             }
@@ -1076,7 +1076,7 @@ fn generate_int_to_float(temp_var: &mut usize, int_var: usize) -> (usize, String
     let new_converted_var = increment_temp_var(temp_var);
     (
         new_converted_var,
-        format!("  %{} = sitofp i32 %{} to float", new_converted_var, int_var),
+        format!("  %{new_converted_var} = sitofp i32 %{int_var} to float"),
     )
 }
 
@@ -1086,7 +1086,7 @@ fn generate_index_check(temp_var: &mut usize, index_var: usize, bound: u32) -> V
     // Ensure that the dimension is not exceeded
     // index < 0 || index >= m
     let comparison_var1 = increment_temp_var(temp_var);
-    output.push(format!("  %{} = icmp slt i32 %{}, 0", comparison_var1, index_var));
+    output.push(format!("  %{comparison_var1} = icmp slt i32 %{index_var}, 0"));
     let comparison_var2 = increment_temp_var(temp_var);
     output.push(format!(
         "  %{} = icmp sge i32 %{}, {}",
@@ -1108,12 +1108,12 @@ fn generate_index_check(temp_var: &mut usize, index_var: usize, bound: u32) -> V
 
     // Bad, exit program
     // TODO: print stderr message
-    output.push(format!("{}:", bad_label));
+    output.push(format!("{bad_label}:"));
     output.push("  call void @exit(i32 noundef 1)".into());
     output.push("  unreachable".into());
 
     // endif
-    output.push(format!("{}:", endif_label));
+    output.push(format!("{endif_label}:"));
 
     output
 }
@@ -1134,7 +1134,7 @@ fn generate_var_declarations(
                 vars.insert(identifier.node.clone(), VarInfo { var_num });
 
                 // %1 = alloca i32          ; allocate
-                output.push(format!("  %{} = alloca {}", var_num, var_type));
+                output.push(format!("  %{var_num} = alloca {var_type}"));
                 // store i32 0, i32* %1     ; initialise with value of 0
                 output.push(format!(
                     "  store {} {}, {}* %{}",
@@ -1152,7 +1152,7 @@ fn generate_var_declarations(
                 vars.insert(identifier.node.clone(), VarInfo { var_num });
 
                 // %1 = alloca [n x i32]
-                output.push(format!("  %{} = alloca [{} x {}]", var_num, n, var_type));
+                output.push(format!("  %{var_num} = alloca [{n} x {var_type}]"));
 
                 let type_size = match declaration.r#type {
                     VariableType::Bool => 1,
@@ -1177,7 +1177,7 @@ fn generate_var_declarations(
                 vars.insert(identifier.node.clone(), VarInfo { var_num });
 
                 // %1 = alloca [m x [n x i32]]
-                output.push(format!("  %{} = alloca [{} x [{} x {}]]", var_num, m, n, var_type));
+                output.push(format!("  %{var_num} = alloca [{m} x [{n} x {var_type}]]"));
 
                 let type_size = match declaration.r#type {
                     VariableType::Bool => 1,
@@ -1237,7 +1237,7 @@ fn generate_formal_parameters(
             temp_var_body += 1;
 
             // Pointer
-            ptr_code.push(format!("  %{} = alloca {}", alloca_var, var_type));
+            ptr_code.push(format!("  %{alloca_var} = alloca {var_type}"));
             // Copy over value
             ptr_code.push(format!(
                 "  store {} %{}, {}* %{}",
@@ -1321,7 +1321,7 @@ fn convert_string_const(string_const: &str) -> ConvertedStringConst {
         .replace("\\r", "\r");
     let bytes = string.bytes();
     let bytes_len = bytes.len();
-    let escaped = bytes.map(|b| format!("\\{:02x}", b)).collect::<String>();
+    let escaped = bytes.map(|b| format!("\\{b:02x}")).collect::<String>();
     (bytes_len + 1, escaped + "\\00")
 }
 

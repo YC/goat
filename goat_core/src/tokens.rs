@@ -88,7 +88,7 @@ impl Display for Token {
             Self::COMMA => ",".to_owned(),
         };
 
-        write!(f, "{}", s)
+        write!(f, "{s}")
     }
 }
 
@@ -142,6 +142,6 @@ impl Display for Keyword {
             Self::CALL => "call",
             Self::REF => "ref",
         };
-        write!(f, "{}", s)
+        write!(f, "{s}")
     }
 }
