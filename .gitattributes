@@ -1,5 +1,6 @@
 * text=auto
 tests/stage3-peer/* !text=auto
-tests/* linguist-vendored
-spec/* linguist-vendored
-tests/test.sh linguist-vendored=false
+tests/** linguist-vendored
+tests/test.sh -linguist-vendored
+spec/** linguist-vendored
+Makefile linguist-vendored
