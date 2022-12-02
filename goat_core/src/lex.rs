@@ -1,5 +1,8 @@
 use crate::tokens::{Keyword, Token, TokenInfo};
-use std::error::Error;
+use std::{
+    collections::{HashMap, HashSet},
+    error::Error,
+};
 
 #[derive(Debug)]
 enum RegEx {
@@ -28,6 +31,7 @@ impl Charset {
 }
 
 // (Priority, Function)
+type TokenFunction = fn(&str) -> Result<Token, Box<dyn Error>>;
 type NfaAcceptFunction = (u64, Box<TokenFunction>);
 
 struct Nfa {
@@ -38,6 +42,16 @@ struct Nfa {
     accept: Vec<(usize, Option<NfaAcceptFunction>)>,
     /// Transition, from source to dest
     transitions: Vec<(usize, usize, NfaTransition)>,
+}
+
+struct Dfa {
+    /// Start state
+    start: usize,
+    /// Accept state, which has a priority and accept functions which consumes
+    /// the string up to this point and produces a token
+    accept: HashMap<usize, Vec<NfaAcceptFunction>>,
+    /// Transition, from source to dest, no epsilon transition allowed
+    transitions: Vec<(usize, usize, Charset)>,
 }
 
 impl core::fmt::Debug for Nfa {
@@ -62,27 +76,301 @@ impl NfaTransition {
     fn takes_character(&self, c: char) -> bool {
         match self {
             Self::Empty => false,
-            Self::Charset(charset) => match charset {
-                Charset::Char(char) => c == *char,
-                Charset::Chars(e) => e.contains(&c),
-                Charset::CharExclude(e) => !e.contains(&c),
-            },
+            Self::Charset(charset) => charset.takes_character(c),
         }
     }
 }
 
-type TokenFunction = dyn Fn(&str) -> Result<Token, Box<dyn Error>>;
+impl Charset {
+    fn takes_character(&self, c: char) -> bool {
+        match self {
+            Charset::Char(char) => c == *char,
+            Charset::Chars(e) => e.contains(&c),
+            Charset::CharExclude(e) => !e.contains(&c),
+        }
+    }
+}
 
+/// Lexes input into tokens
+#[allow(clippy::similar_names)]
 pub fn lex(input: &str) -> Result<Vec<TokenInfo>, Box<dyn Error>> {
     let regexes = construct_regex();
     let nfa = generate_nfa(regexes);
+    let dfa = nfa_to_dfa(&nfa);
 
-    let tokens = execute_nfa(input, &nfa)?;
+    let tokens = execute_dfa(input, &dfa)?;
     let filtered = tokens
         .into_iter()
         .filter(|t| !matches!(t.0, Token::Whitespace(_) | Token::NewLine | Token::Comment(_)))
         .collect::<Vec<TokenInfo>>();
     Ok(filtered)
+}
+
+fn nfa_to_dfa(nfa: &Nfa) -> Dfa {
+    // From source, to multiple dests, on charset transition
+    let mut transitions: Vec<(usize, usize, Charset)> = vec![];
+    // Accept functions for each state
+    let mut accept: HashMap<usize, Vec<NfaAcceptFunction>> = HashMap::new();
+
+    let mut state_incr: usize = 1;
+    let mut state_map: HashMap<Vec<usize>, usize> = HashMap::new();
+    let mut pending_visit: Vec<Vec<usize>> = vec![];
+    let mut visited: HashSet<usize> = HashSet::new();
+
+    // Start from start state
+    let initial_state = vec![nfa.start];
+    state_map.insert(initial_state.clone(), 0);
+    pending_visit.push(initial_state);
+
+    while !pending_visit.is_empty() {
+        let mut current_states = pending_visit.pop().expect("cannot pop pending_visit");
+        let state_num = *state_map
+            .get(&current_states)
+            .expect("failed to map states to state_num");
+
+        // Visited already?
+        if visited.contains(&state_num) {
+            continue;
+        }
+        visited.insert(state_num);
+
+        // Add states which can be visited on epsilon transition from this state
+        let mut states_reachable = follow_epsilon(nfa, current_states.clone());
+        current_states.append(&mut states_reachable);
+
+        // Look at every possible transition from these states
+        // e.g. On 'a' or 'b', we can get to x, y, z
+        //      On 'c', we can get to x, y
+        let applicable_transitions: Vec<&(usize, usize, NfaTransition)> = nfa
+            .transitions
+            .iter()
+            .filter(|x| current_states.contains(&x.0))
+            .collect();
+
+        // For each char in Char or Chars, we need to test each transition
+        // But first, need to collect chars which cause transition
+        let mut chars_to_test = vec![];
+        let mut exclude_chars: HashSet<char> = HashSet::new();
+        let mut exclude_dest = vec![];
+        for transition in &applicable_transitions {
+            match &transition.2 {
+                // Ignore epsilon transitions, since they should have all been handled
+                NfaTransition::Empty => {}
+                // Charset transitions
+                NfaTransition::Charset(Charset::Char(c)) => {
+                    chars_to_test.push(*c);
+                }
+                NfaTransition::Charset(Charset::Chars(c)) => {
+                    chars_to_test.append(&mut c.clone());
+                }
+                NfaTransition::Charset(Charset::CharExclude(ce)) => {
+                    exclude_chars.extend(ce.clone());
+                    exclude_dest.push(transition.1);
+                }
+            }
+        }
+
+        // Map of transitions on chars, key: destination states, value: chars which will take you to the set
+        let mut transitions_char: HashMap<Vec<usize>, Vec<char>> = HashMap::new();
+
+        for c in &chars_to_test {
+            // Find the set of (destination) states which is reachable via c
+            let mut dest = vec![];
+            for transition in &applicable_transitions {
+                if transition.2.takes_character(*c) {
+                    dest.push(transition.1);
+                }
+            }
+            dest.sort_unstable();
+            dest.dedup();
+
+            // Other sets of chars which lead to the same set of destination states
+            match transitions_char.get_mut(&dest) {
+                None => {
+                    transitions_char.insert(dest, vec![*c]);
+                }
+                Some(chars) => {
+                    chars.push(*c);
+                }
+            }
+        }
+
+        // With map, create transitions
+        for (mut destination_states, mut chars) in transitions_char {
+            destination_states.sort_unstable();
+            destination_states.dedup();
+            chars.sort_unstable();
+            chars.dedup();
+
+            // Destination (a set of states) on charset transition
+            let dest = match state_map.get(&destination_states) {
+                None => {
+                    pending_visit.push(destination_states.clone());
+                    state_map.insert(destination_states, state_incr);
+                    state_incr += 1;
+                    state_incr - 1
+                }
+                Some(n) => *n,
+            };
+
+            let charset = Charset::Chars(chars);
+            transitions.push((state_num, dest, charset));
+        }
+
+        // If char_exclude, collect all chars, and all excluded chars
+        if !exclude_dest.is_empty() {
+            exclude_dest.sort_unstable();
+            exclude_dest.dedup();
+
+            // Beside all the existing excluded chars, include all char transitions
+            exclude_chars.extend(chars_to_test);
+
+            // Add set of states reachable via exclude charsets
+            let dest = match state_map.get(&exclude_dest) {
+                None => {
+                    pending_visit.push(exclude_dest.clone());
+                    state_map.insert(exclude_dest, state_incr);
+                    state_incr += 1;
+                    state_incr - 1
+                }
+                Some(n) => *n,
+            };
+
+            let charset = Charset::CharExclude(exclude_chars.into_iter().collect());
+            transitions.push((state_num, dest, charset));
+        }
+
+        // Find original accept functions of current set of states, and join together
+        let accept_functions: Vec<NfaAcceptFunction> = nfa
+            .accept
+            .iter()
+            .filter(|a| current_states.contains(&a.0))
+            .map(|a| {
+                let accept_function = a.1.as_ref().unwrap();
+                (accept_function.0, accept_function.1.clone())
+            })
+            .collect();
+        accept.insert(state_num, accept_functions);
+    }
+
+    Dfa {
+        start: 0,
+        accept,
+        transitions,
+    }
+}
+
+/// Executes dfa based on input, and get list of tokens.
+fn execute_dfa(input: &str, dfa: &Dfa) -> Result<Vec<TokenInfo>, Box<dyn Error>> {
+    let mut input: Vec<char> = input.chars().into_iter().collect();
+    let mut tokens = vec![];
+    let mut lineno: u64 = 1;
+    let mut linecol: u64 = 1;
+
+    // While input is not all consumed
+    while !input.is_empty() {
+        // Current DFA state
+        let mut current_state: usize = dfa.start;
+        // chars consumed
+        let mut chars: Vec<char> = vec![];
+        // Offset from start of current input
+        let mut offset: u64 = 0;
+        // Number of characters, priority of accept, token
+        let mut accepted: Vec<(u64, u64, Token)> = vec![];
+
+        loop {
+            // Is accept function?
+            if let Some(accept_fns) = dfa.accept.get(&current_state) {
+                for accept in accept_fns {
+                    let chars_str: String = chars.iter().collect();
+                    let token = (accept.1)(&chars_str);
+
+                    match token {
+                        Ok(token) => {
+                            accepted.push((offset, accept.0, token));
+                        }
+                        Err(e) => {
+                            return Err(format!("Cannot parse token \"{}\": {}", chars_str, e).into());
+                        }
+                    }
+                }
+            }
+
+            if offset > usize::MAX as u64 {
+                return Err("Cannot cast offset to usize due to overflow".into());
+            }
+            #[allow(clippy::cast_possible_truncation)]
+            let offset_usize = offset as usize;
+
+            // End of input
+            if input.len() <= offset_usize {
+                break;
+            }
+
+            // Consume next character
+            #[allow(clippy::indexing_slicing)]
+            let c = input[offset_usize];
+            chars.push(c);
+            offset += 1;
+
+            // Transition via character
+            let mut new_state = None;
+            for transition in &dfa.transitions {
+                let (source, dest, transition_function) = transition;
+                if *source == current_state && transition_function.takes_character(c) {
+                    new_state = Some(*dest);
+                }
+            }
+
+            // No more transitions
+            let Some(new_state) = new_state else {
+                break;
+            };
+
+            current_state = new_state;
+        }
+
+        if accepted.is_empty() {
+            return Err(format!(
+                "cannot consume input '{}', at line {} col {}",
+                chars.iter().collect::<String>(),
+                lineno,
+                linecol
+            ))?;
+        }
+
+        // Sort tokens by characters consumed (higher is better), then token priority (lower is better)
+        accepted.sort_by(|a, b| {
+            if a.0 == b.0 {
+                return b.1.cmp(&a.1);
+            }
+            a.1.cmp(&b.1)
+        });
+
+        // Push the token
+        let token = accepted.pop().ok_or("no token in accepted list")?;
+
+        let pos = (lineno, linecol);
+        if token.2 == Token::NewLine {
+            lineno += 1;
+            linecol = 1;
+        } else {
+            linecol += token.0 as u64;
+        }
+
+        tokens.push((token.2, pos));
+
+        // Increment input by n characters consumed
+        for _ in 0..token.0 {
+            _ = input.remove(0);
+        }
+    }
+
+    if !input.is_empty() {
+        return Err(format!("unconsumed input, at line {} col {}", lineno, linecol))?;
+    }
+
+    Ok(tokens)
 }
 
 fn generate_nfa(regexes: Vec<(RegEx, (u64, Box<TokenFunction>))>) -> Nfa {
@@ -94,6 +382,7 @@ fn generate_nfa(regexes: Vec<(RegEx, (u64, Box<TokenFunction>))>) -> Nfa {
 }
 
 /// Executes nfa based on input, and get list of tokens.
+#[allow(dead_code)]
 fn execute_nfa(input: &str, nfa: &Nfa) -> Result<Vec<TokenInfo>, Box<dyn Error>> {
     let mut input: Vec<char> = input.chars().into_iter().collect();
     let mut tokens = vec![];
@@ -103,7 +392,7 @@ fn execute_nfa(input: &str, nfa: &Nfa) -> Result<Vec<TokenInfo>, Box<dyn Error>>
     // While input is not all consumed
     while !input.is_empty() {
         // NFA states at current step
-        let mut current_states: Vec<usize> = vec![0];
+        let mut current_states: Vec<usize> = vec![nfa.start];
         // chars consumed
         let mut chars: Vec<char> = vec![];
         // Offset from start of current input
@@ -640,6 +929,21 @@ fn test_execute_nfa_int_float() {
     assert_eq!(Token::IntConst(42), tokens_int[0].0);
 
     let tokens_float = execute_nfa("42.42", &nfa).unwrap();
+    assert_eq!(1, tokens_float.len());
+    assert_eq!(Token::FloatConst("42.42".to_owned()), tokens_float[0].0);
+}
+
+#[test]
+fn test_execute_dfa_int_float() {
+    let regexes = construct_regex();
+    let nfa = generate_nfa(regexes);
+    let dfa = nfa_to_dfa(&nfa);
+
+    let tokens_int = execute_dfa("42", &dfa).unwrap();
+    assert_eq!(1, tokens_int.len());
+    assert_eq!(Token::IntConst(42), tokens_int[0].0);
+
+    let tokens_float = execute_dfa("42.42", &dfa).unwrap();
     assert_eq!(1, tokens_float.len());
     assert_eq!(Token::FloatConst("42.42".to_owned()), tokens_float[0].0);
 }
