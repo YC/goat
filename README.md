@@ -41,3 +41,19 @@ the target language from stage 3 of the specification.
 ```sh
 $ ./tests/test.sh target/release/goat
 ```
+
+## Performance
+NFA vs DFA for Lexer
+```
+Benchmark 1: ./test.sh ../target/release/goat-dfa
+  Time (mean ± σ):      4.698 s ±  0.030 s    [User: 2.368 s, System: 2.401 s]
+  Range (min … max):    4.657 s …  4.753 s    10 runs
+
+Benchmark 2: ./test.sh ../target/release/goat-nfa
+  Time (mean ± σ):      5.538 s ±  0.111 s    [User: 3.147 s, System: 2.437 s]
+  Range (min … max):    5.414 s …  5.775 s    10 runs
+
+Summary
+  './test.sh ../target/release/goat-dfa' ran
+    1.18 ± 0.02 times faster than './test.sh ../target/release/goat-nfa'
+```
