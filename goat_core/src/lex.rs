@@ -13,20 +13,30 @@ enum RegEx {
 #[derive(Debug, Clone, Eq, PartialEq)]
 enum Charset {
     Char(char),
+    Chars(Vec<char>),
     CharExclude(Vec<char>),
-    CharRange(char, char),
+}
+
+impl Charset {
+    fn from_range(l: char, r: char) -> Self {
+        let mut chars = vec![];
+        for c in l..=r {
+            chars.push(c);
+        }
+        Charset::Chars(chars)
+    }
 }
 
 // (Priority, Function)
 type NfaAcceptFunction = (u64, Box<TokenFunction>);
 
 struct Nfa {
-    // Start state
+    /// Start state
     start: usize,
-    // Accept state, which has a priority and an accept function which consumes
-    // the string up to this point and produces a token
+    /// Accept state, which has a priority and an accept function which consumes
+    /// the string up to this point and produces a token
     accept: Vec<(usize, Option<NfaAcceptFunction>)>,
-    // Transition, from source to dest
+    /// Transition, from source to dest
     transitions: Vec<(usize, usize, NfaTransition)>,
 }
 
@@ -54,7 +64,7 @@ impl NfaTransition {
             Self::Empty => false,
             Self::Charset(charset) => match charset {
                 Charset::Char(char) => c == *char,
-                Charset::CharRange(left, right) => c >= *left && c <= *right,
+                Charset::Chars(e) => e.contains(&c),
                 Charset::CharExclude(e) => !e.contains(&c),
             },
         }
@@ -517,13 +527,13 @@ fn construct_regex() -> Vec<(RegEx, (u64, Box<TokenFunction>))> {
     regex.push((
         RegEx::Concat(vec![
             RegEx::Or(vec![
-                RegEx::Charset(Charset::CharRange('a', 'z')),
-                RegEx::Charset(Charset::CharRange('A', 'Z')),
+                RegEx::Charset(Charset::from_range('a', 'z')),
+                RegEx::Charset(Charset::from_range('A', 'Z')),
             ]),
             RegEx::Star(Box::new(RegEx::Or(vec![
-                RegEx::Charset(Charset::CharRange('0', '9')),
-                RegEx::Charset(Charset::CharRange('a', 'z')),
-                RegEx::Charset(Charset::CharRange('A', 'Z')),
+                RegEx::Charset(Charset::from_range('0', '9')),
+                RegEx::Charset(Charset::from_range('a', 'z')),
+                RegEx::Charset(Charset::from_range('A', 'Z')),
                 RegEx::Charset(Charset::Char('_')),
                 RegEx::Charset(Charset::Char('\'')),
             ]))),
@@ -534,8 +544,8 @@ fn construct_regex() -> Vec<(RegEx, (u64, Box<TokenFunction>))> {
     // IntConst
     regex.push((
         RegEx::Concat(vec![
-            RegEx::Charset(Charset::CharRange('0', '9')),
-            RegEx::Star(Box::new(RegEx::Charset(Charset::CharRange('0', '9')))),
+            RegEx::Charset(Charset::from_range('0', '9')),
+            RegEx::Star(Box::new(RegEx::Charset(Charset::from_range('0', '9')))),
         ]),
         (3, Box::new(|s| Ok(Token::IntConst(s.parse::<i32>()?)))),
     ));
@@ -543,11 +553,11 @@ fn construct_regex() -> Vec<(RegEx, (u64, Box<TokenFunction>))> {
     // FloatConst
     regex.push((
         RegEx::Concat(vec![
-            RegEx::Charset(Charset::CharRange('0', '9')),
-            RegEx::Star(Box::new(RegEx::Charset(Charset::CharRange('0', '9')))),
+            RegEx::Charset(Charset::from_range('0', '9')),
+            RegEx::Star(Box::new(RegEx::Charset(Charset::from_range('0', '9')))),
             RegEx::Charset(Charset::Char('.')),
-            RegEx::Charset(Charset::CharRange('0', '9')),
-            RegEx::Star(Box::new(RegEx::Charset(Charset::CharRange('0', '9')))),
+            RegEx::Charset(Charset::from_range('0', '9')),
+            RegEx::Star(Box::new(RegEx::Charset(Charset::from_range('0', '9')))),
         ]),
         (
             4,
