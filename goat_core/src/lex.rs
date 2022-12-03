@@ -1,8 +1,37 @@
 use crate::tokens::{Keyword, Token, TokenInfo};
+use core::fmt;
 use std::{
     collections::{HashMap, HashSet},
     error::Error,
 };
+
+#[derive(Debug)]
+#[allow(clippy::module_name_repetitions)]
+pub enum LexError {
+    ConvertTokenError(String, Box<dyn Error>),
+    ConvertOffsetError,
+    CannotConsumeInputError(String, u64, u64),
+    UnconsumedInputError(u64, u64),
+}
+
+impl fmt::Display for LexError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Self::ConvertTokenError(token_str, err) => {
+                write!(f, "Cannot parse token \"{token_str}\": {err}")
+            }
+            Self::ConvertOffsetError => {
+                write!(f, "Cannot cast offset to usize due to overflow, line too long?")
+            }
+            Self::CannotConsumeInputError(input_segment, row, col) => {
+                write!(f, "Cannot consume input '{input_segment}', at line {row} column {col}")
+            }
+            Self::UnconsumedInputError(row, col) => {
+                write!(f, "Unconsumed input, at line {row} column {col}")
+            }
+        }
+    }
+}
 
 #[derive(Debug)]
 enum RegEx {
@@ -93,7 +122,7 @@ impl Charset {
 
 /// Lexes input into tokens
 #[allow(clippy::similar_names)]
-pub fn lex(input: &str) -> Result<Vec<TokenInfo>, Box<dyn Error>> {
+pub fn lex(input: &str) -> Result<Vec<TokenInfo>, LexError> {
     let regexes = construct_regex();
     let nfa = generate_nfa(regexes);
     let dfa = nfa_to_dfa(&nfa);
@@ -261,7 +290,7 @@ fn nfa_to_dfa(nfa: &Nfa) -> Dfa {
 }
 
 /// Executes dfa based on input, and get list of tokens.
-fn execute_dfa(input: &str, dfa: &Dfa) -> Result<Vec<TokenInfo>, Box<dyn Error>> {
+fn execute_dfa(input: &str, dfa: &Dfa) -> Result<Vec<TokenInfo>, LexError> {
     let mut input: Vec<char> = input.chars().into_iter().collect();
     let mut tokens = vec![];
     let mut lineno: u64 = 1;
@@ -290,14 +319,14 @@ fn execute_dfa(input: &str, dfa: &Dfa) -> Result<Vec<TokenInfo>, Box<dyn Error>>
                             accepted.push((offset, accept.0, token));
                         }
                         Err(e) => {
-                            return Err(format!("Cannot parse token \"{chars_str}\": {e}").into());
+                            return Err(LexError::ConvertTokenError(chars_str, e))?;
                         }
                     }
                 }
             }
 
             if offset > usize::MAX as u64 {
-                return Err("Cannot cast offset to usize due to overflow".into());
+                return Err(LexError::ConvertOffsetError);
             }
             #[allow(clippy::cast_possible_truncation)]
             let offset_usize = offset as usize;
@@ -331,11 +360,10 @@ fn execute_dfa(input: &str, dfa: &Dfa) -> Result<Vec<TokenInfo>, Box<dyn Error>>
         }
 
         if accepted.is_empty() {
-            return Err(format!(
-                "cannot consume input '{}', at line {} col {}",
-                chars.iter().collect::<String>(),
+            return Err(LexError::CannotConsumeInputError(
+                chars.iter().collect(),
                 lineno,
-                linecol
+                linecol,
             ))?;
         }
 
@@ -348,7 +376,7 @@ fn execute_dfa(input: &str, dfa: &Dfa) -> Result<Vec<TokenInfo>, Box<dyn Error>>
         });
 
         // Push the token
-        let token = accepted.pop().ok_or("no token in accepted list")?;
+        let token = accepted.pop().expect("no token in accepted list");
 
         let pos = (lineno, linecol);
         if token.2 == Token::NewLine {
@@ -367,7 +395,7 @@ fn execute_dfa(input: &str, dfa: &Dfa) -> Result<Vec<TokenInfo>, Box<dyn Error>>
     }
 
     if !input.is_empty() {
-        return Err(format!("unconsumed input, at line {lineno} col {linecol}"))?;
+        return Err(LexError::UnconsumedInputError(lineno, linecol));
     }
 
     Ok(tokens)
@@ -383,7 +411,7 @@ fn generate_nfa(regexes: Vec<(RegEx, (u64, Box<TokenFunction>))>) -> Nfa {
 
 /// Executes nfa based on input, and get list of tokens.
 #[allow(dead_code)]
-fn execute_nfa(input: &str, nfa: &Nfa) -> Result<Vec<TokenInfo>, Box<dyn Error>> {
+fn execute_nfa(input: &str, nfa: &Nfa) -> Result<Vec<TokenInfo>, LexError> {
     let mut input: Vec<char> = input.chars().into_iter().collect();
     let mut tokens = vec![];
     let mut lineno: u64 = 1;
@@ -416,14 +444,14 @@ fn execute_nfa(input: &str, nfa: &Nfa) -> Result<Vec<TokenInfo>, Box<dyn Error>>
                             accepted.push((offset, nfa_accept.0, token));
                         }
                         Err(e) => {
-                            return Err(format!("Cannot parse token \"{chars_str}\": {e}").into());
+                            return Err(LexError::ConvertTokenError(chars_str, e))?;
                         }
                     }
                 }
             }
 
             if offset > usize::MAX as u64 {
-                return Err("Cannot cast offset to usize due to overflow".into());
+                return Err(LexError::ConvertOffsetError);
             }
             #[allow(clippy::cast_possible_truncation)]
             let offset_usize = offset as usize;
@@ -453,11 +481,10 @@ fn execute_nfa(input: &str, nfa: &Nfa) -> Result<Vec<TokenInfo>, Box<dyn Error>>
         }
 
         if accepted.is_empty() {
-            return Err(format!(
-                "cannot consume input '{}', at line {} col {}",
-                chars.iter().collect::<String>(),
+            return Err(LexError::CannotConsumeInputError(
+                chars.iter().collect(),
                 lineno,
-                linecol
+                linecol,
             ))?;
         }
 
@@ -470,7 +497,7 @@ fn execute_nfa(input: &str, nfa: &Nfa) -> Result<Vec<TokenInfo>, Box<dyn Error>>
         });
 
         // Push the token
-        let token = accepted.pop().ok_or("no token in accepted list")?;
+        let token = accepted.pop().expect("no token in accepted list");
 
         let pos = (lineno, linecol);
         if token.2 == Token::NewLine {
@@ -489,7 +516,7 @@ fn execute_nfa(input: &str, nfa: &Nfa) -> Result<Vec<TokenInfo>, Box<dyn Error>>
     }
 
     if !input.is_empty() {
-        return Err(format!("unconsumed input, at line {lineno} col {linecol}"))?;
+        return Err(LexError::UnconsumedInputError(lineno, linecol));
     }
 
     Ok(tokens)
