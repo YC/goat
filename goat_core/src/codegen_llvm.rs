@@ -391,7 +391,7 @@ fn get_identifier_ptr(
             output.append(&mut m_expr_code);
 
             // Get the array dimension
-            let variable_shape = shape_info.shape.expect("expectd array to have dimension in table");
+            let variable_shape = shape_info.shape.expect("array should have dimension in table");
             let IdentifierShapeDeclaration::IdentifierArray(_, m) = variable_shape else {
                 panic!("Expected array");
             };
@@ -423,7 +423,7 @@ fn get_identifier_ptr(
             output.append(&mut n_expr_code);
 
             // Get the matrix dimension
-            let variable_shape = shape_info.shape.expect("expectd matrix to have dimension in table");
+            let variable_shape = shape_info.shape.expect("matrix should have dimension in table");
             let IdentifierShapeDeclaration::IdentifierArray2D(_, m, n) = variable_shape else {
                 panic!("Expected matrix");
             };
@@ -1296,7 +1296,7 @@ fn determine_shape_info<'fromparent>(
     let variable_info = procedure_symbols
         .iter()
         .find(|v| v.identifier == identifier)
-        .expect("Failed to retrieve variable_info");
+        .expect("failed to retrieve variable_info");
     let var_info = llvm_info
         .var_info
         .get(identifier)
