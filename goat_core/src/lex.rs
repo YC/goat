@@ -372,7 +372,7 @@ fn execute_dfa(input: &str, dfa: &Dfa) -> Result<Vec<TokenInfo>, LexError> {
             if a.0 == b.0 {
                 return b.1.cmp(&a.1);
             }
-            a.1.cmp(&b.1)
+            a.0.cmp(&b.0)
         });
 
         // Push the token
@@ -493,7 +493,7 @@ fn execute_nfa(input: &str, nfa: &Nfa) -> Result<Vec<TokenInfo>, LexError> {
             if a.0 == b.0 {
                 return b.1.cmp(&a.1);
             }
-            a.1.cmp(&b.1)
+            a.0.cmp(&b.0)
         });
 
         // Push the token
@@ -1076,4 +1076,18 @@ fn test_regex_to_nfa_star_literal() {
     assert_eq!(nfa.transitions[3], (2, 3, NfaTransition::Charset(Charset::Char('k'))));
     assert_eq!(nfa.transitions[4], (3, 1, NfaTransition::Empty));
     assert_eq!(nfa.transitions[5], (3, 4, NfaTransition::Empty));
+}
+
+#[test]
+fn proc_token_priority() {
+    let regex = construct_regex();
+    let nfa = generate_nfa(regex);
+    let tokens = execute_nfa("proc", &nfa).unwrap();
+    assert_eq!(1, tokens.len());
+    assert_eq!((Token::Keyword(Keyword::PROC), (1, 1)), tokens[0]);
+
+    let dfa = nfa_to_dfa(&nfa);
+    let tokens = execute_dfa("proc", &dfa).unwrap();
+    assert_eq!(1, tokens.len());
+    assert_eq!((Token::Keyword(Keyword::PROC), (1, 1)), tokens[0]);
 }
